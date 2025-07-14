@@ -138,4 +138,78 @@ Now update the Phaser frontend so it connects to the Socket.io server we created
 
 ---
 
-*End of Day 1 Log* 
+*End of Day 1 Log*
+
+## 📅 Day 2 — Phase 2: Core Game Loop (Single Player)
+
+---
+
+### 🎯 Objective
+
+Build the foundational soccer gameplay loop using Phaser 3:
+- Ball physics and interactions
+- Goal scoring logic
+- Scoreboard and win condition
+- Match timer
+
+---
+
+### ✅ Section 2.1 — Ball Mechanics
+
+#### Tasks Completed:
+- Added soccer ball to the scene with:
+  - Gravity enabled
+  - Bounce and collision with player and world bounds
+- Ball spawns at center of screen
+- Placeholder sprite used for now
+
+#### AI Prompt:
+```text
+Let's begin Phase 2: Core Game Loop (Single Player). Start with Section 2.1...
+```
+
+---
+
+### ✅ Section 2.2 — Goals, Score, Win Condition
+
+#### Tasks Completed:
+- Created invisible left/right goal zones
+- Ball resets and score increases on overlap
+- Score displayed at top of screen using Phaser text
+- Win condition: First to 3 goals
+- Game ends and displays win message
+- Ball and player movement freeze
+
+#### AI Prompt:
+```text
+Let's continue Phase 2 and move to Section 2.2: Goals, Score, and Win Condition...
+```
+
+---
+
+### ✅ Section 2.3 — Match Timer
+
+#### Tasks Completed:
+- 60-second countdown timer added
+- Timer updates every second
+- Game ends if timer reaches 0 before goal limit
+- Displays "Time's Up!" message
+- All movement and game activity stop on match end
+
+#### AI Prompt:
+```text
+Let's complete Phase 2 with Section 2.3: Add a match timer...
+```
+
+---
+
+### 🧠 Notes & Learnings
+
+- Using `this.time.addEvent()` was effective for countdown loops
+- Handling both time-based and score-based game endings requires clear conditional logic
+- Phaser's overlap is useful for goal detection zones
+- Placeholder assets keep dev fast — we'll add visuals later
+
+---
+
+*End of Day 2 Log* 
