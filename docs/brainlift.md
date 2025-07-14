@@ -212,4 +212,71 @@ Let's complete Phase 2 with Section 2.3: Add a match timer...
 
 ---
 
-*End of Day 2 Log* 
+## 📅 Day 3 — Phase 3: Multiplayer Integration
+
+---
+
+### 🎯 Objective
+
+Expand the game from single-player to multiplayer. Begin with local multiplayer functionality (same screen, shared keyboard) and set the foundation for online multiplayer using Socket.io.
+
+---
+
+### ✅ Section 3.1 — Local Multiplayer (Shared Keyboard)
+
+#### Tasks Completed:
+- Added a second player to the scene
+- Player 1 uses WASD for movement
+- Player 2 uses Arrow Keys
+- Both players have gravity, bounce, and collision with ground and ball
+- Players are visually distinguishable by color
+
+#### AI Prompt:
+```text
+We are now doing Section 3.1 of Phase 3: Local multiplayer (2 players on same device and screen)...
+```
+
+---
+
+### ⏸ Section 3.2 — Online Multiplayer Ball Sync
+
+#### Status:
+- **Postponed** for later phases
+- Local multiplayer is currently the primary playable mode
+- Socket.io foundation is working and ready to build on when needed
+
+#### Reason:
+Focus shifted to polishing local mechanics and core features before implementing complex real-time sync logic.
+
+---
+
+### ✅ Section 3.3 — Multiplayer Score & Win Logic
+
+#### Tasks Completed:
+- Scoring logic supports both Player 1 and Player 2
+- Correct goal zones tied to correct players
+- Win condition triggers when one player reaches 3 goals
+- Timer-based win condition and tie logic also works
+- Displays outcome clearly (Player 1 Wins, Player 2 Wins, or Tie)
+
+---
+
+### 🔧 Additional Tuning
+
+#### Tasks:
+- Fixed collision bug where the ball would reflect backward off the top corner of a player and cause "own-goals"
+- Improved physics bounce behavior to ensure the ball deflects in the correct direction
+- Screen shake and jumpiness removed from earlier kick interactions
+
+---
+
+### 🧠 Notes & Learnings
+
+- Local multiplayer provides immediate gameplay value without network complexity
+- Player collision detection adds strategic depth to gameplay
+- Physics tuning is crucial for fair and predictable ball behavior
+- Visual feedback systems (color coding, UI updates) enhance player experience
+
+---
+
+*End of Day 3 Log* 

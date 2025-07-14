@@ -20,7 +20,8 @@ const config = {
 };
 
 // Game variables
-let player;
+let player1;
+let player2;
 let ball;
 let leftGoal;
 let rightGoal;
@@ -46,11 +47,18 @@ let timerEvent;
 const game = new Phaser.Game(config);
 
 function preload() {
-    // Create colored rectangles for player and ground
+    // Create colored rectangles for players and ground
+    // Player 1 - Green
     this.add.graphics()
         .fillStyle(0x00ff00)
         .fillRect(0, 0, 50, 50)
-        .generateTexture('player', 50, 50);
+        .generateTexture('player1', 50, 50);
+    
+    // Player 2 - Blue
+    this.add.graphics()
+        .fillStyle(0x0080ff)
+        .fillRect(0, 0, 50, 50)
+        .generateTexture('player2', 50, 50);
     
     this.add.graphics()
         .fillStyle(0x8b4513)
@@ -85,16 +93,29 @@ function create() {
     const ground = this.add.rectangle(400, 575, 800, 50, 0x8b4513);
     this.physics.add.existing(ground, true); // true = static body
     
-    // Create player
-    player = this.physics.add.sprite(400, 450, 'player');
-    player.setBounce(0.2);
-    player.setCollideWorldBounds(true);
+    // Create player 1 (Green - Left side)
+    player1 = this.physics.add.sprite(200, 450, 'player1');
+    player1.setBounce(0.2);
+    player1.setCollideWorldBounds(true);
+    player1.setMass(1); // Standard mass for balanced physics
+    player1.setDrag(100); // Ground friction when not moving
+    player1.setMaxVelocity(300, 800); // Prevent unrealistic speeds
+    
+    // Create player 2 (Blue - Right side)
+    player2 = this.physics.add.sprite(600, 450, 'player2');
+    player2.setBounce(0.2);
+    player2.setCollideWorldBounds(true);
+    player2.setMass(1); // Standard mass for balanced physics
+    player2.setDrag(100); // Ground friction when not moving
+    player2.setMaxVelocity(300, 800); // Prevent unrealistic speeds
     
     // Create soccer ball
     ball = this.physics.add.sprite(400, 300, 'ball');
-    ball.setBounce(0.8); // High bounce for realistic ball physics
+    ball.setBounce(0.6); // Reduced bounce to prevent excessive bouncing
     ball.setCollideWorldBounds(true);
-    ball.setDrag(50); // Add some air resistance
+    ball.setDrag(100); // Increased air resistance for better control
+    ball.setMass(0.5); // Lighter than players for realistic physics
+    ball.setMaxVelocity(350, 500); // Reduced max velocity for better control
     
     // Create goal zones (invisible rectangles)
     leftGoal = this.add.rectangle(10, 400, 20, 200, 0xff0000, 0); // Invisible (alpha = 0)
@@ -112,9 +133,14 @@ function create() {
     this.add.rectangle(790, 400, 5, 200, 0xffffff); // Right goal post
     
     // Physics collisions
-    this.physics.add.collider(player, ground);
+    this.physics.add.collider(player1, ground);
+    this.physics.add.collider(player2, ground);
     this.physics.add.collider(ball, ground);
-    this.physics.add.collider(player, ball, handlePlayerBallCollision);
+    this.physics.add.collider(player1, ball, handlePlayerBallCollision);
+    this.physics.add.collider(player2, ball, handlePlayerBallCollision);
+    
+    // Player-to-player collision for more strategic gameplay
+    this.physics.add.collider(player1, player2, handlePlayerPlayerCollision);
     
     // Goal detection (overlap, not collision)
     this.physics.add.overlap(ball, leftGoal, () => handleGoalScored('right'));
@@ -156,21 +182,21 @@ function create() {
     });
     
     // Game info text
-    this.add.text(16, 100, 'Player: Green Square', {
+    this.add.text(16, 100, 'Player 1: Green Square (WASD)', {
         fontSize: '16px',
-        fill: '#ffffff',
+        fill: '#00ff00',
         backgroundColor: '#000000',
         padding: { x: 8, y: 4 }
     });
     
-    this.add.text(16, 130, 'Controls: Arrow Keys or WASD', {
+    this.add.text(16, 130, 'Player 2: Blue Square (Arrow Keys)', {
         fontSize: '16px',
-        fill: '#ffffff',
+        fill: '#0080ff',
         backgroundColor: '#000000',
         padding: { x: 8, y: 4 }
     });
     
-    this.add.text(16, 160, 'Ball: Kick it into the goals!', {
+    this.add.text(16, 160, 'Ball: Move to kick, stand still to defend!', {
         fontSize: '16px',
         fill: '#ffffff',
         backgroundColor: '#000000',
@@ -264,25 +290,158 @@ function handleTimeUp() {
 }
 
 function handlePlayerBallCollision(player, ball) {
-    // Don't allow kicking if game is over
+    // Don't allow collision if game is over
     if (gameOver) return;
     
-    // Calculate kick force based on player velocity
-    const kickForce = 200;
+    // Calculate collision vectors
+    const ballVelocityX = ball.body.velocity.x;
+    const ballVelocityY = ball.body.velocity.y;
     const playerVelocityX = player.body.velocity.x;
     const playerVelocityY = player.body.velocity.y;
     
-    // Apply force to ball based on player's movement direction
-    if (Math.abs(playerVelocityX) > 10) {
-        ball.setVelocityX(playerVelocityX > 0 ? kickForce : -kickForce);
-    } else {
-        // If player is not moving horizontally, kick in direction player is facing
-        const kickDirection = player.x < ball.x ? 1 : -1;
-        ball.setVelocityX(kickDirection * kickForce);
+    // Calculate collision angle based on positions
+    const deltaX = ball.x - player.x;
+    const deltaY = ball.y - player.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // Prevent division by zero
+    if (distance < 1) return;
+    
+    // Normalize collision direction
+    const normalX = deltaX / distance;
+    const normalY = deltaY / distance;
+    
+    // Separate objects to prevent sticking (especially on top of head)
+    const separationDistance = 35; // Slightly larger than sprite size
+    const separationForce = Math.max(0, separationDistance - distance);
+    if (separationForce > 0) {
+        ball.x += normalX * separationForce;
+        ball.y += normalY * separationForce;
     }
     
-    // Add some upward force for more realistic ball physics
-    ball.setVelocityY(-150);
+    // Determine which player is hitting the ball and correct direction
+    const isPlayer1 = player === player1; // Player 1 is on the left
+    const isPlayer2 = player === player2; // Player 2 is on the right
+    
+    // Calculate correct forward direction for each player
+    const correctDirection = isPlayer1 ? 1 : -1; // Player 1 pushes right, Player 2 pushes left
+    
+    // Determine if player is actively moving (kicking) or stationary (bouncing)
+    const playerIsMoving = Math.abs(playerVelocityX) > 50 || Math.abs(playerVelocityY) > 50;
+    const playerIsGrounded = player.body.touching.down;
+    
+    // Check if ball is on top of player (head collision)
+    const isHeadCollision = deltaY < -15 && Math.abs(deltaX) < 30;
+    
+    if (playerIsMoving && playerIsGrounded && !isHeadCollision) {
+        // ACTIVE KICK: Player is moving and on ground - apply kick force
+        const kickPower = 280;
+        
+        // Use player movement direction, but ensure it's generally forward
+        let kickDirection = playerVelocityX > 0 ? 1 : playerVelocityX < 0 ? -1 : correctDirection;
+        
+        // Prevent backwards kicks: if movement would send ball backwards, use correct direction
+        if ((isPlayer1 && kickDirection < 0) || (isPlayer2 && kickDirection > 0)) {
+            kickDirection = correctDirection;
+        }
+        
+        // Apply kick force in direction of player movement
+        ball.setVelocityX(kickDirection * kickPower);
+        
+        // Add upward force for kick
+        ball.setVelocityY(-200);
+        
+        // Small player reaction (brief slowdown)
+        player.setVelocityX(playerVelocityX * 0.7);
+        
+    } else {
+        // DEFENSIVE BOUNCE: Player is stationary, airborne, or ball is on head
+        // Calculate realistic bounce based on ball's incoming velocity
+        
+        // Stronger bounce physics for clean direction changes
+        const bounceStrength = 1.1; // Slightly amplify bounce for clean redirects
+        const minBounceSpeed = 180; // Higher minimum speed for strong bounces
+        
+        // Calculate new ball velocity based on collision normal
+        const incomingSpeed = Math.sqrt(ballVelocityX * ballVelocityX + ballVelocityY * ballVelocityY);
+        const bounceSpeed = Math.max(incomingSpeed * bounceStrength, minBounceSpeed);
+        
+        // Special handling for head collisions
+        if (isHeadCollision) {
+            // Always bounce upward and away from player when hitting head
+            // Force correct horizontal direction to prevent own-goals
+            ball.setVelocityX(correctDirection * bounceSpeed * 0.8);
+            ball.setVelocityY(-Math.abs(bounceSpeed * 0.6)); // Always upward
+        } else {
+            // Normal bounce - but ensure horizontal direction is correct
+            let bounceX = normalX * bounceSpeed;
+            let bounceY = normalY * bounceSpeed;
+            
+            // Prevent backwards deflection: if bounce would go backwards, bias it forward
+            if ((isPlayer1 && bounceX < 0) || (isPlayer2 && bounceX > 0)) {
+                // Mix the natural bounce with the correct direction
+                bounceX = (bounceX * 0.3) + (correctDirection * bounceSpeed * 0.7);
+            }
+            
+            ball.setVelocityX(bounceX);
+            ball.setVelocityY(bounceY);
+            
+            // Ensure upward component if ball is coming from above
+            if (deltaY > 0) {
+                ball.setVelocityY(Math.max(ball.body.velocity.y, -120));
+            }
+        }
+        
+        // Subtle player reaction - slight push back (but not knockback)
+        if (incomingSpeed > 100) {
+            player.setVelocityX(playerVelocityX + (-normalX * 20));
+        }
+    }
+    
+    // Remove screen shake - it was causing the jank/jumping
+    // Screen shake removed for cleaner gameplay
+}
+
+function handlePlayerPlayerCollision(player1, player2) {
+    // Don't process player collisions if game is over
+    if (gameOver) return;
+    
+    // Calculate collision direction
+    const deltaX = player2.x - player1.x;
+    const deltaY = player2.y - player1.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // Normalize collision direction
+    const normalX = deltaX / distance;
+    const normalY = deltaY / distance;
+    
+    // Get current velocities
+    const p1VelX = player1.body.velocity.x;
+    const p1VelY = player1.body.velocity.y;
+    const p2VelX = player2.body.velocity.x;
+    const p2VelY = player2.body.velocity.y;
+    
+    // Calculate relative velocity
+    const relativeVelX = p1VelX - p2VelX;
+    const relativeVelY = p1VelY - p2VelY;
+    
+    // Calculate collision response (elastic collision)
+    const collisionStrength = 0.3; // How much players bounce off each other
+    const pushForce = (relativeVelX * normalX + relativeVelY * normalY) * collisionStrength;
+    
+    // Apply collision response
+    player1.setVelocityX(p1VelX - pushForce * normalX);
+    player1.setVelocityY(p1VelY - pushForce * normalY);
+    
+    player2.setVelocityX(p2VelX + pushForce * normalX);
+    player2.setVelocityY(p2VelY + pushForce * normalY);
+    
+    // Separate players to prevent overlap
+    const separationForce = 2;
+    player1.x -= normalX * separationForce;
+    player1.y -= normalY * separationForce;
+    player2.x += normalX * separationForce;
+    player2.y += normalY * separationForce;
 }
 
 function handleGoalScored(scoringPlayer) {
@@ -368,9 +527,12 @@ function restartGame() {
     ball.setVelocity(0, 0);
     ball.body.setGravityY(300);
     
-    // Reset player
-    player.setPosition(400, 450);
-    player.setVelocity(0, 0);
+    // Reset players
+    player1.setPosition(200, 450);
+    player1.setVelocity(0, 0);
+    
+    player2.setPosition(600, 450);
+    player2.setVelocity(0, 0);
     
     // Update displays
     scoreText.setText(`Left: ${leftScore} | Right: ${rightScore}`);
@@ -406,23 +568,32 @@ function update() {
     const speed = 160;
     const jumpSpeed = 330;
     
-    // Left and right movement
-    if (cursors.left.isDown || wasd.A.isDown) {
-        player.setVelocityX(-speed);
-    } else if (cursors.right.isDown || wasd.D.isDown) {
-        player.setVelocityX(speed);
+    // Player 1 movement (WASD)
+    if (wasd.A.isDown) {
+        player1.setVelocityX(-speed);
+    } else if (wasd.D.isDown) {
+        player1.setVelocityX(speed);
     } else {
-        player.setVelocityX(0);
+        player1.setVelocityX(0);
     }
     
-    // Jumping
-    if ((cursors.up.isDown || wasd.W.isDown) && player.body.touching.down) {
-        player.setVelocityY(-jumpSpeed);
+    // Player 1 jumping
+    if (wasd.W.isDown && player1.body.touching.down) {
+        player1.setVelocityY(-jumpSpeed);
     }
     
-    // Optional: Down movement (for future use)
-    if (cursors.down.isDown || wasd.S.isDown) {
-        // Could be used for ducking or special moves later
+    // Player 2 movement (Arrow keys)
+    if (cursors.left.isDown) {
+        player2.setVelocityX(-speed);
+    } else if (cursors.right.isDown) {
+        player2.setVelocityX(speed);
+    } else {
+        player2.setVelocityX(0);
+    }
+    
+    // Player 2 jumping
+    if (cursors.up.isDown && player2.body.touching.down) {
+        player2.setVelocityY(-jumpSpeed);
     }
 }
 
