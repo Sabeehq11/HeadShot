@@ -3,7 +3,7 @@ const CHARACTERS = {
     blaze: {
         name: 'Blaze',
         power: 'Fire Kick',
-        description: 'Powerful fire kicks that burn through defenses',
+        description: 'Fire balls pass through enemies unless they use their power to deflect',
         color: 0xff4500,
         sprite: { category: 'tinyHeroes', id: 'dudeMonster' }
     },
@@ -30,8 +30,8 @@ const CHARACTERS = {
     },
     brick: {
         name: 'Brick',
-        power: 'Stone Wall',
-        description: 'Builds solid walls to block attacks',
+        power: 'Immunity',
+        description: 'Immune to all attacks for 5 seconds',
         color: 0x8b4513,
         sprite: { category: 'miniPixelPack', id: 'capp' }
     },
@@ -509,6 +509,33 @@ class GameScene extends Phaser.Scene {
         this.leftScore = 0;
         this.rightScore = 0;
         this.matchTime = 60;
+        this.gameStartTime = Date.now();
+        
+        // Initialize clean power system
+        this.powers = {
+            player1: {
+                ready: false,
+                lastUsed: 0,
+                cooldown: 15000, // 15 seconds
+                goals: 0,
+                immune: false,
+                immuneUntil: 0,
+                frozen: false,
+                frozenUntil: 0,
+                shieldActive: false
+            },
+            player2: {
+                ready: false,
+                lastUsed: 0,
+                cooldown: 15000, // 15 seconds
+                goals: 0,
+                immune: false,
+                immuneUntil: 0,
+                frozen: false,
+                frozenUntil: 0,
+                shieldActive: false
+            }
+        };
         
         // Get selected characters
         const p1Character = CHARACTERS[selectedCharacters.player1];
@@ -610,6 +637,9 @@ class GameScene extends Phaser.Scene {
         // Create cursor keys and WASD
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+        
+        // Add power activation keys
+        this.powerKeys = this.input.keyboard.addKeys('E,K');
         
         // Create UI
         this.createUI();
@@ -730,7 +760,466 @@ class GameScene extends Phaser.Scene {
         backgroundColor: '#000000',
         padding: { x: 8, y: 4 }
     });
+    
+    // Power UI
+    this.createPowerUI();
     }
+    
+    createPowerUI() {
+        // Get selected character names
+        const p1Character = CHARACTERS[selectedCharacters.player1];
+        const p2Character = CHARACTERS[selectedCharacters.player2];
+        
+        // Player 1 Power UI (Bottom-left)
+        this.powerUI = {};
+        this.powerUI.player1 = {
+            background: this.add.rectangle(120, 420, 200, 60, 0x000000, 0.8),
+            title: this.add.text(120, 400, `${p1Character.name} [E]`, {
+                fontSize: '14px',
+                fill: '#00ff00',
+                backgroundColor: '#000000',
+                padding: { x: 4, y: 2 }
+            }).setOrigin(0.5),
+            status: this.add.text(120, 420, 'Not Ready', {
+                fontSize: '16px',
+                fill: '#ff0000',
+                backgroundColor: '#000000',
+                padding: { x: 6, y: 3 }
+            }).setOrigin(0.5),
+            cooldown: this.add.text(120, 440, '', {
+                fontSize: '12px',
+                fill: '#ffff00',
+                backgroundColor: '#000000',
+                padding: { x: 4, y: 2 }
+            }).setOrigin(0.5)
+        };
+        
+        // Player 2 Power UI (Bottom-right)
+        this.powerUI.player2 = {
+            background: this.add.rectangle(680, 420, 200, 60, 0x000000, 0.8),
+            title: this.add.text(680, 400, `${p2Character.name} [K]`, {
+                fontSize: '14px',
+                fill: '#0080ff',
+                backgroundColor: '#000000',
+                padding: { x: 4, y: 2 }
+            }).setOrigin(0.5),
+            status: this.add.text(680, 420, 'Not Ready', {
+                fontSize: '16px',
+                fill: '#ff0000',
+                backgroundColor: '#000000',
+                padding: { x: 6, y: 3 }
+            }).setOrigin(0.5),
+            cooldown: this.add.text(680, 440, '', {
+                fontSize: '12px',
+                fill: '#ffff00',
+                backgroundColor: '#000000',
+                padding: { x: 4, y: 2 }
+            }).setOrigin(0.5)
+        };
+        
+        // Set scroll factor to 0 so UI doesn't move with camera
+        Object.values(this.powerUI.player1).forEach(element => element.setScrollFactor(0));
+        Object.values(this.powerUI.player2).forEach(element => element.setScrollFactor(0));
+    }
+    
+    updatePowerSystem() {
+        const currentTime = Date.now();
+        const gameTime = (currentTime - this.gameStartTime) / 1000;
+        
+        // Update each player's power state
+        ['player1', 'player2'].forEach(player => {
+            const power = this.powers[player];
+            const ui = this.powerUI[player];
+            
+            // Check if power should be ready
+            const timePassed = gameTime >= 15; // 15 seconds passed
+            const goalsReached = power.goals >= 2; // 2 goals scored
+            const cooldownDone = (currentTime - power.lastUsed) >= power.cooldown;
+            
+            power.ready = (timePassed || goalsReached) && cooldownDone;
+            
+            // Update immunity status
+            if (power.immune && currentTime > power.immuneUntil) {
+                power.immune = false;
+                const playerSprite = player === 'player1' ? this.player1 : this.player2;
+                playerSprite.clearTint();
+            }
+            
+            // Update frozen status
+            if (power.frozen && currentTime > power.frozenUntil) {
+                power.frozen = false;
+                const playerSprite = player === 'player1' ? this.player1 : this.player2;
+                playerSprite.clearTint();
+            }
+            
+            // Update UI
+            if (power.ready) {
+                ui.status.setText('⚡ READY!');
+                ui.status.setStyle({ fill: '#00ff00' });
+                ui.cooldown.setText('');
+            } else if ((currentTime - power.lastUsed) < power.cooldown) {
+                // On cooldown
+                const remainingCooldown = Math.ceil((power.cooldown - (currentTime - power.lastUsed)) / 1000);
+                ui.status.setText('Cooldown');
+                ui.status.setStyle({ fill: '#ff0000' });
+                ui.cooldown.setText(`${remainingCooldown}s`);
+            } else {
+                // Waiting for time or goals
+                const timeRemaining = Math.max(0, Math.ceil(15 - gameTime));
+                const goalsNeeded = Math.max(0, 2 - power.goals);
+                
+                ui.status.setText('Not Ready');
+                ui.status.setStyle({ fill: '#ff0000' });
+                
+                if (timeRemaining > 0 && goalsNeeded > 0) {
+                    ui.cooldown.setText(`${timeRemaining}s or ${goalsNeeded} goals`);
+                } else {
+                    ui.cooldown.setText('');
+                }
+            }
+        });
+    }
+    
+    activatePower(player) {
+        const power = this.powers[player];
+        
+        if (!power.ready || this.gameOver) return;
+        
+        // Use the power
+        power.ready = false;
+        power.lastUsed = Date.now();
+        
+        // Get character and execute power
+        const characterId = selectedCharacters[player];
+        const playerSprite = player === 'player1' ? this.player1 : this.player2;
+        const opponent = player === 'player1' ? this.player2 : this.player1;
+        
+        switch (characterId) {
+            case 'blaze':
+                this.executeFlameUppercut(playerSprite, opponent);
+                break;
+            case 'frostbite':
+                this.executeIceBlast(playerSprite, opponent);
+                break;
+            case 'volt':
+                this.executeElectricDash(playerSprite);
+                break;
+            case 'jellyhead':
+                this.executeBounceShield(playerSprite);
+                break;
+            case 'brick':
+                this.executeGroundPound(playerSprite, opponent);
+                break;
+            case 'whirlwind':
+                this.executeSpinKick(playerSprite);
+                break;
+        }
+    }
+    
+    executeFlameUppercut(player, opponent) {
+        // Launch player upward with flame effect
+        player.setVelocityY(-400);
+        player.setTint(0xff4500);
+        
+        // Check for nearby opponent
+        const distance = Phaser.Math.Distance.Between(player.x, player.y, opponent.x, opponent.y);
+        if (distance < 100) {
+            // Check if opponent is immune
+            const opponentKey = opponent === this.player1 ? 'player1' : 'player2';
+            const opponentPower = this.powers[opponentKey];
+            
+            if (!opponentPower.immune) {
+                opponent.setVelocityY(-300);
+                opponent.setTint(0xff0000);
+                this.cameras.main.shake(300, 0.02);
+                
+                // Clear opponent tint
+                this.time.delayedCall(300, () => opponent.clearTint());
+            }
+        }
+        
+        // Fire kick affects the ball - make it undefendable
+        const ballDistance = Phaser.Math.Distance.Between(player.x, player.y, this.ball.x, this.ball.y);
+        if (ballDistance < 120) {
+            // Apply fire effect to ball
+            this.ball.setTint(0xff4500);
+            this.ball.fireKicked = true;
+            
+            // Powerful kick towards opponent's goal
+            const ballDirection = player.x < 400 ? 1 : -1;
+            this.ball.setVelocity(ballDirection * 600, -200);
+            
+            // Clear fire effect after 3 seconds
+            this.time.delayedCall(3000, () => {
+                this.ball.clearTint();
+                this.ball.fireKicked = false;
+            });
+        }
+        
+        // Clear player tint
+        this.time.delayedCall(800, () => player.clearTint());
+    }
+    
+    executeIceBlast(player, opponent) {
+        // Create ice projectile
+        const projectile = this.add.circle(player.x, player.y - 20, 8, 0x00bfff);
+        this.physics.add.existing(projectile);
+        
+        // Set projectile velocity
+        const direction = player.flipX ? -1 : 1;
+        projectile.body.setVelocity(direction * 300, 0);
+        projectile.body.setGravityY(-300);
+        
+        // Handle collision with opponent
+        this.physics.add.overlap(projectile, opponent, () => {
+            // Check if opponent is immune
+            const opponentKey = opponent === this.player1 ? 'player1' : 'player2';
+            const opponentPower = this.powers[opponentKey];
+            
+            if (opponentPower.immune || opponentPower.shieldActive) {
+                // Immunity or shield blocks the attack - projectile bounces off
+                projectile.body.setVelocity(-projectile.body.velocity.x, -Math.abs(projectile.body.velocity.y));
+                
+                // Visual effect for shield bounce
+                if (opponentPower.shieldActive) {
+                    opponent.setTint(0x9370db);
+                    this.time.delayedCall(200, () => opponent.clearTint());
+                }
+                return;
+            }
+            
+            opponent.setVelocity(0, 0);
+            opponent.setTint(0x87ceeb);
+            
+            // Actually freeze the opponent - disable movement
+            opponentPower.frozen = true;
+            opponentPower.frozenUntil = Date.now() + 2000; // 2 seconds
+            
+            // Clear freeze after 2 seconds
+            this.time.delayedCall(2000, () => {
+                opponentPower.frozen = false;
+                opponent.clearTint();
+            });
+            
+            projectile.destroy();
+        });
+        
+        // Auto-destroy after 2 seconds
+        this.time.delayedCall(2000, () => {
+            if (projectile.active) projectile.destroy();
+        });
+    }
+    
+    executeElectricDash(player) {
+        // Electric dash with yellow tint
+        const direction = player.flipX ? -1 : 1;
+        player.setVelocityX(direction * 500);
+        player.setTint(0xffff00);
+        
+        // Scale effect
+        this.tweens.add({
+            targets: player,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            duration: 100,
+            yoyo: true,
+            repeat: 3
+        });
+        
+        // Electric dash can damage opponents - check during dash
+        const playerKey = player === this.player1 ? 'player1' : 'player2';
+        const opponent = player === this.player1 ? this.player2 : this.player1;
+        
+        const checkElectricCollision = () => {
+            const distance = Phaser.Math.Distance.Between(player.x, player.y, opponent.x, opponent.y);
+            if (distance < 60) {
+                // Check if opponent is immune
+                const opponentKey = opponent === this.player1 ? 'player1' : 'player2';
+                const opponentPower = this.powers[opponentKey];
+                
+                if (!opponentPower.immune) {
+                    // Electric shock effect
+                    opponent.setVelocity(direction * 400, -200);
+                    opponent.setTint(0xffff00);
+                    this.cameras.main.shake(200, 0.02);
+                    
+                    // Clear opponent tint
+                    this.time.delayedCall(400, () => opponent.clearTint());
+                }
+            }
+        };
+        
+        // Check for collisions during the dash
+        this.time.addEvent({
+            delay: 50,
+            callback: checkElectricCollision,
+            repeat: 10
+        });
+        
+        // Clear tint
+        this.time.delayedCall(500, () => player.clearTint());
+    }
+    
+    executeBounceShield(player) {
+        // Visual shield effect
+        player.setTint(0x9370db);
+        
+        // Create visible shield ring around player
+        const shield = this.add.circle(player.x, player.y, 40, 0x9370db, 0.3);
+        shield.setStrokeStyle(3, 0x9370db);
+        
+        // Make shield follow player
+        const followShield = () => {
+            if (shield.active) {
+                shield.x = player.x;
+                shield.y = player.y;
+            }
+        };
+        
+        // Update shield position every frame
+        const shieldTimer = this.time.addEvent({
+            delay: 16,
+            callback: followShield,
+            repeat: 187 // 3 seconds at 60fps
+        });
+        
+        // Bounce effect on player
+        this.tweens.add({
+            targets: player,
+            alpha: 0.8,
+            duration: 200,
+            yoyo: true,
+            repeat: 15, // Longer effect
+            onComplete: () => {
+                player.setAlpha(1);
+                player.clearTint();
+            }
+        });
+        
+        // Shield bounces projectiles back
+        const playerKey = player === this.player1 ? 'player1' : 'player2';
+        this.powers[playerKey].shieldActive = true;
+        
+        // Remove shield after 3 seconds
+        this.time.delayedCall(3000, () => {
+            if (shield.active) shield.destroy();
+            this.powers[playerKey].shieldActive = false;
+            shieldTimer.remove();
+        });
+    }
+    
+    executeGroundPound(player, opponent) {
+        // Grant immunity for 5 seconds
+        const playerKey = player === this.player1 ? 'player1' : 'player2';
+        const power = this.powers[playerKey];
+        
+        power.immune = true;
+        power.immuneUntil = Date.now() + 5000; // 5 seconds
+        
+        // Visual effect - golden tint for immunity
+        player.setTint(0xffd700); // Gold color
+        
+        // Immunity flash effect
+        this.tweens.add({
+            targets: player,
+            alpha: 0.8,
+            duration: 200,
+            yoyo: true,
+            repeat: -1, // Infinite repeat
+            onComplete: () => {
+                player.setAlpha(1);
+            }
+        });
+        
+        // Stop the flashing when immunity ends
+        this.time.delayedCall(5000, () => {
+            this.tweens.killTweensOf(player);
+            player.setAlpha(1);
+        });
+    }
+    
+    executeSpinKick(player) {
+        // Spin effect
+        player.setTint(0x87ceeb);
+        
+        // Create wind effect around player
+        const windEffect = this.add.circle(player.x, player.y, 60, 0x87ceeb, 0.2);
+        windEffect.setStrokeStyle(2, 0x87ceeb);
+        
+        // Wind effect follows player
+        const followWind = () => {
+            if (windEffect.active) {
+                windEffect.x = player.x;
+                windEffect.y = player.y;
+            }
+        };
+        
+        // Update wind position every frame
+        const windTimer = this.time.addEvent({
+            delay: 16,
+            callback: followWind,
+            repeat: 93 // 1.5 seconds at 60fps
+        });
+        
+        // Rotation tween
+        this.tweens.add({
+            targets: player,
+            rotation: player.rotation + (Math.PI * 6),
+            duration: 1500,
+            ease: 'Power2',
+            onComplete: () => {
+                player.setRotation(0);
+                player.clearTint();
+                if (windEffect.active) windEffect.destroy();
+                windTimer.remove();
+            }
+        });
+        
+        // Spin kick affects nearby opponents and ball
+        const opponent = player === this.player1 ? this.player2 : this.player1;
+        
+        const checkSpinEffect = () => {
+            // Check opponent
+            const opponentDistance = Phaser.Math.Distance.Between(player.x, player.y, opponent.x, opponent.y);
+            if (opponentDistance < 80) {
+                const opponentKey = opponent === this.player1 ? 'player1' : 'player2';
+                const opponentPower = this.powers[opponentKey];
+                
+                if (!opponentPower.immune && !opponentPower.shieldActive) {
+                    // Spin the opponent away
+                    const spinDirection = opponent.x > player.x ? 1 : -1;
+                    opponent.setVelocity(spinDirection * 300, -150);
+                    opponent.setTint(0x87ceeb);
+                    this.time.delayedCall(300, () => opponent.clearTint());
+                }
+            }
+            
+            // Check ball
+            const ballDistance = Phaser.Math.Distance.Between(player.x, player.y, this.ball.x, this.ball.y);
+            if (ballDistance < 90) {
+                // Apply spin effect to ball
+                this.ball.setTint(0x87ceeb);
+                const ballDirection = this.ball.x > player.x ? 1 : -1;
+                this.ball.setVelocity(ballDirection * 400, -100);
+                
+                // Clear ball tint
+                this.time.delayedCall(500, () => this.ball.clearTint());
+            }
+        };
+        
+        // Check for spin effects during the spin
+        this.time.addEvent({
+            delay: 100,
+            callback: checkSpinEffect,
+            repeat: 14 // Check 15 times during 1.5 seconds
+        });
+    }
+
+
+
+
+
+
 
     startMatchTimer() {
         this.timerEvent = this.time.addEvent({
@@ -787,120 +1276,218 @@ class GameScene extends Phaser.Scene {
 
     handlePlayerBallCollision(player, ball) {
         if (this.gameOver) return;
-    
-    const ballVelocityX = ball.body.velocity.x;
-    const ballVelocityY = ball.body.velocity.y;
-    const playerVelocityX = player.body.velocity.x;
-    const playerVelocityY = player.body.velocity.y;
-    
-    const deltaX = ball.x - player.x;
-    const deltaY = ball.y - player.y;
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
-    if (distance < 1) return;
-    
-    const normalX = deltaX / distance;
-    const normalY = deltaY / distance;
-    
+        
+        // Check if this is a fire ball and handle special logic
+        if (ball.fireKicked) {
+            // Determine which player this is
+            const isPlayer1 = player === this.player1;
+            const playerKey = isPlayer1 ? 'player1' : 'player2';
+            const playerPower = this.powers[playerKey];
+            
+            // Check if player has any active power that can deflect the fire ball
+            const canDeflect = playerPower.immune || playerPower.shieldActive || this.isPlayerPowerActive(playerKey);
+            
+            if (!canDeflect) {
+                // Fire ball passes through - no collision response
+                console.log('Fire ball passes through player without active power');
+                return;
+            } else {
+                // Player has active power - they can deflect the fire ball
+                console.log('Player with active power deflects fire ball');
+                
+                // Add special deflection effect
+                this.cameras.main.shake(200, 0.02);
+                
+                // Give the ball a powerful deflection
+                const deflectionDirection = isPlayer1 ? -1 : 1;
+                ball.setVelocity(deflectionDirection * 500, -250);
+                
+                // Visual feedback for successful deflection
+                player.setTint(0x00ff00);
+                this.time.delayedCall(300, () => player.clearTint());
+                
+                // Clear fire effect since it was deflected
+                ball.clearTint();
+                ball.fireKicked = false;
+                
+                return;
+            }
+        }
+        
+        // Normal ball collision logic (existing code)
+        const ballVelocityX = ball.body.velocity.x;
+        const ballVelocityY = ball.body.velocity.y;
+        const playerVelocityX = player.body.velocity.x;
+        const playerVelocityY = player.body.velocity.y;
+        
+        const deltaX = ball.x - player.x;
+        const deltaY = ball.y - player.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance < 1) return;
+        
+        const normalX = deltaX / distance;
+        const normalY = deltaY / distance;
+        
         const separationDistance = 35;
-    const separationForce = Math.max(0, separationDistance - distance);
-    if (separationForce > 0) {
-        ball.x += normalX * separationForce;
-        ball.y += normalY * separationForce;
-    }
-    
+        const separationForce = Math.max(0, separationDistance - distance);
+        if (separationForce > 0) {
+            ball.x += normalX * separationForce;
+            ball.y += normalY * separationForce;
+        }
+        
         const isPlayer1 = player === this.player1;
         const correctDirection = isPlayer1 ? 1 : -1;
-    
-    const playerIsMoving = Math.abs(playerVelocityX) > 50 || Math.abs(playerVelocityY) > 50;
-    const playerIsGrounded = player.body.touching.down;
-    const isHeadCollision = deltaY < -15 && Math.abs(deltaX) < 30;
-    
-    if (playerIsMoving && playerIsGrounded && !isHeadCollision) {
-        const kickPower = 280;
-        let kickDirection = playerVelocityX > 0 ? 1 : playerVelocityX < 0 ? -1 : correctDirection;
         
+        const playerIsMoving = Math.abs(playerVelocityX) > 50 || Math.abs(playerVelocityY) > 50;
+        const playerIsGrounded = player.body.touching.down;
+        const isHeadCollision = deltaY < -15 && Math.abs(deltaX) < 30;
+        
+        if (playerIsMoving && playerIsGrounded && !isHeadCollision) {
+            const kickPower = 280;
+            let kickDirection = playerVelocityX > 0 ? 1 : playerVelocityX < 0 ? -1 : correctDirection;
+            
             if ((isPlayer1 && kickDirection < 0) || (!isPlayer1 && kickDirection > 0)) {
-            kickDirection = correctDirection;
-        }
-        
-        ball.setVelocityX(kickDirection * kickPower);
-        ball.setVelocityY(-200);
-        player.setVelocityX(playerVelocityX * 0.7);
-        
-    } else {
+                kickDirection = correctDirection;
+            }
+            
+            ball.setVelocityX(kickDirection * kickPower);
+            ball.setVelocityY(-200);
+            player.setVelocityX(playerVelocityX * 0.7);
+            
+        } else {
             const bounceStrength = 1.1;
             const minBounceSpeed = 180;
-        
-        const incomingSpeed = Math.sqrt(ballVelocityX * ballVelocityX + ballVelocityY * ballVelocityY);
-        const bounceSpeed = Math.max(incomingSpeed * bounceStrength, minBounceSpeed);
-        
-        if (isHeadCollision) {
-            ball.setVelocityX(correctDirection * bounceSpeed * 0.8);
+            
+            const incomingSpeed = Math.sqrt(ballVelocityX * ballVelocityX + ballVelocityY * ballVelocityY);
+            const bounceSpeed = Math.max(incomingSpeed * bounceStrength, minBounceSpeed);
+            
+            if (isHeadCollision) {
+                ball.setVelocityX(correctDirection * bounceSpeed * 0.8);
                 ball.setVelocityY(-Math.abs(bounceSpeed * 0.6));
-        } else {
-            let bounceX = normalX * bounceSpeed;
-            let bounceY = normalY * bounceSpeed;
-            
+            } else {
+                let bounceX = normalX * bounceSpeed;
+                let bounceY = normalY * bounceSpeed;
+                
                 if ((isPlayer1 && bounceX < 0) || (!isPlayer1 && bounceX > 0)) {
-                bounceX = (bounceX * 0.3) + (correctDirection * bounceSpeed * 0.7);
+                    bounceX = (bounceX * 0.3) + (correctDirection * bounceSpeed * 0.7);
+                }
+                
+                ball.setVelocityX(bounceX);
+                ball.setVelocityY(bounceY);
+                
+                if (deltaY > 0) {
+                    ball.setVelocityY(Math.max(ball.body.velocity.y, -120));
+                }
             }
             
-            ball.setVelocityX(bounceX);
-            ball.setVelocityY(bounceY);
-            
-            if (deltaY > 0) {
-                ball.setVelocityY(Math.max(ball.body.velocity.y, -120));
+            if (incomingSpeed > 100) {
+                player.setVelocityX(playerVelocityX + (-normalX * 20));
             }
-        }
-        
-        if (incomingSpeed > 100) {
-            player.setVelocityX(playerVelocityX + (-normalX * 20));
         }
     }
-}
+    
+    // Helper function to check if a player has any active power
+    isPlayerPowerActive(playerKey) {
+        const playerSprite = playerKey === 'player1' ? this.player1 : this.player2;
+        const characterId = selectedCharacters[playerKey];
+        const currentTime = Date.now();
+        
+        // Check if player is currently using their power (within the last 2 seconds)
+        const power = this.powers[playerKey];
+        const recentlyUsed = (currentTime - power.lastUsed) < 2000; // 2 seconds
+        
+        // Check for specific active power effects
+        switch (characterId) {
+            case 'volt':
+                // Check if player has yellow tint (electric dash)
+                return playerSprite.tintTopLeft === 0xffff00 || recentlyUsed;
+            case 'whirlwind':
+                // Check if player has blue tint (spin kick)
+                return playerSprite.tintTopLeft === 0x87ceeb || recentlyUsed;
+            case 'blaze':
+                // Check if player has fire tint (flame uppercut)
+                return playerSprite.tintTopLeft === 0xff4500 || recentlyUsed;
+            case 'frostbite':
+                // Frostbite doesn't have a defensive power, but recently used counts
+                return recentlyUsed;
+            case 'jellyhead':
+                // Shield is already checked above with shieldActive
+                return false;
+            case 'brick':
+                // Immunity is already checked above with immune
+                return false;
+            default:
+                return false;
+        }
+    }
 
     handlePlayerPlayerCollision(player1, player2) {
         if (this.gameOver) return;
-    
-    const deltaX = player2.x - player1.x;
-    const deltaY = player2.y - player1.y;
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
-    const normalX = deltaX / distance;
-    const normalY = deltaY / distance;
-    
-    const p1VelX = player1.body.velocity.x;
-    const p1VelY = player1.body.velocity.y;
-    const p2VelX = player2.body.velocity.x;
-    const p2VelY = player2.body.velocity.y;
-    
-    const relativeVelX = p1VelX - p2VelX;
-    const relativeVelY = p1VelY - p2VelY;
-    
+        
+        const deltaX = player2.x - player1.x;
+        const deltaY = player2.y - player1.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance < 1) return; // Prevent division by zero
+        
+        const normalX = deltaX / distance;
+        const normalY = deltaY / distance;
+        
+        const p1VelX = player1.body.velocity.x;
+        const p1VelY = player1.body.velocity.y;
+        const p2VelX = player2.body.velocity.x;
+        const p2VelY = player2.body.velocity.y;
+        
+        const relativeVelX = p1VelX - p2VelX;
+        const relativeVelY = p1VelY - p2VelY;
+        
+        // Simple collision physics
         const collisionStrength = 0.3;
-    const pushForce = (relativeVelX * normalX + relativeVelY * normalY) * collisionStrength;
-    
-    player1.setVelocityX(p1VelX - pushForce * normalX);
-    player1.setVelocityY(p1VelY - pushForce * normalY);
-    
-    player2.setVelocityX(p2VelX + pushForce * normalX);
-    player2.setVelocityY(p2VelY + pushForce * normalY);
-    
-    const separationForce = 2;
-    player1.x -= normalX * separationForce;
-    player1.y -= normalY * separationForce;
-    player2.x += normalX * separationForce;
-    player2.y += normalY * separationForce;
-}
+        const pushForce = (relativeVelX * normalX + relativeVelY * normalY) * collisionStrength;
+        
+        // Apply velocity changes
+        player1.setVelocityX(p1VelX - pushForce * normalX);
+        player1.setVelocityY(p1VelY - pushForce * normalY);
+        
+        player2.setVelocityX(p2VelX + pushForce * normalX);
+        player2.setVelocityY(p2VelY + pushForce * normalY);
+        
+        // Safe separation that prevents ground penetration
+        const separationForce = 3;
+        const groundLevel = 550; // Ground is at y=575, but players have origins at bottom, so effective ground is ~550
+        
+        // Calculate proposed new positions
+        const newP1X = player1.x - normalX * separationForce;
+        const newP1Y = player1.y - normalY * separationForce;
+        const newP2X = player2.x + normalX * separationForce;
+        const newP2Y = player2.y + normalY * separationForce;
+        
+        // Apply separation, but prevent going below ground
+        player1.x = newP1X;
+        player1.y = Math.min(newP1Y, groundLevel); // Don't go below ground
+        
+        player2.x = newP2X;
+        player2.y = Math.min(newP2Y, groundLevel); // Don't go below ground
+        
+        // If a player would be pushed into the ground, give them an upward boost instead
+        if (newP1Y > groundLevel) {
+            player1.setVelocityY(Math.min(player1.body.velocity.y, -100)); // Upward boost
+        }
+        if (newP2Y > groundLevel) {
+            player2.setVelocityY(Math.min(player2.body.velocity.y, -100)); // Upward boost
+        }
+    }
 
     handleGoalScored(scoringPlayer) {
         if (this.gameOver) return;
     
     if (scoringPlayer === 'left') {
             this.leftScore++;
+            this.powers.player1.goals++;
     } else {
             this.rightScore++;
+            this.powers.player2.goals++;
     }
     
         this.scoreText.setText(`Left: ${this.leftScore} | Right: ${this.rightScore}`);
@@ -969,57 +1556,78 @@ class GameScene extends Phaser.Scene {
         
         if (this.gameOver) return;
         
-    const speed = 160;
-    const jumpSpeed = 330;
-    
-        // Player 1 movement (WASD) - with animations
-        if (this.wasd.A.isDown) {
-            this.player1.setVelocityX(-speed);
-            this.player1.setFlipX(true);
-            if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_walk_anim') {
-                this.player1.play('player1_walk_anim');
-            }
-        } else if (this.wasd.D.isDown) {
-            this.player1.setVelocityX(speed);
-            this.player1.setFlipX(false);
-            if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_walk_anim') {
-                this.player1.play('player1_walk_anim');
-            }
-    } else {
-            this.player1.setVelocityX(0);
-            if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_idle_anim') {
-                this.player1.play('player1_idle_anim');
-            }
+        // Update power system
+        this.updatePowerSystem();
+        
+        // Handle power activation
+        if (Phaser.Input.Keyboard.JustDown(this.powerKeys.E)) {
+            this.activatePower('player1');
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.powerKeys.K)) {
+            this.activatePower('player2');
         }
         
-        if (this.wasd.W.isDown && this.player1.body.touching.down) {
-            this.player1.setVelocityY(-jumpSpeed);
+        const speed = 160;
+        const jumpSpeed = 330;
+        
+        // Player 1 movement (WASD) - with animations
+        if (!this.powers.player1.frozen) {
+            if (this.wasd.A.isDown) {
+                this.player1.setVelocityX(-speed);
+                this.player1.setFlipX(true);
+                if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_walk_anim') {
+                    this.player1.play('player1_walk_anim');
+                }
+            } else if (this.wasd.D.isDown) {
+                this.player1.setVelocityX(speed);
+                this.player1.setFlipX(false);
+                if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_walk_anim') {
+                    this.player1.play('player1_walk_anim');
+                }
+            } else {
+                this.player1.setVelocityX(0);
+                if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_idle_anim') {
+                    this.player1.play('player1_idle_anim');
+                }
+            }
+            
+            if (this.wasd.W.isDown && this.player1.body.touching.down) {
+                this.player1.setVelocityY(-jumpSpeed);
+            }
+        } else {
+            // Frozen - stop horizontal movement but allow gravity
+            this.player1.setVelocityX(0);
         }
         
         // Player 2 movement (Arrow keys) - with animations
-        if (this.cursors.left.isDown) {
-            this.player2.setVelocityX(-speed);
-            this.player2.setFlipX(true);
-            if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_walk_anim') {
-                this.player2.play('player2_walk_anim');
+        if (!this.powers.player2.frozen) {
+            if (this.cursors.left.isDown) {
+                this.player2.setVelocityX(-speed);
+                this.player2.setFlipX(true);
+                if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_walk_anim') {
+                    this.player2.play('player2_walk_anim');
+                }
+            } else if (this.cursors.right.isDown) {
+                this.player2.setVelocityX(speed);
+                this.player2.setFlipX(false);
+                if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_walk_anim') {
+                    this.player2.play('player2_walk_anim');
+                }
+            } else {
+                this.player2.setVelocityX(0);
+                if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_idle_anim') {
+                    this.player2.play('player2_idle_anim');
+                }
             }
-        } else if (this.cursors.right.isDown) {
-            this.player2.setVelocityX(speed);
-            this.player2.setFlipX(false);
-            if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_walk_anim') {
-                this.player2.play('player2_walk_anim');
+            
+            if (this.cursors.up.isDown && this.player2.body.touching.down) {
+                this.player2.setVelocityY(-jumpSpeed);
             }
-    } else {
+        } else {
+            // Frozen - stop horizontal movement but allow gravity
             this.player2.setVelocityX(0);
-            if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_idle_anim') {
-                this.player2.play('player2_idle_anim');
-            }
+        }
     }
-    
-        if (this.cursors.up.isDown && this.player2.body.touching.down) {
-            this.player2.setVelocityY(-jumpSpeed);
-    }
-}
 
     initializeSocket() {
 // Socket.io connection setup
