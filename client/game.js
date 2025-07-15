@@ -496,11 +496,8 @@ class GameScene extends Phaser.Scene {
         // Load pixel art soccer ball sprite
         this.load.image('ball', 'assets/Sprites/Ball/Sport-Balls-Asset-Pack-Pixel-Art/64x64/football.png');
         
-        // Create goal post placeholder graphics
-    this.add.graphics()
-        .fillStyle(0xff0000)
-        .fillRect(0, 0, 20, 200)
-        .generateTexture('goalPost', 20, 200);
+        // Load goal sprite
+        this.load.image('goalPost', 'assets/Sprites/goals/Head Ball/Assets/Sprites/porta.png');
 }
 
     create() {
@@ -588,20 +585,15 @@ class GameScene extends Phaser.Scene {
         
         // No collision body adjustments - use default collision body
         
-        // Create goal zones
-        this.leftGoal = this.add.rectangle(10, 400, 20, 200, 0xff0000, 0);
-        this.rightGoal = this.add.rectangle(790, 400, 20, 200, 0xff0000, 0);
+        // Create goal zones (match visual goal height)
+        this.leftGoal = this.add.rectangle(10, 475, 20, 150, 0xff0000, 0);
+        this.rightGoal = this.add.rectangle(790, 475, 20, 150, 0xff0000, 0);
         this.physics.add.existing(this.leftGoal, true);
         this.physics.add.existing(this.rightGoal, true);
         
-        // Add visual goal post indicators
-        this.add.rectangle(10, 300, 15, 5, 0xffffff);
-        this.add.rectangle(10, 500, 15, 5, 0xffffff);
-        this.add.rectangle(10, 400, 5, 200, 0xffffff);
-        
-        this.add.rectangle(790, 300, 15, 5, 0xffffff);
-        this.add.rectangle(790, 500, 15, 5, 0xffffff);
-        this.add.rectangle(790, 400, 5, 200, 0xffffff);
+        // Add visual goal post indicators using porta.png sprites
+        this.add.image(10, 550, 'goalPost').setOrigin(0, 1).setScale(4.0);
+        this.add.image(790, 550, 'goalPost').setOrigin(1, 1).setFlipX(true).setScale(4.0);
     
     // Physics collisions
         this.physics.add.collider(this.player1, ground);
