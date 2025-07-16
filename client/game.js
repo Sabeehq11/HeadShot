@@ -51,7 +51,7 @@ let selectedCharacters = {
 };
 
 // Global map selection state
-let selectedMap = 'city_3'; // Default to city_3
+let selectedMap = 'nightcity'; // Default to nightcity
 
 // Character Selection Scene
 class CharacterSelectionScene extends Phaser.Scene {
@@ -432,13 +432,17 @@ class CharacterSelectionScene extends Phaser.Scene {
 class MapSelectScene extends Phaser.Scene {
     constructor() {
         super({ key: 'MapSelectScene' });
-        this.selectedMapKey = 'city_3'; // Default selection
+        this.selectedMapKey = 'nightcity'; // Default selection
     }
 
     preload() {
         // Load all map images for thumbnails
-        this.load.image('city_3', 'assets/Sprites/Backgrounds/city_3.png');
-        this.load.image('pollen', 'assets/Sprites/Backgrounds/pollen.png');
+        this.load.image('nightcity', 'assets/Sprites/Backgrounds/nightcity.png');
+        this.load.image('ch', 'assets/Sprites/Backgrounds/ch.png');
+        this.load.image('skyline', 'assets/Sprites/Backgrounds/skyline.png');
+        this.load.image('nature', 'assets/Sprites/Backgrounds/nature.png');
+        this.load.image('nighttree', 'assets/Sprites/Backgrounds/nighttree.png');
+        this.load.image('outsideworld', 'assets/Sprites/Backgrounds/outsideworld.png');
         
         console.log('MapSelectScene: Loading map images...');
     }
@@ -477,8 +481,12 @@ class MapSelectScene extends Phaser.Scene {
         this.createMapThumbnails();
 
         // Create selected map status
-        const initialMapName = this.selectedMapKey === 'city_3' ? 'City 3' : 
-                             this.selectedMapKey === 'pollen' ? 'Pollen' : this.selectedMapKey;
+        const initialMapName = this.selectedMapKey === 'nightcity' ? 'Night City' : 
+                             this.selectedMapKey === 'ch' ? 'Ch' : 
+                             this.selectedMapKey === 'skyline' ? 'Skyline' : 
+                             this.selectedMapKey === 'nature' ? 'Nature' : 
+                             this.selectedMapKey === 'nighttree' ? 'Night Tree' : 
+                             this.selectedMapKey === 'outsideworld' ? 'Outside World' : this.selectedMapKey;
         this.selectedMapStatus = this.add.text(400, 380, `Selected: ${initialMapName}`, {
             fontSize: '18px',
             fill: '#00ff00',
@@ -492,45 +500,72 @@ class MapSelectScene extends Phaser.Scene {
 
     createMapThumbnails() {
         const mapConfigs = [
+            // Top row
             {
-                key: 'city_3',
-                name: 'City 3',
-                x: 250,
-                description: 'Urban battlefield with city skyline'
+                key: 'nightcity',
+                name: 'Night City',
+                x: 200,
+                y: 160,
+                description: 'Neon-lit cityscape under starry night sky'
             },
             {
-                key: 'pollen',
-                name: 'Pollen',
-                x: 550,
-                description: 'Cosmic space with pollen nebula clouds'
+                key: 'ch',
+                name: 'Ch',
+                x: 400,
+                y: 160,
+                description: 'Action-packed urban battlefield'
+            },
+            {
+                key: 'skyline',
+                name: 'Skyline',
+                x: 600,
+                y: 160,
+                description: 'Urban skyline cityscape'
+            },
+            // Bottom row
+            {
+                key: 'nature',
+                name: 'Nature',
+                x: 200,
+                y: 280,
+                description: 'Natural outdoor environment'
+            },
+            {
+                key: 'nighttree',
+                name: 'Night Tree',
+                x: 400,
+                y: 280,
+                description: 'Mysterious forest under moonlight'
+            },
+            {
+                key: 'outsideworld',
+                name: 'Outside World',
+                x: 600,
+                y: 280,
+                description: 'Vast outdoor landscape'
             }
         ];
 
         this.mapThumbnails = [];
 
         mapConfigs.forEach(config => {
-            // Create clickable background for better interaction
-            const clickArea = this.add.rectangle(config.x, 220, 220, 150, 0x444444, 0.3);
-            clickArea.setStrokeStyle(2, 0x666666);
+            // Create clickable background for better interaction (invisible)
+            const clickArea = this.add.rectangle(config.x, config.y, 160, 110, 0x000000, 0);
             clickArea.setInteractive();
 
             // Create thumbnail image
-            const thumbnail = this.add.image(config.x, 220, config.key);
-            thumbnail.setScale(0.28); // Slightly smaller for better spacing
+            const thumbnail = this.add.image(config.x, config.y, config.key);
+            thumbnail.setScale(0.20); // Smaller scale for 6-grid layout
             thumbnail.setOrigin(0.5);
             thumbnail.setInteractive();
 
-            // Add white border around thumbnail for visibility
-            const thumbnailBorder = this.add.rectangle(config.x, 220, 160, 90, 0x000000, 0);
-            thumbnailBorder.setStrokeStyle(2, 0xffffff);
-
-            // Create selection border (initially hidden)
-            const border = this.add.rectangle(config.x, 220, 220, 150, 0x00ff00, 0);
-            border.setStrokeStyle(4, 0x00ff00);
+            // Create selection border around image only (initially hidden)
+            const border = this.add.rectangle(config.x, config.y, 115, 65, 0xff0000, 0);
+            border.setStrokeStyle(3, 0xff0000);
             border.setVisible(false);
 
             // Map name
-            const nameText = this.add.text(config.x, 300, config.name, {
+            const nameText = this.add.text(config.x, config.y + 80, config.name, {
                 fontSize: '20px',
                 fill: '#ffffff',
                 backgroundColor: '#000000',
@@ -538,7 +573,7 @@ class MapSelectScene extends Phaser.Scene {
             }).setOrigin(0.5);
 
             // Map description
-            const descText = this.add.text(config.x, 330, config.description, {
+            const descText = this.add.text(config.x, config.y + 110, config.description, {
                 fontSize: '14px',
                 fill: '#cccccc',
                 backgroundColor: '#000000',
@@ -559,16 +594,12 @@ class MapSelectScene extends Phaser.Scene {
             const hoverIn = () => {
                 if (this.selectedMapKey !== config.key) {
                     thumbnail.setTint(0xcccccc);
-                    clickArea.setStrokeStyle(3, 0xaaaaaa);
-                    thumbnailBorder.setStrokeStyle(3, 0xcccccc);
                 }
             };
 
             const hoverOut = () => {
                 if (this.selectedMapKey !== config.key) {
                     thumbnail.clearTint();
-                    clickArea.setStrokeStyle(2, 0x666666);
-                    thumbnailBorder.setStrokeStyle(2, 0xffffff);
                 }
             };
 
@@ -584,8 +615,7 @@ class MapSelectScene extends Phaser.Scene {
                 border,
                 nameText,
                 descText,
-                clickArea,
-                thumbnailBorder
+                clickArea
             });
         });
 
@@ -604,39 +634,47 @@ class MapSelectScene extends Phaser.Scene {
             if (mapData.key === mapKey) {
                 // Selected map styling
                 mapData.border.setVisible(true);
-                mapData.nameText.setStyle({ fill: '#00ff00' });
-                mapData.thumbnail.setTint(0x00ff00);
-                mapData.clickArea.setStrokeStyle(3, 0x00ff00);
-                mapData.thumbnailBorder.setStrokeStyle(3, 0x00ff00);
+                mapData.nameText.setStyle({ fill: '#ffffff' });
+                mapData.thumbnail.clearTint();
             } else {
                 // Unselected map styling
                 mapData.border.setVisible(false);
                 mapData.nameText.setStyle({ fill: '#ffffff' });
                 mapData.thumbnail.clearTint();
-                mapData.clickArea.setStrokeStyle(2, 0x666666);
-                mapData.thumbnailBorder.setStrokeStyle(2, 0xffffff);
             }
         });
 
         // Update start button text
         if (this.startButton) {
-            const mapName = mapKey === 'city_3' ? 'City 3' : 
-                          mapKey === 'pollen' ? 'Pollen' : mapKey;
+            const mapName = mapKey === 'nightcity' ? 'Night City' : 
+                          mapKey === 'ch' ? 'Ch' : 
+                          mapKey === 'skyline' ? 'Skyline' : 
+                          mapKey === 'nature' ? 'Nature' : 
+                          mapKey === 'nighttree' ? 'Night Tree' : 
+                          mapKey === 'outsideworld' ? 'Outside World' : mapKey;
             this.startButton.setText(`Start Match on ${mapName}`);
         }
 
         // Update selected map status
         if (this.selectedMapStatus) {
-            const mapName = mapKey === 'city_3' ? 'City 3' : 
-                          mapKey === 'pollen' ? 'Pollen' : mapKey;
+            const mapName = mapKey === 'nightcity' ? 'Night City' : 
+                          mapKey === 'ch' ? 'Ch' : 
+                          mapKey === 'skyline' ? 'Skyline' : 
+                          mapKey === 'nature' ? 'Nature' : 
+                          mapKey === 'nighttree' ? 'Night Tree' : 
+                          mapKey === 'outsideworld' ? 'Outside World' : mapKey;
             this.selectedMapStatus.setText(`Selected: ${mapName}`);
         }
     }
 
     createStartButton() {
-        const initialMapName = this.selectedMapKey === 'city_3' ? 'City 3' : 
-                             this.selectedMapKey === 'pollen' ? 'Pollen' : this.selectedMapKey;
-        this.startButton = this.add.text(400, 450, `Start Match on ${initialMapName}`, {
+        const initialMapName = this.selectedMapKey === 'nightcity' ? 'Night City' : 
+                             this.selectedMapKey === 'ch' ? 'Ch' : 
+                             this.selectedMapKey === 'skyline' ? 'Skyline' : 
+                             this.selectedMapKey === 'nature' ? 'Nature' : 
+                             this.selectedMapKey === 'nighttree' ? 'Night Tree' : 
+                             this.selectedMapKey === 'outsideworld' ? 'Outside World' : this.selectedMapKey;
+        this.startButton = this.add.text(400, 420, `Start Match on ${initialMapName}`, {
             fontSize: '24px',
             fill: '#ffffff',
             backgroundColor: '#228b22',
@@ -740,10 +778,8 @@ class GameScene extends Phaser.Scene {
             }
         }
     
-    this.add.graphics()
-        .fillStyle(0x2d5016)
-        .fillRect(0, 0, 800, 50)
-        .generateTexture('ground', 800, 50);
+        // Load grass ground texture
+        this.load.image('grass', 'assets/Sprites/Backgrounds/grass.png');
     
         // Load pixel art soccer ball sprite
         this.load.image('ball', 'assets/Sprites/Ball/Sport-Balls-Asset-Pack-Pixel-Art/64x64/football.png');
@@ -829,8 +865,10 @@ class GameScene extends Phaser.Scene {
         const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
         const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
     
-    // Create ground
-    const ground = this.add.rectangle(400, 575, 800, 50, 0x2d5016);
+    // Create ground using grass texture
+    const ground = this.add.image(400, 575, 'grass');
+        ground.setOrigin(0.5, 0.5); // Center the image
+        ground.setDisplaySize(800, 50); // Stretch to full screen width and maintain 50px height
         this.physics.add.existing(ground, true);
         
         // Create Player 1 with selected character sprite
@@ -2037,9 +2075,11 @@ class GameScene extends Phaser.Scene {
         this.physics.add.collider(this.chaosManager.clonedBall, this.player1, this.handlePlayerBallCollision, null, this);
         this.physics.add.collider(this.chaosManager.clonedBall, this.player2, this.handlePlayerBallCollision, null, this);
         
-        // Add ground collision
-        const ground = this.physics.world.staticBodies.entries[0]; // Get the ground body
-        this.physics.add.collider(this.chaosManager.clonedBall, ground);
+        // Add ground collision - find ground body from existing static bodies
+        const groundBody = this.physics.world.staticBodies.entries.find(body => body.gameObject && body.gameObject.texture && body.gameObject.texture.key === 'grass');
+        if (groundBody) {
+            this.physics.add.collider(this.chaosManager.clonedBall, groundBody.gameObject);
+        }
         
         // Add goal detection for cloned ball
         this.physics.add.overlap(this.chaosManager.clonedBall, this.leftGoal, () => this.handleGoalScored('right'));
