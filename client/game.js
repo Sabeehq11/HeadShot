@@ -44,6 +44,152 @@ const CHARACTERS = {
     }
 };
 
+// XP and Progression System
+const XP_SYSTEM = {
+    // XP rewards per match
+    XP_WINNER: 50,
+    XP_LOSER: 25,
+    
+    // XP thresholds for each level
+    XP_THRESHOLDS: [
+        0,    // Level 1 (base)
+        100,  // Level 2 (bronze)
+        250,  // Level 3 (silver)
+        500,  // Level 4 (gold)
+        1000  // Level 5 (shadow)
+    ],
+    
+    // Skin types for each level
+    SKIN_TYPES: {
+        1: 'base',
+        2: 'bronze',
+        3: 'silver',
+        4: 'gold',
+        5: 'shadow'
+    },
+    
+    // Calculate level from XP
+    calculateLevel(xp) {
+        for (let i = this.XP_THRESHOLDS.length - 1; i >= 0; i--) {
+            if (xp >= this.XP_THRESHOLDS[i]) {
+                return i + 1;
+            }
+        }
+        return 1;
+    },
+    
+    // Get XP needed for next level
+    getXPForNextLevel(currentXP) {
+        const currentLevel = this.calculateLevel(currentXP);
+        if (currentLevel >= this.XP_THRESHOLDS.length) {
+            return null; // Max level reached
+        }
+        return this.XP_THRESHOLDS[currentLevel] - currentXP;
+    },
+    
+    // Get all unlocked skins for a player
+    getUnlockedSkins(xp) {
+        const level = this.calculateLevel(xp);
+        const unlockedSkins = [];
+        for (let i = 1; i <= level; i++) {
+            unlockedSkins.push(this.SKIN_TYPES[i]);
+        }
+        return unlockedSkins;
+    }
+};
+
+// Player Progress System
+const PLAYER_PROGRESS = {
+    // Load player progress from localStorage
+    loadPlayerProgress(playerId) {
+        const key = `${playerId}_progress`;
+        const saved = localStorage.getItem(key);
+        
+        if (saved) {
+            try {
+                const progress = JSON.parse(saved);
+                // Validate structure
+                if (progress.xp !== undefined && progress.equippedSkins !== undefined) {
+                    return progress;
+                }
+            } catch (e) {
+                console.warn(`Failed to parse saved progress for ${playerId}:`, e);
+            }
+        }
+        
+        // Return default progress if no valid save found
+        return this.getDefaultProgress();
+    },
+    
+    // Save player progress to localStorage
+    savePlayerProgress(playerId, progress) {
+        const key = `${playerId}_progress`;
+        try {
+            localStorage.setItem(key, JSON.stringify(progress));
+            console.log(`Progress saved for ${playerId}:`, progress);
+        } catch (e) {
+            console.error(`Failed to save progress for ${playerId}:`, e);
+        }
+    },
+    
+    // Get default progress for new players
+    getDefaultProgress() {
+        const defaultSkins = {};
+        Object.keys(CHARACTERS).forEach(charKey => {
+            defaultSkins[charKey] = 'base';
+        });
+        
+        return {
+            xp: 0,
+            equippedSkins: defaultSkins
+        };
+    },
+    
+    // Add XP to a player
+    addXP(playerId, xpAmount) {
+        const progress = this.loadPlayerProgress(playerId);
+        const oldLevel = XP_SYSTEM.calculateLevel(progress.xp);
+        
+        progress.xp += xpAmount;
+        const newLevel = XP_SYSTEM.calculateLevel(progress.xp);
+        
+        this.savePlayerProgress(playerId, progress);
+        
+        // Return level up information
+        return {
+            oldXP: progress.xp - xpAmount,
+            newXP: progress.xp,
+            oldLevel: oldLevel,
+            newLevel: newLevel,
+            leveledUp: newLevel > oldLevel
+        };
+    },
+    
+    // Equip a skin for a character
+    equipSkin(playerId, characterKey, skinType) {
+        const progress = this.loadPlayerProgress(playerId);
+        const unlockedSkins = XP_SYSTEM.getUnlockedSkins(progress.xp);
+        
+        if (unlockedSkins.includes(skinType)) {
+            progress.equippedSkins[characterKey] = skinType;
+            this.savePlayerProgress(playerId, progress);
+            return true;
+        }
+        
+        return false; // Skin not unlocked
+    },
+    
+    // Get equipped skin for a character
+    getEquippedSkin(playerId, characterKey) {
+        const progress = this.loadPlayerProgress(playerId);
+        return progress.equippedSkins[characterKey] || 'base';
+    }
+};
+
+// Initialize player progress on game start
+let player1Progress = PLAYER_PROGRESS.loadPlayerProgress('player1');
+let player2Progress = PLAYER_PROGRESS.loadPlayerProgress('player2');
+
 // Global character selection state
 let selectedCharacters = {
     player1: null,
@@ -72,6 +218,45 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.player1UI = null;
         this.player2UI = null;
         this.charactersDisplay = [];
+        this.player1Grid = [];
+        this.player2Grid = [];
+        this.lockerOpen = false;
+        this.currentLockerPlayer = null;
+        this.lockerElements = [];
+        this.lockerCharElements = [];
+        
+        // Add fallback functions if CharacterSpriteHelper is missing functions
+        if (!CharacterSpriteHelper.getSkinDisplayName) {
+            CharacterSpriteHelper.getSkinDisplayName = function(skinType) {
+                const names = {
+                    'base': 'Base',
+                    'bronze': 'Bronze',
+                    'silver': 'Silver',
+                    'gold': 'Gold',
+                    'shadow': 'Shadow'
+                };
+                return names[skinType] || skinType;
+            };
+        }
+        
+        if (!CharacterSpriteHelper.getAllSkinTypes) {
+            CharacterSpriteHelper.getAllSkinTypes = function() {
+                return ['base', 'bronze', 'silver', 'gold', 'shadow'];
+            };
+        }
+        
+        if (!CharacterSpriteHelper.getSkinRarityColor) {
+            CharacterSpriteHelper.getSkinRarityColor = function(skinType) {
+                const colors = {
+                    'base': 0xffffff,    // white
+                    'bronze': 0xcd7f32,  // bronze
+                    'silver': 0xc0c0c0,  // silver
+                    'gold': 0xffd700,    // gold
+                    'shadow': 0x800080   // purple
+                };
+                return colors[skinType] || 0xffffff;
+            };
+        }
     }
 
     init() {
@@ -84,6 +269,12 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.player1UI = null;
         this.player2UI = null;
         this.charactersDisplay = [];
+        this.player1Grid = [];
+        this.player2Grid = [];
+        this.lockerOpen = false;
+        this.currentLockerPlayer = null;
+        this.lockerElements = [];
+        this.lockerCharElements = [];
     }
 
     preload() {
@@ -105,62 +296,135 @@ class CharacterSelectionScene extends Phaser.Scene {
                     const framePath = spriteConfig.basePath + idleAnim.file;
                     this.load.image(`${key}_preview`, framePath);
                 }
+            } else {
+                console.error(`No sprite config found for character: ${key}`);
             }
         });
+
+        // Load map thumbnails
+        this.load.image('nightcity_thumb', 'assets/Sprites/Backgrounds/nightcity.png');
+        this.load.image('ch_thumb', 'assets/Sprites/Backgrounds/ch.png');
+        this.load.image('skyline_thumb', 'assets/Sprites/Backgrounds/skyline.png');
+        this.load.image('nature_thumb', 'assets/Sprites/Backgrounds/nature.png');
+        this.load.image('nighttree_thumb', 'assets/Sprites/Backgrounds/nighttree.png');
+        this.load.image('outsideworld_thumb', 'assets/Sprites/Backgrounds/outsideworld.png');
     }
 
     create() {
+        // Debug CharacterSpriteHelper
+        console.log('CharacterSpriteHelper available:', typeof CharacterSpriteHelper);
+        console.log('getSkinDisplayName available:', typeof CharacterSpriteHelper?.getSkinDisplayName);
+        console.log('getAllSkinTypes available:', typeof CharacterSpriteHelper?.getAllSkinTypes);
+        console.log('CHARACTERS keys:', Object.keys(CHARACTERS));
+        
+        // Add fallback functions if CharacterSpriteHelper is missing functions
+        if (!CharacterSpriteHelper.getSkinDisplayName) {
+            CharacterSpriteHelper.getSkinDisplayName = function(skinType) {
+                const names = {
+                    'base': 'Base',
+                    'bronze': 'Bronze',
+                    'silver': 'Silver',
+                    'gold': 'Gold',
+                    'shadow': 'Shadow'
+                };
+                return names[skinType] || skinType;
+            };
+        }
+        
+        if (!CharacterSpriteHelper.getAllSkinTypes) {
+            CharacterSpriteHelper.getAllSkinTypes = function() {
+                return ['base', 'bronze', 'silver', 'gold', 'shadow'];
+            };
+        }
+        
         // Background
         this.add.rectangle(400, 300, 800, 600, 0x2c3e50);
 
         // Title
-        this.add.text(400, 50, '⚡ CHARACTER SELECTION ⚡', {
-            fontSize: '32px',
+        this.add.text(400, 30, '⚡ CHARACTER SELECTION ⚡', {
+            fontSize: '28px',
             fill: '#ffffff',
             backgroundColor: '#000000',
             padding: { x: 20, y: 10 }
         }).setOrigin(0.5);
 
-        // Instructions
-        this.add.text(400, 100, 'Choose your character!', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 16, y: 8 }
-        }).setOrigin(0.5);
+        // Split screen divider
+        this.add.rectangle(400, 300, 4, 600, 0x555555);
 
-        // Player 1 controls
-        this.add.text(150, 140, 'Player 1 (Green)', {
-            fontSize: '18px',
+        // Player 1 Side (Left)
+        this.add.rectangle(200, 80, 380, 40, 0x003300, 0.8);
+        this.add.text(200, 80, 'Player 1', {
+            fontSize: '24px',
             fill: '#00ff00',
             backgroundColor: '#000000',
             padding: { x: 12, y: 6 }
         }).setOrigin(0.5);
 
-        this.add.text(150, 170, 'A/D to navigate • W or Enter to select', {
-            fontSize: '14px',
+        // Player 1 controls
+        this.add.text(200, 110, 'A/D to navigate • W to select', {
+            fontSize: '12px',
             fill: '#ffffff',
             backgroundColor: '#000000',
             padding: { x: 8, y: 4 }
         }).setOrigin(0.5);
 
-        // Player 2 controls
-        this.add.text(650, 140, 'Player 2 (Blue)', {
-            fontSize: '18px',
+        // Player 1 Locker button
+        this.player1LockerBtn = this.add.rectangle(340, 80, 80, 30, 0x444444, 0.8);
+        this.player1LockerText = this.add.text(340, 80, 'LOCKER', {
+            fontSize: '12px',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+        this.player1LockerBtn.setInteractive();
+        this.player1LockerBtn.on('pointerdown', () => this.openLocker('player1'));
+        
+        // Add hover effects
+        this.player1LockerBtn.on('pointerover', () => {
+            this.player1LockerBtn.setFillStyle(0x666666, 0.9);
+            this.player1LockerText.setStyle({ fill: '#00ff00' });
+        });
+        this.player1LockerBtn.on('pointerout', () => {
+            this.player1LockerBtn.setFillStyle(0x444444, 0.8);
+            this.player1LockerText.setStyle({ fill: '#ffffff' });
+        });
+
+        // Player 2 Side (Right)
+        this.add.rectangle(600, 80, 380, 40, 0x000033, 0.8);
+        this.add.text(600, 80, 'Player 2', {
+            fontSize: '24px',
             fill: '#0080ff',
             backgroundColor: '#000000',
             padding: { x: 12, y: 6 }
         }).setOrigin(0.5);
 
-        this.add.text(650, 170, '← → to navigate • ↑ or Enter to select', {
-            fontSize: '14px',
+        // Player 2 controls
+        this.add.text(600, 110, '← → to navigate • ↑ to select', {
+            fontSize: '12px',
             fill: '#ffffff',
             backgroundColor: '#000000',
             padding: { x: 8, y: 4 }
         }).setOrigin(0.5);
 
-        // Create character display
-        this.createCharacterDisplay();
+        // Player 2 Locker button
+        this.player2LockerBtn = this.add.rectangle(740, 80, 80, 30, 0x444444, 0.8);
+        this.player2LockerText = this.add.text(740, 80, 'LOCKER', {
+            fontSize: '12px',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+        this.player2LockerBtn.setInteractive();
+        this.player2LockerBtn.on('pointerdown', () => this.openLocker('player2'));
+        
+        // Add hover effects
+        this.player2LockerBtn.on('pointerover', () => {
+            this.player2LockerBtn.setFillStyle(0x666666, 0.9);
+            this.player2LockerText.setStyle({ fill: '#0080ff' });
+        });
+        this.player2LockerBtn.on('pointerout', () => {
+            this.player2LockerBtn.setFillStyle(0x444444, 0.8);
+            this.player2LockerText.setStyle({ fill: '#ffffff' });
+        });
+
+        // Create character grids for each player
+        this.createSplitCharacterDisplay();
 
         // Create player UI panels
         this.createPlayerUI();
@@ -172,67 +436,154 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.updateDisplay();
     }
 
-    createCharacterDisplay() {
-        const startX = 50;
-        const startY = 200;
-        const spacing = 120;
-        const previewY = startY - 10; // Lift sprites up slightly
+    createSplitCharacterDisplay() {
+        this.charactersDisplay = [];
+        this.player1Grid = [];
+        this.player2Grid = [];
+
+        // Grid settings
+        const gridCols = 3;
+        const gridRows = 2;
+        const cellWidth = 110;
+        const cellHeight = 120;
+        
+        // Player 1 grid (left side)
+        const p1StartX = 90;
+        const p1StartY = 150;
+        
+        // Player 2 grid (right side)
+        const p2StartX = 490;
+        const p2StartY = 150;
 
         this.characterKeys.forEach((key, index) => {
             const character = CHARACTERS[key];
-            const x = startX + (index * spacing);
-            const y = startY;
-
-            // Handle both sprite sheets and single frames
-            const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
-            let sprite;
+            const row = Math.floor(index / gridCols);
+            const col = index % gridCols;
             
-            if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
-                // For sprite sheets (Tiny Heroes), use static frame to prevent flickering
-                sprite = this.add.image(x, previewY, `${key}_preview`);
-                sprite.setScale(2.0)
-                      .setOrigin(0.5)
-                      .setFrame(0); // Use first frame to prevent animation flicker
-            } else {
-                // For single frames (Mini Pixel Pack), create static image with larger scale
-                sprite = this.add.image(x, previewY + 5, `${key}_preview`); // Slightly lower for baseline alignment
-                sprite.setScale(3.0)  // Increased scale for Mini Pixel Pack characters
-                      .setOrigin(0.5);
-            }
-
-            // Character name
-            const name = this.add.text(x, y + 70, character.name, {
-                fontSize: '16px',
-                fill: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 8, y: 4 }
-            }).setOrigin(0.5);
-
-            // Power name
-            const power = this.add.text(x, y + 95, character.power, {
+            // Get equipped skin for preview
+            const p1EquippedSkin = PLAYER_PROGRESS.getEquippedSkin('player1', key);
+            const p2EquippedSkin = PLAYER_PROGRESS.getEquippedSkin('player2', key);
+            
+            // Player 1 character preview
+            const p1X = p1StartX + (col * cellWidth);
+            const p1Y = p1StartY + (row * cellHeight);
+            
+            const p1Sprite = this.createCharacterPreview(p1X, p1Y, key, p1EquippedSkin);
+            const p1Name = this.add.text(p1X, p1Y + 50, character.name, {
                 fontSize: '12px',
-                fill: '#ffff00',
+                fill: '#ffffff',
                 backgroundColor: '#000000',
                 padding: { x: 6, y: 3 }
             }).setOrigin(0.5);
-
-            // Description
-            const description = this.add.text(x, y + 120, character.description, {
+            
+            // Player 1 skin indicator
+            const p1SkinText = this.add.text(p1X, p1Y + 70, CharacterSpriteHelper.getSkinDisplayName(p1EquippedSkin), {
                 fontSize: '10px',
-                fill: '#cccccc',
+                fill: CharacterSpriteHelper.getSkinRarityColor(p1EquippedSkin),
                 backgroundColor: '#000000',
-                padding: { x: 4, y: 2 },
-                wordWrap: { width: 100, useAdvancedWrap: true }
+                padding: { x: 4, y: 2 }
             }).setOrigin(0.5);
 
-            this.charactersDisplay.push({
-                sprite,
-                name,
-                power,
-                description,
-                index
+            this.player1Grid.push({
+                sprite: p1Sprite,
+                name: p1Name,
+                skinText: p1SkinText,
+                character: key,
+                index: index
+            });
+
+            // Player 2 character preview
+            const p2X = p2StartX + (col * cellWidth);
+            const p2Y = p2StartY + (row * cellHeight);
+            
+            const p2Sprite = this.createCharacterPreview(p2X, p2Y, key, p2EquippedSkin);
+            const p2Name = this.add.text(p2X, p2Y + 50, character.name, {
+                fontSize: '12px',
+                fill: '#ffffff',
+                backgroundColor: '#000000',
+                padding: { x: 6, y: 3 }
+            }).setOrigin(0.5);
+            
+            // Player 2 skin indicator
+            const p2SkinText = this.add.text(p2X, p2Y + 70, CharacterSpriteHelper.getSkinDisplayName(p2EquippedSkin), {
+                fontSize: '10px',
+                fill: CharacterSpriteHelper.getSkinRarityColor(p2EquippedSkin),
+                backgroundColor: '#000000',
+                padding: { x: 4, y: 2 }
+            }).setOrigin(0.5);
+
+            this.player2Grid.push({
+                sprite: p2Sprite,
+                name: p2Name,
+                skinText: p2SkinText,
+                character: key,
+                index: index
             });
         });
+    }
+
+    createCharacterPreview(x, y, characterKey, skinType) {
+        const character = CHARACTERS[characterKey];
+        const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+        
+        let sprite;
+        
+        // Check if the sprite texture exists
+        if (this.textures.exists(`${characterKey}_preview`)) {
+            if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
+                // For sprite sheets (Tiny Heroes), use static frame
+                sprite = this.add.image(x, y, `${characterKey}_preview`);
+                sprite.setScale(1.8)
+                      .setOrigin(0.5)
+                      .setFrame(0);
+            } else {
+                // For single frames (Mini Pixel Pack)
+                sprite = this.add.image(x, y, `${characterKey}_preview`);
+                sprite.setScale(2.5)
+                      .setOrigin(0.5);
+            }
+        } else {
+            // Create a placeholder if sprite doesn't exist
+            console.error(`Sprite not found for character: ${characterKey}`);
+            sprite = this.add.rectangle(x, y, 32, 32, character.color);
+            sprite.setScale(2);
+            
+            // Add character name as text
+            this.add.text(x, y, characterKey.charAt(0).toUpperCase(), {
+                fontSize: '16px',
+                fill: '#ffffff'
+            }).setOrigin(0.5);
+        }
+
+        // Apply skin tint if not base skin
+        if (skinType !== 'base') {
+            const skinColor = CharacterSpriteHelper.getSkinRarityColor(skinType);
+            sprite.setTint(skinColor);
+        }
+
+        // Add subtle hover effect
+        sprite.setInteractive();
+        sprite.on('pointerover', () => {
+            this.tweens.add({
+                targets: sprite,
+                scaleX: sprite.scaleX * 1.1,
+                scaleY: sprite.scaleY * 1.1,
+                duration: 200,
+                ease: 'Power2'
+            });
+        });
+        
+        sprite.on('pointerout', () => {
+            this.tweens.add({
+                targets: sprite,
+                scaleX: sprite.scaleX / 1.1,
+                scaleY: sprite.scaleY / 1.1,
+                duration: 200,
+                ease: 'Power2'
+            });
+        });
+
+        return sprite;
     }
 
     createPlayerUI() {
@@ -348,83 +699,109 @@ class CharacterSelectionScene extends Phaser.Scene {
     }
 
     updateDisplay() {
-        // Ensure arrays are properly initialized
-        if (!this.charactersDisplay || !this.characterKeys) {
+        // Ensure grids are properly initialized
+        if (!this.player1Grid || !this.player2Grid || !this.characterKeys) {
             console.error('updateDisplay called before proper initialization');
             return;
         }
         
-        // Debug logging (can be removed in production)
-        // console.log('updateDisplay - charactersDisplay length:', this.charactersDisplay.length);
-        // console.log('updateDisplay - characterKeys length:', this.characterKeys.length);
-        
-        // Reset all character displays with consistent scaling
-        this.charactersDisplay.forEach((display, index) => {
-            // Ensure display exists and has sprite
-            if (!display || !display.sprite) {
-                return;
-            }
+        // Reset all character displays to normal state
+        this.player1Grid.forEach((display, index) => {
+            if (!display || !display.sprite) return;
             
-            display.sprite.setTint(0xffffff);
+            // Reset tint and scale
+            display.sprite.clearTint();
             
-            // Set scale based on character type
+            // Get equipped skin and apply tint
             const characterKey = this.characterKeys[index];
-            const character = CHARACTERS[characterKey];
+            const equippedSkin = PLAYER_PROGRESS.getEquippedSkin('player1', characterKey);
             
-            // Add defensive check to prevent undefined character error
-            if (!character) {
-                console.warn('Character not found for key:', characterKey, 'at index:', index);
-                return; // Skip this iteration
+            if (equippedSkin !== 'base') {
+                const skinColor = CharacterSpriteHelper.getSkinRarityColor(equippedSkin);
+                display.sprite.setTint(skinColor);
             }
             
+            // Set normal scale
+            const character = CHARACTERS[characterKey];
             const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
             
             if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
-                display.sprite.setScale(2.0); // Tiny Heroes normal scale
+                display.sprite.setScale(1.8);
             } else {
-                display.sprite.setScale(3.0); // Mini Pixel Pack normal scale
+                display.sprite.setScale(2.5);
             }
         });
 
-        // Highlight current selections with increased scale
+        this.player2Grid.forEach((display, index) => {
+            if (!display || !display.sprite) return;
+            
+            // Reset tint and scale
+            display.sprite.clearTint();
+            
+            // Get equipped skin and apply tint
+            const characterKey = this.characterKeys[index];
+            const equippedSkin = PLAYER_PROGRESS.getEquippedSkin('player2', characterKey);
+            
+            if (equippedSkin !== 'base') {
+                const skinColor = CharacterSpriteHelper.getSkinRarityColor(equippedSkin);
+                display.sprite.setTint(skinColor);
+            }
+            
+            // Set normal scale
+            const character = CHARACTERS[characterKey];
+            const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+            
+            if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
+                display.sprite.setScale(1.8);
+            } else {
+                display.sprite.setScale(2.5);
+            }
+        });
+
+        // Highlight Player 1 selection
         if (!this.player1Confirmed && 
             this.player1Selection >= 0 && 
-            this.player1Selection < this.charactersDisplay.length && 
-            this.charactersDisplay[this.player1Selection]) {
+            this.player1Selection < this.player1Grid.length) {
             
-            const p1Display = this.charactersDisplay[this.player1Selection];
+            const p1Display = this.player1Grid[this.player1Selection];
             const p1CharacterKey = this.characterKeys[this.player1Selection];
             const p1Character = CHARACTERS[p1CharacterKey];
             
             if (p1Character && p1Display.sprite) {
                 const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
                 
+                // Add green selection overlay
                 p1Display.sprite.setTint(0x00ff00);
+                
+                // Increase scale for selection
                 if (p1SpriteConfig && (p1SpriteConfig.type === 'sprite_sheet' || p1SpriteConfig.hasAnimation)) {
-                    p1Display.sprite.setScale(2.4); // Tiny Heroes selected scale
+                    p1Display.sprite.setScale(2.2);
                 } else {
-                    p1Display.sprite.setScale(3.6); // Mini Pixel Pack selected scale
+                    p1Display.sprite.setScale(3.0);
                 }
             }
         }
 
+        // Highlight Player 2 selection
         if (!this.player2Confirmed && 
             this.player2Selection >= 0 && 
-            this.player2Selection < this.charactersDisplay.length && 
-            this.charactersDisplay[this.player2Selection]) {
+            this.player2Selection < this.player2Grid.length) {
             
-            const p2Display = this.charactersDisplay[this.player2Selection];
+            const p2Display = this.player2Grid[this.player2Selection];
             const p2CharacterKey = this.characterKeys[this.player2Selection];
             const p2Character = CHARACTERS[p2CharacterKey];
             
             if (p2Character && p2Display.sprite) {
                 const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
                 
+                // Add blue selection overlay
                 p2Display.sprite.setTint(0x0080ff);
+                
+                // Increase scale for selection
                 if (p2SpriteConfig && (p2SpriteConfig.type === 'sprite_sheet' || p2SpriteConfig.hasAnimation)) {
-                    p2Display.sprite.setScale(2.4); // Tiny Heroes selected scale
+                    p2Display.sprite.setScale(2.2);
                 } else {
-                    p2Display.sprite.setScale(3.6); // Mini Pixel Pack selected scale
+                    p2Display.sprite.setScale(3.0);
                 }
             }
         }
@@ -437,7 +814,7 @@ class CharacterSelectionScene extends Phaser.Scene {
             this.player1UI.status.setText('✓ CONFIRMED');
             this.player1UI.status.setStyle({ fill: '#00ff00' });
         } else {
-            this.player1UI.status.setText('Press W or Enter to confirm');
+            this.player1UI.status.setText('Press W to confirm');
             this.player1UI.status.setStyle({ fill: '#cccccc' });
         }
 
@@ -449,9 +826,352 @@ class CharacterSelectionScene extends Phaser.Scene {
             this.player2UI.status.setText('✓ CONFIRMED');
             this.player2UI.status.setStyle({ fill: '#0080ff' });
         } else {
-            this.player2UI.status.setText('Press ↑ or Enter to confirm');
+            this.player2UI.status.setText('Press ↑ to confirm');
             this.player2UI.status.setStyle({ fill: '#cccccc' });
         }
+    }
+
+    openLocker(playerId) {
+        console.log(`Opening locker for ${playerId}`);
+        
+        // Prevent multiple lockers from opening
+        if (this.lockerOpen) {
+            return;
+        }
+        
+        this.lockerOpen = true;
+        this.currentLockerPlayer = playerId;
+        
+        // Create modal backdrop - much darker for better visibility
+        this.lockerBackdrop = this.add.rectangle(400, 300, 800, 600, 0x000000, 0);
+        this.lockerBackdrop.setInteractive();
+        this.lockerBackdrop.on('pointerdown', () => this.closeLocker());
+        
+        // Create modal panel - darker and more opaque
+        this.lockerPanel = this.add.rectangle(400, 300, 700, 500, 0x1a1a1a, 0);
+        this.lockerPanel.setStrokeStyle(4, playerId === 'player1' ? 0x00ff00 : 0x0080ff);
+        this.lockerPanel.setScale(0.8);
+        
+        // Animate backdrop fade in to full opacity
+        this.tweens.add({
+            targets: this.lockerBackdrop,
+            alpha: 0.95,
+            duration: 300,
+            ease: 'Power2'
+        });
+        
+        // Animate panel fade in and scale up to full opacity
+        this.tweens.add({
+            targets: this.lockerPanel,
+            alpha: 1.0,
+            scaleX: 1.0,
+            scaleY: 1.0,
+            duration: 300,
+            ease: 'Back.easeOut'
+        });
+        
+        // Title
+        const progress = PLAYER_PROGRESS.loadPlayerProgress(playerId);
+        const level = XP_SYSTEM.calculateLevel(progress.xp);
+        this.lockerTitle = this.add.text(400, 80, `${playerId.toUpperCase()} LOCKER`, {
+            fontSize: '24px',
+            fill: playerId === 'player1' ? '#00ff00' : '#0080ff',
+            backgroundColor: '#000000',
+            padding: { x: 12, y: 6 }
+        }).setOrigin(0.5);
+        
+        // XP and Level info
+        this.lockerXPInfo = this.add.text(400, 110, `Level ${level} • ${progress.xp} XP`, {
+            fontSize: '16px',
+            fill: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 4 }
+        }).setOrigin(0.5);
+        
+        // Close button
+        this.lockerCloseBtn = this.add.rectangle(650, 80, 60, 30, 0x660000, 0.8);
+        this.lockerCloseBtn.setInteractive();
+        this.lockerCloseBtn.on('pointerdown', () => this.closeLocker());
+        this.lockerCloseText = this.add.text(650, 80, 'CLOSE', {
+            fontSize: '12px',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+        
+        // Add hover effects to close button
+        this.lockerCloseBtn.on('pointerover', () => {
+            this.lockerCloseBtn.setFillStyle(0x880000, 0.9);
+            this.lockerCloseText.setStyle({ fill: '#ffdddd' });
+        });
+        this.lockerCloseBtn.on('pointerout', () => {
+            this.lockerCloseBtn.setFillStyle(0x660000, 0.8);
+            this.lockerCloseText.setStyle({ fill: '#ffffff' });
+        });
+        
+        // Create character skin grids
+        this.createLockerContent(playerId);
+        
+        // Store locker elements for cleanup
+        this.lockerElements = [
+            this.lockerBackdrop,
+            this.lockerPanel,
+            this.lockerTitle,
+            this.lockerXPInfo,
+            this.lockerCloseBtn,
+            this.lockerCloseText
+        ];
+    }
+    
+    createLockerContent(playerId) {
+        const progress = PLAYER_PROGRESS.loadPlayerProgress(playerId);
+        const unlockedSkins = XP_SYSTEM.getUnlockedSkins(progress.xp);
+        
+        // Grid settings
+        const startX = 150;
+        const startY = 160;
+        const charSpacing = 90;
+        const skinSpacing = 50;
+        
+        this.lockerCharElements = [];
+        
+        // Add large dark background for entire locker content area
+        const contentBackground = this.add.rectangle(400, 280, 650, 400, 0x0f0f0f, 0.98);
+        contentBackground.setStrokeStyle(2, 0x333333);
+        this.lockerCharElements.push(contentBackground);
+        
+        this.characterKeys.forEach((charKey, charIndex) => {
+            const character = CHARACTERS[charKey];
+            const charX = startX + (charIndex * charSpacing);
+            
+            // Character name
+            const charName = this.add.text(charX, startY - 20, character.name, {
+                fontSize: '12px',
+                fill: '#ffffff',
+                backgroundColor: '#222222',
+                padding: { x: 6, y: 3 }
+            }).setOrigin(0.5);
+            
+            this.lockerCharElements.push(charName);
+            
+            // Skin options for this character
+            const allSkins = CharacterSpriteHelper.getAllSkinTypes();
+            allSkins.forEach((skinType, skinIndex) => {
+                const skinY = startY + (skinIndex * skinSpacing);
+                const isUnlocked = unlockedSkins.includes(skinType);
+                const isEquipped = progress.equippedSkins[charKey] === skinType;
+                
+                // Add dark background for each skin preview area
+                const skinBg = this.add.rectangle(charX, skinY, 70, 40, 0x222222, 0.95);
+                if (isEquipped) {
+                    skinBg.setStrokeStyle(3, 0x00ff00); // Green border for equipped
+                } else if (isUnlocked) {
+                    skinBg.setStrokeStyle(2, 0x888888); // Gray border for unlocked
+                } else {
+                    skinBg.setStrokeStyle(1, 0x555555); // Dark border for locked
+                }
+                this.lockerCharElements.push(skinBg);
+                
+                // Create skin preview
+                const skinPreview = this.createSkinPreview(charX, skinY, charKey, skinType, isUnlocked, isEquipped);
+                this.lockerCharElements.push(skinPreview);
+                
+                // Skin name and status
+                const skinName = this.add.text(charX + 25, skinY - 10, CharacterSpriteHelper.getSkinDisplayName(skinType), {
+                    fontSize: '10px',
+                    fill: isUnlocked ? '#ffffff' : '#666666',
+                    backgroundColor: '#000000',
+                    padding: { x: 3, y: 1 }
+                }).setOrigin(0, 0.5);
+                
+                this.lockerCharElements.push(skinName);
+                
+                // Status indicator
+                let statusText = '';
+                let statusColor = '#cccccc';
+                
+                if (isEquipped) {
+                    statusText = 'EQUIPPED';
+                    statusColor = '#00ff00';
+                } else if (isUnlocked) {
+                    statusText = 'UNLOCKED';
+                    statusColor = '#ffffff';
+                } else {
+                    const requiredXP = XP_SYSTEM.XP_THRESHOLDS[Object.keys(XP_SYSTEM.SKIN_TYPES).find(k => XP_SYSTEM.SKIN_TYPES[k] === skinType) - 1];
+                    statusText = `${requiredXP} XP`;
+                    statusColor = '#ff6666';
+                }
+                
+                const statusLabel = this.add.text(charX + 25, skinY + 10, statusText, {
+                    fontSize: '8px',
+                    fill: statusColor,
+                    backgroundColor: '#000000',
+                    padding: { x: 2, y: 1 }
+                }).setOrigin(0, 0.5);
+                
+                this.lockerCharElements.push(statusLabel);
+                
+                // Add click handler for unlocked skins
+                if (isUnlocked) {
+                    skinPreview.setInteractive();
+                    skinPreview.on('pointerdown', () => {
+                        this.equipSkin(playerId, charKey, skinType);
+                    });
+                }
+            });
+        });
+    }
+    
+    createSkinPreview(x, y, charKey, skinType, isUnlocked, isEquipped) {
+        const character = CHARACTERS[charKey];
+        const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+        
+        let preview;
+        
+        // Create character preview using the loaded sprite
+        if (this.textures.exists(`${charKey}_preview`)) {
+            if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
+                preview = this.add.image(x, y, `${charKey}_preview`);
+                preview.setScale(0.8).setOrigin(0.5).setFrame(0);
+            } else {
+                preview = this.add.image(x, y, `${charKey}_preview`);
+                preview.setScale(1.2).setOrigin(0.5);
+            }
+        } else {
+            // Fallback to colored rectangle
+            preview = this.add.rectangle(x, y, 20, 20, character.color, 0.8);
+        }
+        
+        // Apply skin tint and states
+        if (isUnlocked) {
+            if (skinType !== 'base') {
+                const skinColor = CharacterSpriteHelper.getSkinRarityColor(skinType);
+                preview.setTint(skinColor);
+            }
+            preview.setAlpha(1.0);
+        } else {
+            preview.setTint(0x333333);
+            preview.setAlpha(0.4);
+        }
+        
+        // Add visual feedback for equipped skin
+        if (isEquipped) {
+            // Add pulsing animation to equipped skin
+            this.tweens.add({
+                targets: preview,
+                alpha: { from: 1, to: 0.6 },
+                duration: 1000,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+        }
+        
+        // Make it interactive if unlocked
+        if (isUnlocked) {
+            preview.setInteractive();
+            preview.on('pointerdown', () => {
+                this.equipSkin(this.currentLockerPlayer, charKey, skinType);
+                this.closeLocker();
+            });
+            
+            preview.on('pointerover', () => {
+                preview.setScale(preview.scaleX * 1.1, preview.scaleY * 1.1);
+            });
+            
+            preview.on('pointerout', () => {
+                preview.setScale(preview.scaleX / 1.1, preview.scaleY / 1.1);
+            });
+        }
+        
+        return preview;
+    }
+    
+    equipSkin(playerId, charKey, skinType) {
+        const success = PLAYER_PROGRESS.equipSkin(playerId, charKey, skinType);
+        
+        if (success) {
+            console.log(`${playerId} equipped ${skinType} skin for ${charKey}`);
+            
+            // Update local progress
+            if (playerId === 'player1') {
+                player1Progress = PLAYER_PROGRESS.loadPlayerProgress('player1');
+            } else {
+                player2Progress = PLAYER_PROGRESS.loadPlayerProgress('player2');
+            }
+            
+            // Close and reopen locker to refresh display
+            this.closeLocker();
+            this.openLocker(playerId);
+            
+            // Update the character selection display
+            this.updateCharacterSelectionDisplay();
+        }
+    }
+    
+    updateCharacterSelectionDisplay() {
+        // Update the character previews in the selection screen with equipped skins
+        this.player1Grid.forEach((display, index) => {
+            const charKey = this.characterKeys[index];
+            const equippedSkin = PLAYER_PROGRESS.getEquippedSkin('player1', charKey);
+            
+            // Update skin text
+            display.skinText.setText(CharacterSpriteHelper.getSkinDisplayName(equippedSkin));
+            display.skinText.setStyle({ fill: CharacterSpriteHelper.getSkinRarityColor(equippedSkin) });
+            
+            // Update sprite tint
+            display.sprite.clearTint();
+            if (equippedSkin !== 'base') {
+                display.sprite.setTint(CharacterSpriteHelper.getSkinRarityColor(equippedSkin));
+            }
+        });
+        
+        this.player2Grid.forEach((display, index) => {
+            const charKey = this.characterKeys[index];
+            const equippedSkin = PLAYER_PROGRESS.getEquippedSkin('player2', charKey);
+            
+            // Update skin text
+            display.skinText.setText(CharacterSpriteHelper.getSkinDisplayName(equippedSkin));
+            display.skinText.setStyle({ fill: CharacterSpriteHelper.getSkinRarityColor(equippedSkin) });
+            
+            // Update sprite tint
+            display.sprite.clearTint();
+            if (equippedSkin !== 'base') {
+                display.sprite.setTint(CharacterSpriteHelper.getSkinRarityColor(equippedSkin));
+            }
+        });
+    }
+    
+    closeLocker() {
+        if (!this.lockerOpen) return;
+        
+        this.lockerOpen = false;
+        this.currentLockerPlayer = null;
+        
+        // Clean up locker elements
+        if (this.lockerElements) {
+            this.lockerElements.forEach(element => {
+                if (element && element.destroy) {
+                    element.destroy();
+                }
+            });
+            this.lockerElements = [];
+        }
+        
+        // Clean up character elements
+        if (this.lockerCharElements) {
+            this.lockerCharElements.forEach(element => {
+                if (element && element.destroy) {
+                    element.destroy();
+                }
+            });
+            this.lockerCharElements = [];
+        }
+        
+        // Clean up any other locker-related elements
+        if (this.lockerBackdrop) this.lockerBackdrop.destroy();
+        if (this.lockerPanel) this.lockerPanel.destroy();
+        if (this.lockerTitle) this.lockerTitle.destroy();
+        if (this.lockerXPInfo) this.lockerXPInfo.destroy();
+        if (this.lockerCloseBtn) this.lockerCloseBtn.destroy();
     }
 
     confirmPlayer1Selection() {
@@ -784,7 +1504,11 @@ class GameScene extends Phaser.Scene {
         const p1Character = CHARACTERS[selectedCharacters.player1];
         const p2Character = CHARACTERS[selectedCharacters.player2];
 
-        // Load Player 1 character sprites
+        // Get equipped skins
+        const p1EquippedSkin = PLAYER_PROGRESS.getEquippedSkin('player1', selectedCharacters.player1);
+        const p2EquippedSkin = PLAYER_PROGRESS.getEquippedSkin('player2', selectedCharacters.player2);
+
+        // Load Player 1 character sprites with equipped skin
         const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
         if (p1SpriteConfig) {
             if (p1SpriteConfig.type === 'sprite_sheet') {
@@ -810,7 +1534,7 @@ class GameScene extends Phaser.Scene {
             }
         }
 
-        // Load Player 2 character sprites
+        // Load Player 2 character sprites with equipped skin
         const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
         if (p2SpriteConfig) {
             if (p2SpriteConfig.type === 'sprite_sheet') {
@@ -835,6 +1559,10 @@ class GameScene extends Phaser.Scene {
                 this.load.image('player2_walk', p2SpriteConfig.basePath + walkAnim.file);
             }
         }
+
+        // Store equipped skins for create method
+        this.p1EquippedSkin = p1EquippedSkin;
+        this.p2EquippedSkin = p2EquippedSkin;
     
         // Load grass ground texture
         this.load.image('grass', 'assets/Sprites/Backgrounds/grass.png');
@@ -844,7 +1572,48 @@ class GameScene extends Phaser.Scene {
         
         // Load goal sprite
         this.load.image('goalPost', 'assets/Sprites/goals/Head Ball/Assets/Sprites/porta.png');
-}
+    }
+
+    calculatePowerCooldown(playerId) {
+        // Base cooldown is 15 seconds
+        const baseCooldown = 15000;
+        
+        // Get the selected character for this player
+        const selectedCharacter = playerId === 'player1' ? selectedCharacters.player1 : selectedCharacters.player2;
+        
+        // Get the equipped skin for this character
+        const progress = PLAYER_PROGRESS.loadPlayerProgress(playerId);
+        const equippedSkin = progress.equippedSkins[selectedCharacter] || 'base';
+        
+        // Calculate cooldown reduction based on skin tier
+        let cooldownReduction = 0;
+        switch (equippedSkin) {
+            case 'base':
+                cooldownReduction = 0; // No reduction for base skin
+                break;
+            case 'bronze':
+                cooldownReduction = 3000; // -3 seconds
+                break;
+            case 'silver':
+                cooldownReduction = 6000; // -6 seconds
+                break;
+            case 'gold':
+                cooldownReduction = 9000; // -9 seconds
+                break;
+            case 'shadow':
+                cooldownReduction = 12000; // -12 seconds
+                break;
+            default:
+                cooldownReduction = 0;
+        }
+        
+        // Calculate final cooldown (minimum 1 second)
+        const finalCooldown = Math.max(1000, baseCooldown - cooldownReduction);
+        
+        console.log(`🎮 ${playerId} Power Cooldown: ${finalCooldown/1000}s (${equippedSkin} skin: -${cooldownReduction/1000}s)`);
+        
+        return finalCooldown;
+    }
 
     create() {
         // Add background first (behind everything)
@@ -869,7 +1638,7 @@ class GameScene extends Phaser.Scene {
             player1: {
                 ready: false,
                 lastUsed: 0,
-                cooldown: 15000, // 15 seconds
+                cooldown: this.calculatePowerCooldown('player1'), // Dynamic cooldown based on skin
                 goals: 0,
                 immune: false,
                 immuneUntil: 0,
@@ -880,7 +1649,7 @@ class GameScene extends Phaser.Scene {
             player2: {
                 ready: false,
                 lastUsed: 0,
-                cooldown: 15000, // 15 seconds
+                cooldown: this.calculatePowerCooldown('player2'), // Dynamic cooldown based on skin
                 goals: 0,
                 immune: false,
                 immuneUntil: 0,
@@ -923,8 +1692,8 @@ class GameScene extends Phaser.Scene {
         const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
         const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
     
-    // Create ground using grass texture
-    const ground = this.add.image(400, 575, 'grass');
+        // Create ground using grass texture
+        const ground = this.add.image(400, 575, 'grass');
         ground.setOrigin(0.5, 0.5); // Center the image
         ground.setDisplaySize(800, 50); // Stretch to full screen width and maintain 50px height
         this.physics.add.existing(ground, true);
@@ -935,7 +1704,7 @@ class GameScene extends Phaser.Scene {
         this.player1.setCollideWorldBounds(true);
         this.player1.setMass(1);
         this.player1.setDrag(100);
-        this.player1.setMaxVelocity(300, 800);
+        this.player1.setMaxVelocity(300, 800); // Adjusted for better gameplay feel
         
         // Set scale based on character type
         if (p1SpriteConfig && (p1SpriteConfig.type === 'sprite_sheet' || p1SpriteConfig.hasAnimation)) {
@@ -952,13 +1721,19 @@ class GameScene extends Phaser.Scene {
             this.player1.body.setOffset(0, 0); // Center the collision body
         }
         
+        // Apply Player 1 equipped skin tint
+        if (this.p1EquippedSkin && this.p1EquippedSkin !== 'base') {
+            const skinColor = CharacterSpriteHelper.getSkinRarityColor(this.p1EquippedSkin);
+            this.player1.setTint(skinColor);
+        }
+        
         // Create Player 2 with selected character sprite
         this.player2 = this.physics.add.sprite(600, 450, 'player2_idle');
         this.player2.setBounce(0.2);
         this.player2.setCollideWorldBounds(true);
         this.player2.setMass(1);
         this.player2.setDrag(100);
-        this.player2.setMaxVelocity(300, 800);
+        this.player2.setMaxVelocity(300, 800); // Adjusted for better gameplay feel
         
         // Set scale based on character type
         if (p2SpriteConfig && (p2SpriteConfig.type === 'sprite_sheet' || p2SpriteConfig.hasAnimation)) {
@@ -973,6 +1748,12 @@ class GameScene extends Phaser.Scene {
             // Adjust collision body for Mini Pixel Pack (16x16 base -> 48x48 visual)
             this.player2.body.setSize(16, 16); // Match the original sprite size for proper collision
             this.player2.body.setOffset(0, 0); // Center the collision body
+        }
+        
+        // Apply Player 2 equipped skin tint
+        if (this.p2EquippedSkin && this.p2EquippedSkin !== 'base') {
+            const skinColor = CharacterSpriteHelper.getSkinRarityColor(this.p2EquippedSkin);
+            this.player2.setTint(skinColor);
         }
         
         // Create animations for both players
@@ -1004,7 +1785,7 @@ class GameScene extends Phaser.Scene {
         this.add.image(10, 550, 'goalPost').setOrigin(0, 1).setScale(4.0);
         this.add.image(790, 550, 'goalPost').setOrigin(1, 1).setFlipX(true).setScale(4.0);
     
-    // Physics collisions
+        // Physics collisions
         this.physics.add.collider(this.player1, ground);
         this.physics.add.collider(this.player2, ground);
         this.physics.add.collider(this.ball, ground);
@@ -1077,206 +1858,513 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    createUI() {
-        // Get selected character names
-        const p1Character = CHARACTERS[selectedCharacters.player1];
-        const p2Character = CHARACTERS[selectedCharacters.player2];
+    getRandomChaosDelay() {
+        // Random delay around 7 seconds (6000-8000ms)
+        const delay = 6000 + Math.random() * 2000;
+        return delay;
+    }
 
-        // Timer display
-        this.timerText = this.add.text(400, 60, this.formatTime(this.matchTime), {
-        fontSize: '28px',
-        fill: '#ffff00',
-        backgroundColor: '#000000',
-        padding: { x: 20, y: 10 }
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
-    
-        // Score display
-        this.scoreText = this.add.text(400, 30, 'Left: 0 | Right: 0', {
-        fontSize: '24px',
-        fill: '#ffffff',
-        backgroundColor: '#000000',
-        padding: { x: 16, y: 8 }
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+    createUI() {
+        // Create score display
+        this.leftScoreText = this.add.text(100, 50, 'Player 1: 0', { 
+            fontSize: '24px', 
+            fill: '#00ff00',
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
+        });
         
-        // FPS text
-        this.fpsText = this.add.text(16, 16, 'FPS: 60', {
-        fontSize: '18px',
-        fill: '#ffffff',
-        backgroundColor: '#000000',
-        padding: { x: 8, y: 4 }
-    }).setScrollFactor(0).setDepth(1000);
-    
-        // Character info
-        this.add.text(16, 100, `Player 1: ${p1Character.name} (${p1Character.power})`, {
-        fontSize: '16px',
+        this.rightScoreText = this.add.text(700, 50, 'Player 2: 0', { 
+            fontSize: '24px', 
+            fill: '#0080ff',
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(1, 0);
+
+        // Create timer display
+        this.timerText = this.add.text(400, 50, 'Time: 60', { 
+            fontSize: '24px', 
             fill: '#ffffff',
-        backgroundColor: '#000000',
-        padding: { x: 8, y: 4 }
-    }).setScrollFactor(0).setDepth(1000);
-    
-        this.add.text(16, 130, `Player 2: ${p2Character.name} (${p2Character.power})`, {
-        fontSize: '16px',
-        fill: '#ffffff',
-        backgroundColor: '#000000',
-        padding: { x: 8, y: 4 }
-    }).setScrollFactor(0).setDepth(1000);
-    
-        this.add.text(16, 160, 'Controls: WASD (P1) | Arrow Keys (P2)', {
-        fontSize: '16px',
-        fill: '#ffffff',
-        backgroundColor: '#000000',
-        padding: { x: 8, y: 4 }
-    }).setScrollFactor(0).setDepth(1000);
-    
-        // Connection status
-        this.connectionStatusText = this.add.text(16, 190, 'Socket: Connecting...', {
-        fontSize: '16px',
-        fill: '#ffff00',
-        backgroundColor: '#000000',
-        padding: { x: 8, y: 4 }
-    }).setScrollFactor(0).setDepth(1000);
-    
-        this.socketText = this.add.text(16, 220, 'Socket ID: Not connected', {
-        fontSize: '16px',
-        fill: '#00ffff',
-        backgroundColor: '#000000',
-        padding: { x: 8, y: 4 }
-    }).setScrollFactor(0).setDepth(1000);
-    
-    // Power UI
-    this.createPowerUI();
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5, 0);
+
+        // Create connection status display
+        this.connectionStatusText = this.add.text(400, 580, 'Socket: Connecting...', { 
+            fontSize: '12px', 
+            fill: '#ffff00',
+            backgroundColor: '#000000',
+            padding: { x: 5, y: 2 }
+        }).setOrigin(0.5, 1);
+
+        // Create socket ID display
+        this.socketText = this.add.text(10, 580, 'Socket ID: Not connected', { 
+            fontSize: '12px', 
+            fill: '#888888',
+            backgroundColor: '#000000',
+            padding: { x: 5, y: 2 }
+        }).setOrigin(0, 1);
+
+        // Create power status displays
+        this.createPowerStatusUI();
     }
-    
-    createPowerUI() {
-        // Get selected character names
-        const p1Character = CHARACTERS[selectedCharacters.player1];
-        const p2Character = CHARACTERS[selectedCharacters.player2];
-        
-        // Player 1 Power UI (Bottom-left)
-        this.powerUI = {};
-        this.powerUI.player1 = {
-            background: this.add.rectangle(120, 420, 200, 60, 0x000000, 0.8),
-            title: this.add.text(120, 400, `${p1Character.name} [E]`, {
-                fontSize: '14px',
-                fill: '#00ff00',
-                backgroundColor: '#000000',
-                padding: { x: 4, y: 2 }
-            }).setOrigin(0.5),
-            status: this.add.text(120, 420, 'Not Ready', {
-                fontSize: '16px',
-                fill: '#ff0000',
-                backgroundColor: '#000000',
-                padding: { x: 6, y: 3 }
-            }).setOrigin(0.5),
-            cooldown: this.add.text(120, 440, '', {
-                fontSize: '12px',
-                fill: '#ffff00',
-                backgroundColor: '#000000',
-                padding: { x: 4, y: 2 }
-            }).setOrigin(0.5)
-        };
-        
-        // Player 2 Power UI (Bottom-right)
-        this.powerUI.player2 = {
-            background: this.add.rectangle(680, 420, 200, 60, 0x000000, 0.8),
-            title: this.add.text(680, 400, `${p2Character.name} [K]`, {
-                fontSize: '14px',
-                fill: '#0080ff',
-                backgroundColor: '#000000',
-                padding: { x: 4, y: 2 }
-            }).setOrigin(0.5),
-            status: this.add.text(680, 420, 'Not Ready', {
-                fontSize: '16px',
-                fill: '#ff0000',
-                backgroundColor: '#000000',
-                padding: { x: 6, y: 3 }
-            }).setOrigin(0.5),
-            cooldown: this.add.text(680, 440, '', {
-                fontSize: '12px',
-                fill: '#ffff00',
-                backgroundColor: '#000000',
-                padding: { x: 4, y: 2 }
-            }).setOrigin(0.5)
-        };
-        
-        // Set scroll factor to 0 so UI doesn't move with camera
-        Object.values(this.powerUI.player1).forEach(element => element.setScrollFactor(0));
-        Object.values(this.powerUI.player2).forEach(element => element.setScrollFactor(0));
+
+    createPowerStatusUI() {
+        // Player 1 Power Status
+        this.player1PowerText = this.add.text(100, 100, 'Power: Ready', { 
+            fontSize: '14px', 
+            fill: '#00ff00',
+            backgroundColor: '#000000',
+            padding: { x: 8, y: 4 }
+        });
+
+        // Player 2 Power Status
+        this.player2PowerText = this.add.text(700, 100, 'Power: Ready', { 
+            fontSize: '14px', 
+            fill: '#0080ff',
+            backgroundColor: '#000000',
+            padding: { x: 8, y: 4 }
+        }).setOrigin(1, 0);
     }
-    
-    updatePowerSystem() {
+
+    updatePowerStatusUI() {
         const currentTime = Date.now();
-        const gameTime = (currentTime - this.gameStartTime) / 1000;
         
-        // Update each player's power state
-        ['player1', 'player2'].forEach(player => {
-            const power = this.powers[player];
-            const ui = this.powerUI[player];
-            
-            // Check if power should be ready
-            const timePassed = gameTime >= 15; // 15 seconds passed
-            const goalsReached = power.goals >= 2; // 2 goals scored
-            const cooldownDone = (currentTime - power.lastUsed) >= power.cooldown;
-            
-            power.ready = (timePassed || goalsReached) && cooldownDone;
-            
-            // Update immunity status
-            if (power.immune && currentTime > power.immuneUntil) {
-                power.immune = false;
-                const playerSprite = player === 'player1' ? this.player1 : this.player2;
-                playerSprite.clearTint();
-            }
-            
-            // Update frozen status
-            if (power.frozen && currentTime > power.frozenUntil) {
-                power.frozen = false;
-                const playerSprite = player === 'player1' ? this.player1 : this.player2;
-                playerSprite.clearTint();
-            }
-            
-            // Update UI
-            if (power.ready) {
-                ui.status.setText('⚡ READY!');
-                ui.status.setStyle({ fill: '#00ff00' });
-                ui.cooldown.setText('');
-            } else if ((currentTime - power.lastUsed) < power.cooldown) {
-                // On cooldown
-                const remainingCooldown = Math.ceil((power.cooldown - (currentTime - power.lastUsed)) / 1000);
-                ui.status.setText('Cooldown');
-                ui.status.setStyle({ fill: '#ff0000' });
-                ui.cooldown.setText(`${remainingCooldown}s`);
-            } else {
-                // Waiting for time or goals
-                const timeRemaining = Math.max(0, Math.ceil(15 - gameTime));
-                const goalsNeeded = Math.max(0, 2 - power.goals);
-                
-                ui.status.setText('Not Ready');
-                ui.status.setStyle({ fill: '#ff0000' });
-                
-                if (timeRemaining > 0 && goalsNeeded > 0) {
-                    ui.cooldown.setText(`${timeRemaining}s or ${goalsNeeded} goals`);
-                } else {
-                    ui.cooldown.setText('');
-                }
-            }
+        // Update Player 1 power status
+        if (this.powers.player1.ready) {
+            this.player1PowerText.setText('Power: Ready [E]');
+            this.player1PowerText.setStyle({ fill: '#00ff00' });
+        } else {
+            const timeLeft = Math.max(0, this.powers.player1.cooldown - (currentTime - this.powers.player1.lastUsed));
+            this.player1PowerText.setText(`Power: ${(timeLeft/1000).toFixed(1)}s`);
+            this.player1PowerText.setStyle({ fill: '#ff0000' });
+        }
+        
+        // Update Player 2 power status
+        if (this.powers.player2.ready) {
+            this.player2PowerText.setText('Power: Ready [K]');
+            this.player2PowerText.setStyle({ fill: '#0080ff' });
+        } else {
+            const timeLeft = Math.max(0, this.powers.player2.cooldown - (currentTime - this.powers.player2.lastUsed));
+            this.player2PowerText.setText(`Power: ${(timeLeft/1000).toFixed(1)}s`);
+            this.player2PowerText.setStyle({ fill: '#ff0000' });
+        }
+    }
+
+    startMatchTimer() {
+        this.matchTimer = this.time.addEvent({
+            delay: 1000,
+            callback: this.updateTimer,
+            callbackScope: this,
+            loop: true
         });
     }
-    
+
+    updateTimer() {
+        if (this.gameOver) return;
+        
+        this.matchTime--;
+        this.timerText.setText(`Time: ${this.matchTime}`);
+        
+        if (this.matchTime <= 0) {
+            this.handleTimeUp();
+        }
+    }
+
+    handleTimeUp() {
+        this.gameOver = true;
+        
+        // Determine winner based on score
+        let winner;
+        if (this.leftScore > this.rightScore) {
+            winner = 'Player 1';
+        } else if (this.rightScore > this.leftScore) {
+            winner = 'Player 2';
+        } else {
+            winner = 'Draw';
+        }
+        
+        this.handleGameOver(winner);
+    }
+
+    handleGoalScored(scorer) {
+        if (this.gameOver) return;
+        
+        if (scorer === 'left') {
+            this.leftScore++;
+            this.leftScoreText.setText(`Player 1: ${this.leftScore}`);
+            this.powers.player1.goals++;
+        } else {
+            this.rightScore++;
+            this.rightScoreText.setText(`Player 2: ${this.rightScore}`);
+            this.powers.player2.goals++;
+        }
+        
+        // Reset ball position
+        this.ball.setPosition(400, 450);
+        this.ball.setVelocity(0, 0);
+        
+        // Check for game end (first to 3 goals or time up)
+        if (this.leftScore >= 3 || this.rightScore >= 3) {
+            this.handleGameOver(scorer === 'left' ? 'Player 1' : 'Player 2');
+        }
+    }
+
+    handleGameOver(winner) {
+        this.gameOver = true;
+        
+        // Award XP based on results
+        let p1XP = 0;
+        let p2XP = 0;
+        
+        if (winner === 'Player 1') {
+            p1XP = 50; // Winner gets 50 XP
+            p2XP = 25; // Loser gets 25 XP
+        } else if (winner === 'Player 2') {
+            p1XP = 25; // Loser gets 25 XP
+            p2XP = 50; // Winner gets 50 XP
+        } else {
+            p1XP = 35; // Draw gives 35 XP each
+            p2XP = 35;
+        }
+        
+        // Add XP to player progress
+        const p1Result = PLAYER_PROGRESS.addXP('player1', p1XP);
+        const p2Result = PLAYER_PROGRESS.addXP('player2', p2XP);
+        
+        // Update session stats
+        if (winner === 'Player 1') {
+            SessionState.player1Wins++;
+        } else if (winner === 'Player 2') {
+            SessionState.player2Wins++;
+        }
+        SessionState.totalRoundsPlayed++;
+        
+        // Show XP gain screen
+        this.showXPGainScreen(winner, p1Result, p2Result);
+    }
+
+    showXPGainScreen(winner, p1Result, p2Result) {
+        // Create overlay
+        const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
+        
+        // Winner announcement
+        const winnerText = winner === 'Draw' ? 'DRAW!' : `${winner} WINS!`;
+        const winnerColor = winner === 'Player 1' ? '#00ff00' : winner === 'Player 2' ? '#0080ff' : '#ffff00';
+        
+        this.add.text(400, 150, winnerText, {
+            fontSize: '48px',
+            fill: winnerColor,
+            backgroundColor: '#000000',
+            padding: { x: 20, y: 10 }
+        }).setOrigin(0.5);
+        
+        // Final score
+        this.add.text(400, 220, `Final Score: ${this.leftScore} - ${this.rightScore}`, {
+            fontSize: '24px',
+            fill: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 16, y: 8 }
+        }).setOrigin(0.5);
+        
+        // XP gains
+        this.add.text(400, 280, 'XP GAINED:', {
+            fontSize: '20px',
+            fill: '#ffff00',
+            backgroundColor: '#000000',
+            padding: { x: 12, y: 6 }
+        }).setOrigin(0.5);
+        
+        // Player 1 XP
+        const p1LevelText = p1Result.leveledUp ? ` (LEVEL UP! ${p1Result.oldLevel} → ${p1Result.newLevel})` : '';
+        this.add.text(400, 320, `Player 1: +${p1Result.newXP - p1Result.oldXP} XP${p1LevelText}`, {
+            fontSize: '16px',
+            fill: p1Result.leveledUp ? '#00ff00' : '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5);
+        
+        // Player 2 XP
+        const p2LevelText = p2Result.leveledUp ? ` (LEVEL UP! ${p2Result.oldLevel} → ${p2Result.newLevel})` : '';
+        this.add.text(400, 350, `Player 2: +${p2Result.newXP - p2Result.oldXP} XP${p2LevelText}`, {
+            fontSize: '16px',
+            fill: p2Result.leveledUp ? '#0080ff' : '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5);
+        
+        // Session stats
+        this.add.text(400, 400, `Session Stats: ${SessionState.player1Wins}-${SessionState.player2Wins} (${SessionState.totalRoundsPlayed} rounds)`, {
+            fontSize: '14px',
+            fill: '#cccccc',
+            backgroundColor: '#000000',
+            padding: { x: 8, y: 4 }
+        }).setOrigin(0.5);
+        
+        // Continue button
+        const continueBtn = this.add.text(400, 480, 'Continue [SPACE]', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            backgroundColor: '#228b22',
+            padding: { x: 16, y: 8 }
+        }).setOrigin(0.5);
+        
+        // Add space key listener
+        this.input.keyboard.once('keydown-SPACE', () => {
+            this.scene.start('CharacterSelectionScene');
+        });
+    }
+
+    handlePlayerBallCollision(player, ball) {
+        if (this.gameOver) return;
+        
+        // Check if this is a fire ball and handle special logic
+        if (ball.fireKicked) {
+            // Determine which player this is
+            const isPlayer1 = player === this.player1;
+            const playerKey = isPlayer1 ? 'player1' : 'player2';
+            const playerPower = this.powers[playerKey];
+            
+            // Check if player has any active power that can deflect the fire ball
+            const canDeflect = playerPower.immune || playerPower.shieldActive || this.isPlayerPowerActive(playerKey);
+            
+            if (!canDeflect) {
+                // Fire ball passes through - no collision response
+                console.log('Fire ball passes through player without active power');
+                return;
+            } else {
+                // Player has active power - they can deflect the fire ball
+                console.log('Player with active power deflects fire ball');
+                
+                // Add special deflection effect
+                this.cameras.main.shake(200, 0.02);
+                
+                // Give the ball a powerful deflection
+                const deflectionDirection = isPlayer1 ? -1 : 1;
+                ball.setVelocity(deflectionDirection * 500, -250);
+                
+                // Visual feedback for successful deflection
+                player.setTint(0x00ff00);
+                this.time.delayedCall(300, () => player.clearTint());
+                
+                // Clear fire effect since it was deflected
+                ball.clearTint();
+                ball.fireKicked = false;
+                
+                return;
+            }
+        }
+        
+        // Normal ball collision logic (existing code)
+        const ballVelocityX = ball.body.velocity.x;
+        const ballVelocityY = ball.body.velocity.y;
+        const playerVelocityX = player.body.velocity.x;
+        const playerVelocityY = player.body.velocity.y;
+        
+        const deltaX = ball.x - player.x;
+        const deltaY = ball.y - player.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance < 1) return;
+        
+        const normalX = deltaX / distance;
+        const normalY = deltaY / distance;
+        
+        const separationDistance = 35;
+        const separationForce = Math.max(0, separationDistance - distance);
+        if (separationForce > 0) {
+            ball.x += normalX * separationForce;
+            ball.y += normalY * separationForce;
+        }
+        
+        const isPlayer1 = player === this.player1;
+        const correctDirection = isPlayer1 ? 1 : -1;
+        
+        // Calculate kick velocity based on player input and position
+        let kickVelocityX = correctDirection * 200;
+        let kickVelocityY = -150;
+        
+        // Add player momentum
+        if (Math.abs(playerVelocityX) > 10) {
+            kickVelocityX += playerVelocityX * 0.5;
+        }
+        
+        // Stronger kick if player is moving toward ball
+        if ((correctDirection > 0 && playerVelocityX > 0) || (correctDirection < 0 && playerVelocityX < 0)) {
+            kickVelocityX *= 1.5;
+            kickVelocityY = -200;
+        }
+        
+        ball.setVelocity(kickVelocityX, kickVelocityY);
+    }
+
+    isPlayerPowerActive(playerKey) {
+        const power = this.powers[playerKey];
+        const currentTime = Date.now();
+        
+        // Check if any power effects are currently active
+        return power.immune || power.shieldActive || power.frozen || 
+               (power.immuneUntil && currentTime < power.immuneUntil) ||
+               (power.frozenUntil && currentTime < power.frozenUntil);
+    }
+
+    handlePlayerPlayerCollision(player1, player2) {
+        // Simple bounce effect
+        const pushForce = 50;
+        if (player1.x < player2.x) {
+            player1.setVelocityX(-pushForce);
+            player2.setVelocityX(pushForce);
+        } else {
+            player1.setVelocityX(pushForce);
+            player2.setVelocityX(-pushForce);
+        }
+    }
+
+    update() {
+        if (this.gameOver) return;
+        
+        // Update power system
+        this.updatePowerSystem();
+        
+        // Update chaos events
+        this.updateChaosManager();
+        
+        // Calculate movement speeds based on chaos events
+        let horizontalSpeed = 160;
+        let jumpSpeed = 330;
+        let airMovementSpeed = 100; // Normal mode: allow air control at reduced speed
+        
+        if (this.chaosManager.currentEvent === 'zero_gravity') {
+            horizontalSpeed = 80; // Much slower horizontal movement in zero gravity
+            jumpSpeed = 200; // Slower, more controlled jumps
+            airMovementSpeed = 40; // Allow slow air movement in zero gravity
+        }
+        
+        // Player 1 controls (WASD) - check if frozen
+        if (!this.powers.player1.frozen) {
+            if (this.wasd.A.isDown) {
+                if (this.player1.body.touching.down) {
+                    this.player1.setVelocityX(-horizontalSpeed);
+                    this.player1.play('player1_walk_anim', true);
+                } else if (airMovementSpeed > 0) {
+                    // Allow air movement in zero gravity
+                    this.player1.setVelocityX(-airMovementSpeed);
+                }
+                this.player1.setFlipX(true); // Face left
+            } else if (this.wasd.D.isDown) {
+                if (this.player1.body.touching.down) {
+                    this.player1.setVelocityX(horizontalSpeed);
+                    this.player1.play('player1_walk_anim', true);
+                } else if (airMovementSpeed > 0) {
+                    // Allow air movement in zero gravity
+                    this.player1.setVelocityX(airMovementSpeed);
+                }
+                this.player1.setFlipX(false); // Face right
+            } else {
+                this.player1.setVelocityX(0);
+                if (this.player1.body.touching.down) {
+                    this.player1.play('player1_idle_anim', true);
+                }
+            }
+            
+            if (this.wasd.W.isDown && this.player1.body.touching.down) {
+                this.player1.setVelocityY(-jumpSpeed);
+            }
+        }
+        
+        // Player 2 controls (Arrow Keys) - check if frozen
+        if (!this.powers.player2.frozen) {
+            if (this.cursors.left.isDown) {
+                if (this.player2.body.touching.down) {
+                    this.player2.setVelocityX(-horizontalSpeed);
+                    this.player2.play('player2_walk_anim', true);
+                } else if (airMovementSpeed > 0) {
+                    // Allow air movement in zero gravity
+                    this.player2.setVelocityX(-airMovementSpeed);
+                }
+                this.player2.setFlipX(true); // Face left
+            } else if (this.cursors.right.isDown) {
+                if (this.player2.body.touching.down) {
+                    this.player2.setVelocityX(horizontalSpeed);
+                    this.player2.play('player2_walk_anim', true);
+                } else if (airMovementSpeed > 0) {
+                    // Allow air movement in zero gravity
+                    this.player2.setVelocityX(airMovementSpeed);
+                }
+                this.player2.setFlipX(false); // Face right
+            } else {
+                this.player2.setVelocityX(0);
+                if (this.player2.body.touching.down) {
+                    this.player2.play('player2_idle_anim', true);
+                }
+            }
+            
+            if (this.cursors.up.isDown && this.player2.body.touching.down) {
+                this.player2.setVelocityY(-jumpSpeed);
+            }
+        }
+        
+        // Power activation
+        if (this.powerKeys.E.isDown) {
+            this.activatePower('player1');
+        }
+        
+        if (this.powerKeys.K.isDown) {
+            this.activatePower('player2');
+        }
+        
+        // Update UI
+        this.updatePowerStatusUI();
+        
+        // Apply chaos effects
+        this.applyChaosEffects();
+        
+        // Ball safety check - prevent ball from getting trapped between players
+        this.preventBallSqueezing();
+    }
+
+    updatePowerSystem() {
+        const currentTime = Date.now();
+        
+        // Update Player 1 power
+        if (!this.powers.player1.ready) {
+            if (currentTime - this.powers.player1.lastUsed >= this.powers.player1.cooldown) {
+                this.powers.player1.ready = true;
+            }
+        }
+        
+        // Update Player 2 power
+        if (!this.powers.player2.ready) {
+            if (currentTime - this.powers.player2.lastUsed >= this.powers.player2.cooldown) {
+                this.powers.player2.ready = true;
+            }
+        }
+    }
+
     activatePower(player) {
-        const power = this.powers[player];
+        if (!this.powers[player].ready) return;
         
-        if (!power.ready || this.gameOver) return;
+        // Mark power as used
+        this.powers[player].ready = false;
+        this.powers[player].lastUsed = Date.now();
         
-        // Use the power
-        power.ready = false;
-        power.lastUsed = Date.now();
+        // Recalculate cooldown based on current equipped skin
+        this.powers[player].cooldown = this.calculatePowerCooldown(player);
         
-        // Get character and execute power
-        const characterId = selectedCharacters[player];
+        // Get selected character for this player
+        const characterKey = player === 'player1' ? selectedCharacters.player1 : selectedCharacters.player2;
+        const character = CHARACTERS[characterKey];
         const playerSprite = player === 'player1' ? this.player1 : this.player2;
+        
+        // Apply character-specific power
+        this.applyCharacterPower(player, character, playerSprite);
+    }
+
+    applyCharacterPower(player, character, playerSprite) {
+        // Get opponent for power interactions
         const opponent = player === 'player1' ? this.player2 : this.player1;
         
-        switch (characterId) {
+        // Character-specific powers based on character name
+        switch (character.name.toLowerCase()) {
             case 'blaze':
                 this.executeFlameUppercut(playerSprite, opponent);
                 break;
@@ -1297,7 +2385,7 @@ class GameScene extends Phaser.Scene {
                 break;
         }
     }
-    
+
     executeFlameUppercut(player, opponent) {
         // Create fire start effect
         this.createBlazeStartEffect(player);
@@ -1350,7 +2438,7 @@ class GameScene extends Phaser.Scene {
             this.createBlazeEndEffect(player);
         });
     }
-    
+
     createBlazeStartEffect(player) {
         // Create start fire effect - explosive burst
         const startEffect = this.add.graphics();
@@ -1405,7 +2493,7 @@ class GameScene extends Phaser.Scene {
             if (startEffect.active) startEffect.destroy();
         });
     }
-    
+
     createBlazeLoopEffect(player) {
         // Create loop fire effect that follows player
         const loopFlames = [];
@@ -1450,56 +2538,39 @@ class GameScene extends Phaser.Scene {
             loopFlames.forEach(flame => {
                 if (flame.active) flame.destroy();
             });
-            if (loopTimer.active) loopTimer.remove();
+            loopTimer.remove();
         });
     }
-    
+
     createBlazeEndEffect(player) {
-        // Create end fire effect - dissipating flames
+        // Create end fire effect - smaller burst
         const endFlames = [];
         
-        // Create dissipating flame particles
-        for (let i = 0; i < 12; i++) {
-            const flame = this.add.circle(
-                player.x + (Math.random() - 0.5) * 40, 
-                player.y + (Math.random() - 0.5) * 40, 
-                3 + Math.random() * 4, 
-                0xff4500
-            );
+        for (let i = 0; i < 4; i++) {
+            const flame = this.add.circle(player.x, player.y, 4, 0xff4500);
             flame.setDepth(5);
             flame.setAlpha(0.6);
             
-            // Animate dissipation
+            // Random upward motion
+            const angle = -Math.PI/2 + (Math.random() - 0.5) * Math.PI/4;
+            const speed = 20 + Math.random() * 10;
+            
             this.tweens.add({
                 targets: flame,
-                y: flame.y - 20 - Math.random() * 30,
+                x: player.x + Math.cos(angle) * speed,
+                y: player.y + Math.sin(angle) * speed,
                 alpha: 0,
-                scaleX: 0.3,
-                scaleY: 0.3,
-                duration: 600 + Math.random() * 400,
+                scaleX: 0.5,
+                scaleY: 0.5,
+                duration: 300,
                 ease: 'Power2',
                 onComplete: () => flame.destroy()
             });
             
             endFlames.push(flame);
         }
-        
-        // Smoke effect
-        const smoke = this.add.circle(player.x, player.y, 20, 0x666666);
-        smoke.setDepth(4);
-        smoke.setAlpha(0.3);
-        
-        this.tweens.add({
-            targets: smoke,
-            scaleX: 1.8,
-            scaleY: 1.8,
-            alpha: 0,
-            duration: 800,
-            ease: 'Power2',
-            onComplete: () => smoke.destroy()
-        });
     }
-    
+
     executeIceBlast(player, opponent) {
         // Create ice projectile
         const projectile = this.add.circle(player.x, player.y - 20, 8, 0x00bfff);
@@ -1549,7 +2620,7 @@ class GameScene extends Phaser.Scene {
             if (projectile.active) projectile.destroy();
         });
     }
-    
+
     executeElectricDash(player) {
         // Electric dash with yellow tint
         const direction = player.flipX ? -1 : 1;
@@ -1596,10 +2667,12 @@ class GameScene extends Phaser.Scene {
             repeat: 10
         });
         
-        // Clear tint
-        this.time.delayedCall(500, () => player.clearTint());
+        // Clear tint after dash
+        this.time.delayedCall(500, () => {
+            player.clearTint();
+        });
     }
-    
+
     executeBounceShield(player) {
         // Visual shield effect
         player.setTint(0x9370db);
@@ -1647,7 +2720,7 @@ class GameScene extends Phaser.Scene {
             shieldTimer.remove();
         });
     }
-    
+
     executeGroundPound(player, opponent) {
         // Grant immunity for 5 seconds
         const playerKey = player === this.player1 ? 'player1' : 'player2';
@@ -1675,9 +2748,10 @@ class GameScene extends Phaser.Scene {
         this.time.delayedCall(5000, () => {
             this.tweens.killTweensOf(player);
             player.setAlpha(1);
+            player.clearTint();
         });
     }
-    
+
     executeSpinKick(player) {
         // Spin effect
         player.setTint(0x87ceeb);
@@ -1755,28 +2829,11 @@ class GameScene extends Phaser.Scene {
         });
     }
 
-    // === CHAOS EVENT SYSTEM ===
-    
-    getRandomChaosDelay() {
-        // Random delay around 7 seconds (6000-8000ms)
-        const delay = 6000 + Math.random() * 2000;
-        return delay;
-    }
-    
     updateChaosManager() {
         if (this.gameOver) return;
         
         try {
             const currentTime = Date.now();
-            
-            // Optional: Debug timing (commented out for production)
-            // if (!this.chaosManager.lastDebugTime || currentTime - this.chaosManager.lastDebugTime > 2000) {
-            //     const timeUntilNext = (this.chaosManager.nextEventTime - currentTime) / 1000;
-            //     if (timeUntilNext > 0) {
-            //         console.log(`🕐 Debug: ${timeUntilNext.toFixed(1)}s until next chaos event`);
-            //     }
-            //     this.chaosManager.lastDebugTime = currentTime;
-            // }
             
             // Check if current event should end
             if (this.chaosManager.active && currentTime >= this.chaosManager.eventEndTime) {
@@ -1801,7 +2858,7 @@ class GameScene extends Phaser.Scene {
             console.error('🌪️ Error in chaos manager:', error);
         }
     }
-    
+
     startRandomChaosEvent() {
         if (this.chaosManager.active) return;
         
@@ -1847,49 +2904,7 @@ class GameScene extends Phaser.Scene {
                 break;
         }
     }
-    
-    endChaosEvent() {
-        if (!this.chaosManager.active) return;
-        
-        console.log(`🌪️ Chaos Event Ended: ${this.chaosManager.currentEvent.toUpperCase()}`);
-        
-        // End specific event
-        switch (this.chaosManager.currentEvent) {
-            case 'zero_gravity':
-                this.endZeroGravityEvent();
-                break;
-            case 'flip_screen':
-                this.endFlipScreenEvent();
-                break;
-            case 'speed_boost':
-                this.endSpeedBoostEvent();
-                break;
-            case 'meteor_drop':
-                this.endMeteorDropEvent();
-                break;
-            case 'ball_clone':
-                this.endBallCloneEvent();
-                break;
-            case 'big_head':
-                this.endBigHeadEvent();
-                break;
-            case 'darkroom':
-                this.endDarkroomEvent();
-                break;
-        }
-        
-        // Remove event banner
-        if (this.chaosManager.eventBanner) {
-            this.chaosManager.eventBanner.destroy();
-            this.chaosManager.eventBanner = null;
-        }
-        
-        // Reset chaos manager
-        this.chaosManager.active = false;
-        this.chaosManager.currentEvent = null;
-        this.chaosManager.nextEventTime = Date.now() + this.getRandomChaosDelay();
-    }
-    
+
     showEventBanner(eventType) {
         const eventNames = {
             'zero_gravity': '🌀 ZERO GRAVITY!',
@@ -1908,53 +2923,79 @@ class GameScene extends Phaser.Scene {
             'meteor_drop': '#ff4500',
             'ball_clone': '#32cd32',
             'big_head': '#9370db',
-            'darkroom': '#444444'
+            'darkroom': '#696969'
         };
         
-        const eventName = eventNames[eventType] || '⚠️ CHAOS EVENT!';
-        const eventColor = eventColors[eventType] || '#ffffff';
+        const bannerText = eventNames[eventType] || '🌪️ CHAOS EVENT!';
+        const bannerColor = eventColors[eventType] || '#ff0000';
         
-        try {
-            this.chaosManager.eventBanner = this.add.text(400, 100, eventName, {
-                fontSize: '36px',
-                fill: eventColor,
-                backgroundColor: '#000000',
-                padding: { x: 20, y: 10 },
-                stroke: '#ffffff',
-                strokeThickness: 2
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
-            
-            // Remove banner after 2 seconds
-            this.time.delayedCall(2000, () => {
-                if (this.chaosManager.eventBanner) {
-                    this.chaosManager.eventBanner.destroy();
-                    this.chaosManager.eventBanner = null;
-                }
-            });
-        } catch (error) {
-            console.error('🎨 Error creating banner:', error);
-        }
+        // Create banner
+        this.chaosManager.eventBanner = this.add.text(400, 200, bannerText, {
+            fontSize: '32px',
+            fill: bannerColor,
+            backgroundColor: '#000000',
+            padding: { x: 20, y: 10 }
+        }).setOrigin(0.5);
+        
+        // Animate banner entrance
+        this.tweens.add({
+            targets: this.chaosManager.eventBanner,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            duration: 500,
+            ease: 'Bounce.easeOut',
+            yoyo: true,
+            repeat: 1
+        });
+        
+        // Auto-remove banner after 3 seconds
+        this.time.delayedCall(3000, () => {
+            if (this.chaosManager.eventBanner) {
+                this.chaosManager.eventBanner.destroy();
+                this.chaosManager.eventBanner = null;
+            }
+        });
     }
-    
-    // === CHAOS EVENTS ===
-    
+
     startZeroGravityEvent() {
+        console.log('🌀 Zero Gravity Event: Simulating zero gravity with floaty physics');
+        
         // Store original values for restoration
+        this.chaosManager.originalGravity = this.physics.world.gravity.y;
         this.chaosManager.originalPlayer1MaxVelocity = this.player1.body.maxVelocity.y;
         this.chaosManager.originalPlayer2MaxVelocity = this.player2.body.maxVelocity.y;
         this.chaosManager.originalBallMaxVelocity = this.ball.body.maxVelocity.y;
+        this.chaosManager.originalPlayer1Drag = this.player1.body.drag.x;
+        this.chaosManager.originalPlayer2Drag = this.player2.body.drag.x;
+        this.chaosManager.originalBallDrag = this.ball.body.drag.x;
         
-        // Reduce fall speed for floaty feeling
-        this.player1.body.setMaxVelocity(300, 200); // Slower falling
-        this.player2.body.setMaxVelocity(300, 200); // Slower falling
-        this.ball.body.setMaxVelocity(350, 250); // Slower falling
+        // Reduce gravity significantly but not to zero
+        this.physics.world.gravity.y = 80; // Much lower gravity for floaty feeling
+        
+        // Reduce all velocities for slow, floaty movement
+        this.player1.body.setMaxVelocity(150, 100); // Slower horizontal and vertical movement
+        this.player2.body.setMaxVelocity(150, 100); // Slower horizontal and vertical movement
+        this.ball.body.setMaxVelocity(200, 150); // Slower ball movement
+        
+        // Increase drag to simulate air resistance in zero gravity
+        this.player1.body.setDrag(200); // More drag for floaty movement
+        this.player2.body.setDrag(200); // More drag for floaty movement
+        this.ball.body.setDrag(150); // More drag for ball
     }
     
     endZeroGravityEvent() {
+        // Restore original gravity
+        this.physics.world.gravity.y = this.chaosManager.originalGravity;
+        
         // Restore original max velocities
         this.player1.body.setMaxVelocity(300, this.chaosManager.originalPlayer1MaxVelocity);
         this.player2.body.setMaxVelocity(300, this.chaosManager.originalPlayer2MaxVelocity);
         this.ball.body.setMaxVelocity(350, this.chaosManager.originalBallMaxVelocity);
+        
+        // Restore original drag values
+        this.player1.body.setDrag(this.chaosManager.originalPlayer1Drag);
+        this.player2.body.setDrag(this.chaosManager.originalPlayer2Drag);
+        this.ball.body.setDrag(this.chaosManager.originalBallDrag);
     }
     
     startFlipScreenEvent() {
@@ -1965,41 +3006,32 @@ class GameScene extends Phaser.Scene {
     
     endFlipScreenEvent() {
         console.log('🔄 Flip Screen Event: Restoring camera orientation');
-        this.cameras.main.setRotation(0); // Restore normal rotation
+        this.cameras.main.setRotation(0); // Restore normal orientation
         this.chaosManager.screenFlipped = false;
     }
     
     startSpeedBoostEvent() {
-        this.chaosManager.originalPlayer1Speed = 160;
-        this.chaosManager.originalPlayer2Speed = 160;
-        // Speed boost will be applied in update loop
-    }
-    
-    endSpeedBoostEvent() {
-        // Speed will be restored in update loop
+        console.log('⚡ Speed Boost Event: Doubling player speeds');
+        // Speed boost will be applied in applyChaosEffects
     }
     
     startMeteorDropEvent() {
-        // Clean up any existing meteor timer first (prevents freezing on 2nd meteor shower)
-        if (this.meteorSpawnTimer) {
-            this.meteorSpawnTimer.remove();
-            this.meteorSpawnTimer = null;
-        }
-        
+        console.log('☄️ Meteor Drop Event: Spawning meteors');
         this.chaosManager.meteors = [];
         
-        // Start spawning meteors
-        this.meteorSpawnTimer = this.time.addEvent({
-            delay: 800, // Spawn every 0.8 seconds
-            repeat: Math.floor(this.chaosManager.eventDuration / 800) - 1,
-            callback: this.spawnMeteor,
-            callbackScope: this
+        // Create meteors periodically
+        const meteorTimer = this.time.addEvent({
+            delay: 800,
+            callback: () => this.spawnMeteor(),
+            repeat: -1
         });
+        
+        // Store timer for cleanup
+        this.chaosManager.meteorTimer = meteorTimer;
     }
     
     spawnMeteor() {
-        const x = 50 + Math.random() * 700; // Random x position
-        const meteor = this.add.circle(x, -30, 12, 0xff4500);
+        const meteor = this.add.circle(Math.random() * 800, -50, 8, 0xff4500);
         this.physics.add.existing(meteor);
         
         meteor.body.setVelocity(
@@ -2017,24 +3049,18 @@ class GameScene extends Phaser.Scene {
                 -200 // Upward knock
             );
             
-            // Apply stun effect
-            const playerKey = 'player1';
-            const playerPower = this.powers[playerKey];
+            // Stun effect
+            this.powers.player1.frozen = true;
+            this.powers.player1.frozenUntil = Date.now() + 1000; // 1 second stun
+            player.setTint(0xff4500);
             
-            if (!playerPower.immune && !playerPower.shieldActive) {
-                // Stun the player
-                player.setTint(0xffa500); // Orange tint for stun
-                playerPower.frozen = true; // Reuse freeze system for stun
-                playerPower.frozenUntil = Date.now() + 1500; // 1.5 seconds stun
-                
-                // Clear stun after duration
-                this.time.delayedCall(1500, () => {
-                    playerPower.frozen = false;
-                    player.clearTint();
-                });
-            }
+            // Clear stun
+            this.time.delayedCall(1000, () => {
+                this.powers.player1.frozen = false;
+                player.clearTint();
+            });
             
-            this.cameras.main.shake(200, 0.01);
+            meteor.destroy();
         });
         
         this.physics.add.collider(meteor, this.player2, (meteor, player) => {
@@ -2044,77 +3070,26 @@ class GameScene extends Phaser.Scene {
                 -200 // Upward knock
             );
             
-            // Apply stun effect
-            const playerKey = 'player2';
-            const playerPower = this.powers[playerKey];
+            // Stun effect
+            this.powers.player2.frozen = true;
+            this.powers.player2.frozenUntil = Date.now() + 1000; // 1 second stun
+            player.setTint(0xff4500);
             
-            if (!playerPower.immune && !playerPower.shieldActive) {
-                // Stun the player
-                player.setTint(0xffa500); // Orange tint for stun
-                playerPower.frozen = true; // Reuse freeze system for stun
-                playerPower.frozenUntil = Date.now() + 1500; // 1.5 seconds stun
-                
-                // Clear stun after duration
-                this.time.delayedCall(1500, () => {
-                    playerPower.frozen = false;
-                    player.clearTint();
-                });
-            }
+            // Clear stun
+            this.time.delayedCall(1000, () => {
+                this.powers.player2.frozen = false;
+                player.clearTint();
+            });
             
-            this.cameras.main.shake(200, 0.01);
+            meteor.destroy();
         });
         
         this.chaosManager.meteors.push(meteor);
-    }
-    
-    updateMeteors() {
-        // Remove meteors that have stopped moving for too long
-        this.chaosManager.meteors = this.chaosManager.meteors.filter(meteor => {
-            if (!meteor.active) return false;
-            
-            const velocity = Math.abs(meteor.body.velocity.x) + Math.abs(meteor.body.velocity.y);
-            if (velocity < 10) {
-                meteor.destroy();
-                return false;
-            }
-            return true;
-        });
-    }
-    
-    updateDarkroomLights() {
-        // Update light circles to follow players and ball
-        const lightRadius = 80;
         
-        if (this.chaosManager.player1Light) {
-            this.chaosManager.player1Light.clear();
-            this.chaosManager.player1Light.fillStyle(0xffffff, 0.3);
-            this.chaosManager.player1Light.fillCircle(this.player1.x, this.player1.y, lightRadius);
-        }
-        
-        if (this.chaosManager.player2Light) {
-            this.chaosManager.player2Light.clear();
-            this.chaosManager.player2Light.fillStyle(0xffffff, 0.3);
-            this.chaosManager.player2Light.fillCircle(this.player2.x, this.player2.y, lightRadius);
-        }
-        
-        if (this.chaosManager.ballLight) {
-            this.chaosManager.ballLight.clear();
-            this.chaosManager.ballLight.fillStyle(0xffffff, 0.2);
-            this.chaosManager.ballLight.fillCircle(this.ball.x, this.ball.y, lightRadius * 0.6);
-        }
-    }
-    
-    endMeteorDropEvent() {
-        // Clean up meteors
-        this.chaosManager.meteors.forEach(meteor => {
+        // Auto-destroy meteor after 8 seconds
+        this.time.delayedCall(8000, () => {
             if (meteor.active) meteor.destroy();
         });
-        this.chaosManager.meteors = [];
-        
-        if (this.meteorSpawnTimer) {
-            this.meteorSpawnTimer.remove();
-            this.meteorSpawnTimer = null;
-        }
     }
     
     startBallCloneEvent() {
@@ -2144,633 +3119,167 @@ class GameScene extends Phaser.Scene {
         this.physics.add.overlap(this.chaosManager.clonedBall, this.rightGoal, () => this.handleGoalScored('left'));
     }
     
-    endBallCloneEvent() {
-        if (this.chaosManager.clonedBall) {
-            this.chaosManager.clonedBall.destroy();
-            this.chaosManager.clonedBall = null;
-        }
-    }
-    
     startBigHeadEvent() {
-        // Increase player scale by 1.5x
-        this.player1.setScale(
-            this.chaosManager.originalPlayer1Scale.x * 1.5,
-            this.chaosManager.originalPlayer1Scale.y * 1.5
-        );
-        this.player2.setScale(
-            this.chaosManager.originalPlayer2Scale.x * 1.5,
-            this.chaosManager.originalPlayer2Scale.y * 1.5
-        );
-    }
-    
-    endBigHeadEvent() {
-        // Restore original scale
-        this.player1.setScale(
-            this.chaosManager.originalPlayer1Scale.x,
-            this.chaosManager.originalPlayer1Scale.y
-        );
-        this.player2.setScale(
-            this.chaosManager.originalPlayer2Scale.x,
-            this.chaosManager.originalPlayer2Scale.y
-        );
+        console.log('🧠 Big Head Event: Scaling up player heads');
+        // Scale up both players
+        this.player1.setScale(this.player1.scaleX * 1.5, this.player1.scaleY * 1.5);
+        this.player2.setScale(this.player2.scaleX * 1.5, this.player2.scaleY * 1.5);
     }
     
     startDarkroomEvent() {
-        console.log('🌑 Darkroom Event: Creating darkness overlay');
+        console.log('🌑 Darkroom Event: Creating dark overlay with lights');
         
-        // Create dark overlay that covers entire screen
-        this.chaosManager.darkOverlay = this.add.graphics();
-        this.chaosManager.darkOverlay.fillStyle(0x000000, 0.85); // Dark overlay with 85% opacity
-        this.chaosManager.darkOverlay.fillRect(0, 0, 800, 600);
-        this.chaosManager.darkOverlay.setDepth(500); // High depth but below UI
-        this.chaosManager.darkOverlay.setScrollFactor(0); // Stay in place
+        // Create dark overlay
+        this.chaosManager.darkOverlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.9);
+        this.chaosManager.darkOverlay.setDepth(10);
         
         // Create light circles around players and ball
-        this.chaosManager.player1Light = this.add.graphics();
-        this.chaosManager.player1Light.setDepth(501);
+        this.chaosManager.player1Light = this.add.circle(this.player1.x, this.player1.y, 80, 0xffffff, 0.3);
+        this.chaosManager.player1Light.setDepth(11);
+        this.chaosManager.player1Light.setBlendMode(Phaser.BlendModes.ADD);
         
-        this.chaosManager.player2Light = this.add.graphics();
-        this.chaosManager.player2Light.setDepth(501);
+        this.chaosManager.player2Light = this.add.circle(this.player2.x, this.player2.y, 80, 0xffffff, 0.3);
+        this.chaosManager.player2Light.setDepth(11);
+        this.chaosManager.player2Light.setBlendMode(Phaser.BlendModes.ADD);
         
-        this.chaosManager.ballLight = this.add.graphics();
-        this.chaosManager.ballLight.setDepth(501);
-        
-        // Set blend mode to create light effect
-        this.chaosManager.player1Light.setBlendMode(Phaser.BlendModes.SCREEN);
-        this.chaosManager.player2Light.setBlendMode(Phaser.BlendModes.SCREEN);
-        this.chaosManager.ballLight.setBlendMode(Phaser.BlendModes.SCREEN);
+        this.chaosManager.ballLight = this.add.circle(this.ball.x, this.ball.y, 60, 0xffffff, 0.3);
+        this.chaosManager.ballLight.setDepth(11);
+        this.chaosManager.ballLight.setBlendMode(Phaser.BlendModes.ADD);
     }
     
-    endDarkroomEvent() {
-        console.log('🌑 Darkroom Event: Removing darkness');
-        
-        // Remove dark overlay and lights
-        if (this.chaosManager.darkOverlay) {
-            this.chaosManager.darkOverlay.destroy();
-            this.chaosManager.darkOverlay = null;
-        }
-        
+    updateMeteors() {
+        // Clean up destroyed meteors
+        this.chaosManager.meteors = this.chaosManager.meteors.filter(meteor => meteor.active);
+    }
+    
+    updateDarkroomLights() {
+        // Update light positions to follow players and ball
         if (this.chaosManager.player1Light) {
-            this.chaosManager.player1Light.destroy();
-            this.chaosManager.player1Light = null;
+            this.chaosManager.player1Light.x = this.player1.x;
+            this.chaosManager.player1Light.y = this.player1.y;
         }
         
         if (this.chaosManager.player2Light) {
-            this.chaosManager.player2Light.destroy();
-            this.chaosManager.player2Light = null;
+            this.chaosManager.player2Light.x = this.player2.x;
+            this.chaosManager.player2Light.y = this.player2.y;
         }
         
         if (this.chaosManager.ballLight) {
-            this.chaosManager.ballLight.destroy();
-            this.chaosManager.ballLight = null;
-        }
-    }
-    
-    // === TIMER SYSTEM ===
-
-    startMatchTimer() {
-        this.timerEvent = this.time.addEvent({
-            delay: 1000,
-            callback: this.updateTimer,
-            callbackScope: this,
-        loop: true
-    });
-}
-
-    updateTimer() {
-        if (this.gameOver) return;
-        
-        this.matchTime--;
-        this.timerText.setText(this.formatTime(this.matchTime));
-        
-        if (this.matchTime <= 10) {
-            this.timerText.setStyle({ fill: '#ff0000' });
-        } else if (this.matchTime <= 30) {
-            this.timerText.setStyle({ fill: '#ffa500' });
-        }
-        
-        if (this.matchTime <= 0) {
-            this.handleTimeUp();
+            this.chaosManager.ballLight.x = this.ball.x;
+            this.chaosManager.ballLight.y = this.ball.y;
         }
     }
 
-    formatTime(seconds) {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-}
-
-    handleTimeUp() {
-        if (this.timerEvent) {
-            this.timerEvent.remove();
-        }
+    endChaosEvent() {
+        if (!this.chaosManager.active) return;
         
-        let winner, winMessage;
+        const eventType = this.chaosManager.currentEvent;
+        console.log(`🌪️ Chaos Event Ended: ${eventType.toUpperCase()}`);
         
-        if (this.leftScore > this.rightScore) {
-        winner = 'left';
-        winMessage = 'Time\'s Up! Player 1 Wins!';
-        } else if (this.rightScore > this.leftScore) {
-        winner = 'right';
-        winMessage = 'Time\'s Up! Player 2 Wins!';
-    } else {
-        winner = 'tie';
-        winMessage = 'Time\'s Up! It\'s a Tie!';
-    }
-    
-        this.handleGameOver(winner, winMessage);
-}
-
-    handlePlayerBallCollision(player, ball) {
-        if (this.gameOver) return;
-        
-        // Check if this is a fire ball and handle special logic
-        if (ball.fireKicked) {
-            // Determine which player this is
-            const isPlayer1 = player === this.player1;
-            const playerKey = isPlayer1 ? 'player1' : 'player2';
-            const playerPower = this.powers[playerKey];
-            
-            // Check if player has any active power that can deflect the fire ball
-            const canDeflect = playerPower.immune || playerPower.shieldActive || this.isPlayerPowerActive(playerKey);
-            
-            if (!canDeflect) {
-                // Fire ball passes through - no collision response
-                console.log('Fire ball passes through player without active power');
-                return;
-            } else {
-                // Player has active power - they can deflect the fire ball
-                console.log('Player with active power deflects fire ball');
+        // Clean up event-specific effects
+        switch (eventType) {
+            case 'zero_gravity':
+                this.physics.world.gravity.y = this.chaosManager.originalGravity;
+                this.endZeroGravityEvent();
+                break;
+            case 'flip_screen':
+                this.endFlipScreenEvent();
+                break;
+            case 'speed_boost':
+                // Speed boost effects are handled in applyChaosEffects
+                break;
+            case 'meteor_drop':
+                // Clean up meteors
+                this.chaosManager.meteors.forEach(meteor => {
+                    if (meteor && meteor.active) meteor.destroy();
+                });
+                this.chaosManager.meteors = [];
                 
-                // Add special deflection effect
-                this.cameras.main.shake(200, 0.02);
-                
-                // Give the ball a powerful deflection
-                const deflectionDirection = isPlayer1 ? -1 : 1;
-                ball.setVelocity(deflectionDirection * 500, -250);
-                
-                // Visual feedback for successful deflection
-                player.setTint(0x00ff00);
-                this.time.delayedCall(300, () => player.clearTint());
-                
-                // Clear fire effect since it was deflected
-                ball.clearTint();
-                ball.fireKicked = false;
-                
-                return;
-            }
-        }
-        
-        // Normal ball collision logic (existing code)
-        const ballVelocityX = ball.body.velocity.x;
-        const ballVelocityY = ball.body.velocity.y;
-        const playerVelocityX = player.body.velocity.x;
-        const playerVelocityY = player.body.velocity.y;
-        
-        const deltaX = ball.x - player.x;
-        const deltaY = ball.y - player.y;
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        
-        if (distance < 1) return;
-        
-        const normalX = deltaX / distance;
-        const normalY = deltaY / distance;
-        
-        const separationDistance = 35;
-        const separationForce = Math.max(0, separationDistance - distance);
-        if (separationForce > 0) {
-            ball.x += normalX * separationForce;
-            ball.y += normalY * separationForce;
-        }
-        
-        const isPlayer1 = player === this.player1;
-        const correctDirection = isPlayer1 ? 1 : -1;
-        
-        const playerIsMoving = Math.abs(playerVelocityX) > 50 || Math.abs(playerVelocityY) > 50;
-        const playerIsGrounded = player.body.touching.down;
-        const isHeadCollision = deltaY < -15 && Math.abs(deltaX) < 30;
-        
-        if (playerIsMoving && playerIsGrounded && !isHeadCollision) {
-            const kickPower = 280;
-            let kickDirection = playerVelocityX > 0 ? 1 : playerVelocityX < 0 ? -1 : correctDirection;
-            
-            if ((isPlayer1 && kickDirection < 0) || (!isPlayer1 && kickDirection > 0)) {
-                kickDirection = correctDirection;
-            }
-            
-            ball.setVelocityX(kickDirection * kickPower);
-            ball.setVelocityY(-200);
-            player.setVelocityX(playerVelocityX * 0.7);
-            
-        } else {
-            const bounceStrength = 1.1;
-            const minBounceSpeed = 180;
-            
-            const incomingSpeed = Math.sqrt(ballVelocityX * ballVelocityX + ballVelocityY * ballVelocityY);
-            const bounceSpeed = Math.max(incomingSpeed * bounceStrength, minBounceSpeed);
-            
-            if (isHeadCollision) {
-                ball.setVelocityX(correctDirection * bounceSpeed * 0.8);
-                ball.setVelocityY(-Math.abs(bounceSpeed * 0.6));
-            } else {
-                let bounceX = normalX * bounceSpeed;
-                let bounceY = normalY * bounceSpeed;
-                
-                if ((isPlayer1 && bounceX < 0) || (!isPlayer1 && bounceX > 0)) {
-                    bounceX = (bounceX * 0.3) + (correctDirection * bounceSpeed * 0.7);
+                // Clean up meteor timer
+                if (this.chaosManager.meteorTimer) {
+                    this.chaosManager.meteorTimer.destroy();
+                    this.chaosManager.meteorTimer = null;
                 }
-                
-                ball.setVelocityX(bounceX);
-                ball.setVelocityY(bounceY);
-                
-                if (deltaY > 0) {
-                    ball.setVelocityY(Math.max(ball.body.velocity.y, -120));
+                break;
+            case 'ball_clone':
+                if (this.chaosManager.clonedBall) {
+                    this.chaosManager.clonedBall.destroy();
+                    this.chaosManager.clonedBall = null;
                 }
-            }
-            
-            if (incomingSpeed > 100) {
-                player.setVelocityX(playerVelocityX + (-normalX * 20));
-            }
+                break;
+            case 'big_head':
+                // Restore original player scales
+                this.player1.setScale(this.chaosManager.originalPlayer1Scale.x, this.chaosManager.originalPlayer1Scale.y);
+                this.player2.setScale(this.chaosManager.originalPlayer2Scale.x, this.chaosManager.originalPlayer2Scale.y);
+                break;
+            case 'darkroom':
+                if (this.chaosManager.darkOverlay) this.chaosManager.darkOverlay.destroy();
+                if (this.chaosManager.player1Light) this.chaosManager.player1Light.destroy();
+                if (this.chaosManager.player2Light) this.chaosManager.player2Light.destroy();
+                if (this.chaosManager.ballLight) this.chaosManager.ballLight.destroy();
+                break;
         }
-    }
-    
-    // Helper function to check if a player has any active power
-    isPlayerPowerActive(playerKey) {
-        const playerSprite = playerKey === 'player1' ? this.player1 : this.player2;
-        const characterId = selectedCharacters[playerKey];
-        const currentTime = Date.now();
         
-        // Check if player is currently using their power (within the last 2 seconds)
-        const power = this.powers[playerKey];
-        const recentlyUsed = (currentTime - power.lastUsed) < 2000; // 2 seconds
+        // Reset chaos manager
+        this.chaosManager.active = false;
+        this.chaosManager.currentEvent = null;
+        this.chaosManager.nextEventTime = Date.now() + this.getRandomChaosDelay();
         
-        // Check for specific active power effects
-        switch (characterId) {
-            case 'volt':
-                // Check if player has yellow tint (electric dash)
-                return playerSprite.tintTopLeft === 0xffff00 || recentlyUsed;
-            case 'whirlwind':
-                // Check if player has blue tint (spin kick)
-                return playerSprite.tintTopLeft === 0x87ceeb || recentlyUsed;
-            case 'blaze':
-                // Check if player has fire tint (flame uppercut)
-                return playerSprite.tintTopLeft === 0xff4500 || recentlyUsed;
-            case 'frostbite':
-                // Frostbite doesn't have a defensive power, but recently used counts
-                return recentlyUsed;
-            case 'jellyhead':
-                // Shield is already checked above with shieldActive
-                return false;
-            case 'brick':
-                // Immunity is already checked above with immune
-                return false;
-            default:
-                return false;
+        if (this.chaosManager.eventBanner) {
+            this.chaosManager.eventBanner.destroy();
+            this.chaosManager.eventBanner = null;
         }
     }
 
-    handlePlayerPlayerCollision(player1, player2) {
-        if (this.gameOver) return;
+    applyChaosEffects() {
+        if (!this.chaosManager.active) return;
         
-        const deltaX = player2.x - player1.x;
-        const deltaY = player2.y - player1.y;
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const eventType = this.chaosManager.currentEvent;
         
-        if (distance < 1) return; // Prevent division by zero
-        
-        const normalX = deltaX / distance;
-        const normalY = deltaY / distance;
-        
-        const p1VelX = player1.body.velocity.x;
-        const p1VelY = player1.body.velocity.y;
-        const p2VelX = player2.body.velocity.x;
-        const p2VelY = player2.body.velocity.y;
-        
-        const relativeVelX = p1VelX - p2VelX;
-        const relativeVelY = p1VelY - p2VelY;
-        
-        // Simple collision physics
-        const collisionStrength = 0.3;
-        const pushForce = (relativeVelX * normalX + relativeVelY * normalY) * collisionStrength;
-        
-        // Apply velocity changes
-        player1.setVelocityX(p1VelX - pushForce * normalX);
-        player1.setVelocityY(p1VelY - pushForce * normalY);
-        
-        player2.setVelocityX(p2VelX + pushForce * normalX);
-        player2.setVelocityY(p2VelY + pushForce * normalY);
-        
-        // Safe separation that prevents ground penetration
-        const separationForce = 3;
-        const groundLevel = 550; // Ground is at y=575, but players have origins at bottom, so effective ground is ~550
-        
-        // Calculate proposed new positions
-        const newP1X = player1.x - normalX * separationForce;
-        const newP1Y = player1.y - normalY * separationForce;
-        const newP2X = player2.x + normalX * separationForce;
-        const newP2Y = player2.y + normalY * separationForce;
-        
-        // Apply separation, but prevent going below ground
-        player1.x = newP1X;
-        player1.y = Math.min(newP1Y, groundLevel); // Don't go below ground
-        
-        player2.x = newP2X;
-        player2.y = Math.min(newP2Y, groundLevel); // Don't go below ground
-        
-        // If a player would be pushed into the ground, give them an upward boost instead
-        if (newP1Y > groundLevel) {
-            player1.setVelocityY(Math.min(player1.body.velocity.y, -100)); // Upward boost
+        switch (eventType) {
+            case 'speed_boost':
+                // Double movement speed during speed boost
+                if (this.wasd.A.isDown || this.wasd.D.isDown) {
+                    this.player1.body.velocity.x *= 2;
+                }
+                if (this.cursors.left.isDown || this.cursors.right.isDown) {
+                    this.player2.body.velocity.x *= 2;
+                }
+                break;
+            case 'darkroom':
+                // Update light positions - handled in updateDarkroomLights
+                break;
+            case 'flip_screen':
+                // Screen flip effects are handled by camera rotation
+                break;
+            case 'zero_gravity':
+                // Gravity effects are handled by physics world gravity
+                break;
+            case 'meteor_drop':
+                // Meteor effects are handled by individual meteor objects
+                break;
+            case 'ball_clone':
+                // Ball clone effects are handled by cloned ball object
+                break;
+            case 'big_head':
+                // Big head effects are handled by scale changes
+                break;
         }
-        if (newP2Y > groundLevel) {
-            player2.setVelocityY(Math.min(player2.body.velocity.y, -100)); // Upward boost
-        }
-    }
-
-    handleGoalScored(scoringPlayer) {
-        if (this.gameOver) return;
-    
-    if (scoringPlayer === 'left') {
-            this.leftScore++;
-            this.powers.player1.goals++;
-    } else {
-            this.rightScore++;
-            this.powers.player2.goals++;
-    }
-    
-        this.scoreText.setText(`Left: ${this.leftScore} | Right: ${this.rightScore}`);
-    
-        this.ball.setPosition(400, 450); // Reset ball to same level as players
-        this.ball.setVelocity(0, 0);
-    
-        if (this.leftScore >= 3 || this.rightScore >= 3) {
-        const winMessage = scoringPlayer === 'left' ? 'Player 1 Wins!' : 'Player 2 Wins!';
-            this.handleGameOver(scoringPlayer, winMessage);
-    }
-}
-
-    handleGameOver(winner, customMessage = null) {
-        this.gameOver = true;
-    
-        if (this.timerEvent) {
-            this.timerEvent.remove();
-    }
-    
-        this.ball.setVelocity(0, 0);
-        this.ball.body.setGravityY(0);
-    
-        // Update SessionState - increment wins and total rounds
-        SessionState.totalRoundsPlayed++;
-        if (winner === 'left') {
-            SessionState.player1Wins++;
-        } else if (winner === 'right') {
-            SessionState.player2Wins++;
-        }
-        // Note: Ties don't increment anyone's wins, but still count as rounds played
-    
-    let winnerText;
-    if (customMessage) {
-        winnerText = customMessage;
-    } else {
-        winnerText = winner === 'left' ? 'Player 1 Wins!' : 
-                    winner === 'right' ? 'Player 2 Wins!' : 
-                    'It\'s a Tie!';
-    }
-    
-        this.gameOverText = this.add.text(400, 180, winnerText, {
-        fontSize: '48px',
-        fill: '#ffff00',
-        backgroundColor: '#000000',
-        padding: { x: 20, y: 10 }
-        }).setOrigin(0.5);
-    
-        // Display win totals
-        this.add.text(400, 240, `P1 Wins: ${SessionState.player1Wins}     P2 Wins: ${SessionState.player2Wins}`, {
-            fontSize: '24px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 16, y: 8 }
-        }).setOrigin(0.5);
-    
-        this.add.text(400, 280, 'Press R to Rematch', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 16, y: 8 }
-        }).setOrigin(0.5);
-        
-        this.add.text(400, 310, 'Press C to Change Characters', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 16, y: 8 }
-        }).setOrigin(0.5);
-        
-        // Store the event listeners so we can remove them later
-        this.restartHandler = this.restartGame.bind(this);
-        this.chooseCharactersHandler = this.chooseCharacters.bind(this);
-        
-        this.input.keyboard.on('keydown-R', this.restartHandler);
-        this.input.keyboard.on('keydown-C', this.chooseCharactersHandler);
-    }
-
-    restartGame() {
-        // Clean up event listeners before restarting
-        this.input.keyboard.off('keydown-R', this.restartHandler);
-        this.input.keyboard.off('keydown-C', this.chooseCharactersHandler);
-        
-        this.scene.restart();
-    }
-
-    chooseCharacters() {
-        // Clean up event listeners before transitioning
-        this.input.keyboard.off('keydown-R', this.restartHandler);
-        this.input.keyboard.off('keydown-C', this.chooseCharactersHandler);
-        
-        // Reset selected characters
-        selectedCharacters = {
-            player1: null,
-            player2: null
-        };
-        
-        // Reset SessionState when returning to character selection
-        SessionState = {
-            player1Wins: 0,
-            player2Wins: 0,
-            totalRoundsPlayed: 0
-        };
-        
-        this.scene.start('CharacterSelectionScene');
     }
 
     preventBallSqueezing() {
-        // Helper function to check and fix ball squeezing
-        const checkBallSqueezing = (ball) => {
-            if (!ball || !ball.active) return;
-            
-            const player1Distance = Phaser.Math.Distance.Between(ball.x, ball.y, this.player1.x, this.player1.y);
-            const player2Distance = Phaser.Math.Distance.Between(ball.x, ball.y, this.player2.x, this.player2.y);
-            
-            const criticalDistance = 45; // Distance that's too close for both players
-            
-            if (player1Distance < criticalDistance && player2Distance < criticalDistance) {
-                // Ball is getting squeezed between players - gently push it away from the closest player
-                const closestPlayer = player1Distance < player2Distance ? this.player1 : this.player2;
-                
-                // Calculate escape direction (away from closest player)
-                const escapeX = ball.x - closestPlayer.x;
-                const escapeY = ball.y - closestPlayer.y;
-                const escapeDistance = Math.sqrt(escapeX * escapeX + escapeY * escapeY);
-                
-                if (escapeDistance > 0) {
-                    // Normalize and apply gentle separation
-                    const normalX = escapeX / escapeDistance;
-                    const normalY = escapeY / escapeDistance;
-                    
-                    // Small push to prevent phasing
-                    const pushForce = 3;
-                    ball.x += normalX * pushForce;
-                    ball.y += normalY * pushForce;
-                    
-                    // Ensure ball stays within bounds
-                    ball.x = Math.max(20, Math.min(780, ball.x));
-                    ball.y = Math.max(20, Math.min(550, ball.y));
-                }
-            }
-        };
+        const p1ToBall = Phaser.Math.Distance.Between(this.player1.x, this.player1.y, this.ball.x, this.ball.y);
+        const p2ToBall = Phaser.Math.Distance.Between(this.player2.x, this.player2.y, this.ball.x, this.ball.y);
+        const p1ToP2 = Phaser.Math.Distance.Between(this.player1.x, this.player1.y, this.player2.x, this.player2.y);
         
-        // Check main ball
-        checkBallSqueezing(this.ball);
-        
-        // Check cloned ball if it exists
-        if (this.chaosManager.clonedBall) {
-            checkBallSqueezing(this.chaosManager.clonedBall);
+        // If ball is too close to both players, give it a slight push
+        if (p1ToBall < 40 && p2ToBall < 40 && p1ToP2 < 80) {
+            this.ball.setVelocityY(-100);
         }
-    }
-
-    update() {
-        this.fpsText.setText('FPS: ' + Math.round(this.game.loop.actualFps));
-        
-        if (this.gameOver) return;
-        
-        // Update power system
-        this.updatePowerSystem();
-        
-        // Update chaos manager
-        this.updateChaosManager();
-        
-        // Handle power activation
-        if (Phaser.Input.Keyboard.JustDown(this.powerKeys.E)) {
-            this.activatePower('player1');
-        }
-        if (Phaser.Input.Keyboard.JustDown(this.powerKeys.K)) {
-            this.activatePower('player2');
-        }
-        
-        // DEBUG: Test chaos event trigger (press T key)
-        if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey('T'))) {
-            console.log('🧪 Manual chaos event trigger!');
-            if (!this.chaosManager.active) {
-                this.startRandomChaosEvent();
-            }
-        }
-        
-        // Calculate speed (apply speed boost if active)
-        let speed = 160;
-        if (this.chaosManager.currentEvent === 'speed_boost') {
-            speed = 160 * 1.5; // 1.5x speed boost
-        }
-        
-        // Calculate jump speed and movement behavior based on zero gravity
-        let jumpSpeed = 330;
-        let horizontalSpeed = speed;
-        
-        if (this.chaosManager.currentEvent === 'zero_gravity') {
-            jumpSpeed = 500; // Higher jumps in zero gravity
-            horizontalSpeed = speed * 0.7; // Slower horizontal movement
-        }
-        
-        // Player 1 movement (WASD) - with animations
-        if (!this.powers.player1.frozen) {
-            if (this.wasd.A.isDown) {
-                this.player1.setVelocityX(-horizontalSpeed);
-                this.player1.setFlipX(true);
-                if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_walk_anim') {
-                    this.player1.play('player1_walk_anim');
-                }
-            } else if (this.wasd.D.isDown) {
-                this.player1.setVelocityX(horizontalSpeed);
-                this.player1.setFlipX(false);
-                if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_walk_anim') {
-                    this.player1.play('player1_walk_anim');
-                }
-            } else {
-                this.player1.setVelocityX(0);
-                if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_idle_anim') {
-                    this.player1.play('player1_idle_anim');
-                }
-            }
-            
-            if (this.wasd.W.isDown && this.player1.body.touching.down) {
-                this.player1.setVelocityY(-jumpSpeed);
-            }
-        } else {
-            // Frozen - stop horizontal movement but allow gravity
-            this.player1.setVelocityX(0);
-        }
-        
-        // Player 2 movement (Arrow keys) - with animations
-        if (!this.powers.player2.frozen) {
-            if (this.cursors.left.isDown) {
-                this.player2.setVelocityX(-horizontalSpeed);
-                this.player2.setFlipX(true);
-                if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_walk_anim') {
-                    this.player2.play('player2_walk_anim');
-                }
-            } else if (this.cursors.right.isDown) {
-                this.player2.setVelocityX(horizontalSpeed);
-                this.player2.setFlipX(false);
-                if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_walk_anim') {
-                    this.player2.play('player2_walk_anim');
-                }
-            } else {
-                this.player2.setVelocityX(0);
-                if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_idle_anim') {
-                    this.player2.play('player2_idle_anim');
-                }
-            }
-            
-            if (this.cursors.up.isDown && this.player2.body.touching.down) {
-                this.player2.setVelocityY(-jumpSpeed);
-            }
-        } else {
-            // Frozen - stop horizontal movement but allow gravity
-            this.player2.setVelocityX(0);
-        }
-        
-        // Apply zero gravity effects
-        if (this.chaosManager.currentEvent === 'zero_gravity') {
-            // Apply gentle upward force to counteract gravity for floaty effect
-            const antiGravityForce = 180; // Counteract most of the gravity (300 -> 120 effective)
-            
-            // Apply to both players
-            this.player1.body.setAccelerationY(-antiGravityForce);
-            this.player2.body.setAccelerationY(-antiGravityForce);
-            
-            // Apply to ball
-            this.ball.body.setAccelerationY(-antiGravityForce);
-        } else {
-            // Restore normal gravity acceleration
-            this.player1.body.setAccelerationY(0);
-            this.player2.body.setAccelerationY(0);
-            this.ball.body.setAccelerationY(0);
-        }
-        
-        // Ball safety check - prevent ball from getting trapped between players
-        this.preventBallSqueezing();
     }
 
     initializeSocket() {
-// Socket.io connection setup
+        // Socket.io connection setup
         this.socket = io('http://localhost:3000');
         
         this.socket.on('connect', () => {
@@ -2779,9 +3288,9 @@ class GameScene extends Phaser.Scene {
             this.socketText.setText(`Socket ID: ${this.socket.id}`);
             
             this.socket.emit('hello from client', {
-            message: 'Hello from Phaser client!',
-            timestamp: new Date().toISOString()
-        });
+                message: 'Hello from Phaser client!',
+                timestamp: new Date().toISOString()
+            });
         });
         
         this.socket.on('hello from server', (data) => {

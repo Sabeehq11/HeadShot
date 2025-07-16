@@ -391,6 +391,81 @@ const CharacterSpriteHelper = {
 
         const animation = config.animations[animationName];
         return animation?.framePattern || null;
+    },
+
+    /**
+     * Get skin path for a character
+     */
+    getSkinPath: function(characterKey, skinType, animationName = 'idle') {
+        const basePath = `assets/Sprites/skins/${characterKey}/${skinType}/`;
+        return basePath + `${animationName}.png`;
+    },
+
+    /**
+     * Get all skin types for a character
+     */
+    getAllSkinTypes: function() {
+        return ['base', 'bronze', 'silver', 'gold', 'shadow'];
+    },
+
+    /**
+     * Get skin display name
+     */
+    getSkinDisplayName: function(skinType) {
+        const names = {
+            'base': 'Base',
+            'bronze': 'Bronze',
+            'silver': 'Silver',
+            'gold': 'Gold',
+            'shadow': 'Shadow'
+        };
+        return names[skinType] || skinType;
+    },
+
+    /**
+     * Get skin rarity color
+     */
+    getSkinRarityColor: function(skinType) {
+        const colors = {
+            'base': 0xffffff,    // white
+            'bronze': 0xcd7f32,  // bronze
+            'silver': 0xc0c0c0,  // silver
+            'gold': 0xffd700,    // gold
+            'shadow': 0x800080   // purple
+        };
+        return colors[skinType] || 0xffffff;
+    },
+
+    /**
+     * Check if a skin should use the original character sprite as fallback
+     */
+    shouldUseFallbackSprite: function(characterKey, skinType) {
+        // For now, all skin types will use fallback until we have actual skin images
+        return skinType === 'base';
+    },
+
+    /**
+     * Get the character sprite path for fallback
+     */
+    getFallbackSpritePath: function(characterKey, animationName = 'idle') {
+        const character = CHARACTER_SPRITE_CONFIG.tinyHeroes[characterKey === 'blaze' ? 'dudeMonster' : 
+                                                                characterKey === 'frostbite' ? 'pinkMonster' : 
+                                                                characterKey === 'volt' ? 'owletMonster' : null];
+        
+        if (character) {
+            return character.basePath + character.animations[animationName].file;
+        }
+        
+        // Mini pixel pack characters
+        const miniChar = CHARACTER_SPRITE_CONFIG.miniPixelPack[characterKey === 'jellyhead' ? 'drscience' : 
+                                                                characterKey === 'brick' ? 'capp' : 
+                                                                characterKey === 'whirlwind' ? 'tanker' : null];
+        
+        if (miniChar) {
+            return miniChar.basePath + miniChar.animations[animationName].file;
+        }
+        
+        return null;
     }
 };
 
