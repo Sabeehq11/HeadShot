@@ -439,7 +439,6 @@ class MapSelectScene extends Phaser.Scene {
         // Load all map images for thumbnails
         this.load.image('city_3', 'assets/Sprites/Backgrounds/city_3.png');
         this.load.image('pollen', 'assets/Sprites/Backgrounds/pollen.png');
-        this.load.image('space', 'assets/Sprites/Backgrounds/space.png');
         
         console.log('MapSelectScene: Loading map images...');
     }
@@ -479,8 +478,7 @@ class MapSelectScene extends Phaser.Scene {
 
         // Create selected map status
         const initialMapName = this.selectedMapKey === 'city_3' ? 'City 3' : 
-                             this.selectedMapKey === 'pollen' ? 'Pollen' : 
-                             this.selectedMapKey === 'space' ? 'Space' : this.selectedMapKey;
+                             this.selectedMapKey === 'pollen' ? 'Pollen' : this.selectedMapKey;
         this.selectedMapStatus = this.add.text(400, 380, `Selected: ${initialMapName}`, {
             fontSize: '18px',
             fill: '#00ff00',
@@ -497,20 +495,14 @@ class MapSelectScene extends Phaser.Scene {
             {
                 key: 'city_3',
                 name: 'City 3',
-                x: 130,
+                x: 250,
                 description: 'Urban battlefield with city skyline'
             },
             {
                 key: 'pollen',
                 name: 'Pollen',
-                x: 400,
-                description: 'Space environment with star field'
-            },
-            {
-                key: 'space',
-                name: 'Space',
-                x: 670,
-                description: 'Deep space cosmic environment'
+                x: 550,
+                description: 'Cosmic space with pollen nebula clouds'
             }
         ];
 
@@ -629,24 +621,21 @@ class MapSelectScene extends Phaser.Scene {
         // Update start button text
         if (this.startButton) {
             const mapName = mapKey === 'city_3' ? 'City 3' : 
-                          mapKey === 'pollen' ? 'Pollen' : 
-                          mapKey === 'space' ? 'Space' : mapKey;
+                          mapKey === 'pollen' ? 'Pollen' : mapKey;
             this.startButton.setText(`Start Match on ${mapName}`);
         }
 
         // Update selected map status
         if (this.selectedMapStatus) {
             const mapName = mapKey === 'city_3' ? 'City 3' : 
-                          mapKey === 'pollen' ? 'Pollen' : 
-                          mapKey === 'space' ? 'Space' : mapKey;
+                          mapKey === 'pollen' ? 'Pollen' : mapKey;
             this.selectedMapStatus.setText(`Selected: ${mapName}`);
         }
     }
 
     createStartButton() {
         const initialMapName = this.selectedMapKey === 'city_3' ? 'City 3' : 
-                             this.selectedMapKey === 'pollen' ? 'Pollen' : 
-                             this.selectedMapKey === 'space' ? 'Space' : this.selectedMapKey;
+                             this.selectedMapKey === 'pollen' ? 'Pollen' : this.selectedMapKey;
         this.startButton = this.add.text(400, 450, `Start Match on ${initialMapName}`, {
             fontSize: '24px',
             fill: '#ffffff',
