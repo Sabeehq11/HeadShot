@@ -51,12 +51,31 @@ let selectedCharacters = {
 };
 
 // Global map selection state
-let selectedMap = 'nightcity'; // Default to nightcity
+let selectedMap = 'nightcity';
+
+// Global session state for tracking wins across matches
+let SessionState = {
+    player1Wins: 0,
+    player2Wins: 0,
+    totalRoundsPlayed: 0
+};
 
 // Character Selection Scene
 class CharacterSelectionScene extends Phaser.Scene {
     constructor() {
         super({ key: 'CharacterSelectionScene' });
+        this.characterKeys = Object.keys(CHARACTERS);
+        this.player1Selection = 0;
+        this.player2Selection = 0;
+        this.player1Confirmed = false;
+        this.player2Confirmed = false;
+        this.player1UI = null;
+        this.player2UI = null;
+        this.charactersDisplay = [];
+    }
+
+    init() {
+        // Reset scene state when entering from another scene
         this.characterKeys = Object.keys(CHARACTERS);
         this.player1Selection = 0;
         this.player2Selection = 0;
@@ -329,12 +348,35 @@ class CharacterSelectionScene extends Phaser.Scene {
     }
 
     updateDisplay() {
+        // Ensure arrays are properly initialized
+        if (!this.charactersDisplay || !this.characterKeys) {
+            console.error('updateDisplay called before proper initialization');
+            return;
+        }
+        
+        // Debug logging (can be removed in production)
+        // console.log('updateDisplay - charactersDisplay length:', this.charactersDisplay.length);
+        // console.log('updateDisplay - characterKeys length:', this.characterKeys.length);
+        
         // Reset all character displays with consistent scaling
         this.charactersDisplay.forEach((display, index) => {
+            // Ensure display exists and has sprite
+            if (!display || !display.sprite) {
+                return;
+            }
+            
             display.sprite.setTint(0xffffff);
             
             // Set scale based on character type
-            const character = CHARACTERS[this.characterKeys[index]];
+            const characterKey = this.characterKeys[index];
+            const character = CHARACTERS[characterKey];
+            
+            // Add defensive check to prevent undefined character error
+            if (!character) {
+                console.warn('Character not found for key:', characterKey, 'at index:', index);
+                return; // Skip this iteration
+            }
+            
             const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
             
             if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
@@ -345,29 +387,45 @@ class CharacterSelectionScene extends Phaser.Scene {
         });
 
         // Highlight current selections with increased scale
-        if (!this.player1Confirmed) {
-            const p1Display = this.charactersDisplay[this.player1Selection];
-            const p1Character = CHARACTERS[this.characterKeys[this.player1Selection]];
-            const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
+        if (!this.player1Confirmed && 
+            this.player1Selection >= 0 && 
+            this.player1Selection < this.charactersDisplay.length && 
+            this.charactersDisplay[this.player1Selection]) {
             
-            p1Display.sprite.setTint(0x00ff00);
-            if (p1SpriteConfig && (p1SpriteConfig.type === 'sprite_sheet' || p1SpriteConfig.hasAnimation)) {
-                p1Display.sprite.setScale(2.4); // Tiny Heroes selected scale
-            } else {
-                p1Display.sprite.setScale(3.6); // Mini Pixel Pack selected scale
+            const p1Display = this.charactersDisplay[this.player1Selection];
+            const p1CharacterKey = this.characterKeys[this.player1Selection];
+            const p1Character = CHARACTERS[p1CharacterKey];
+            
+            if (p1Character && p1Display.sprite) {
+                const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
+                
+                p1Display.sprite.setTint(0x00ff00);
+                if (p1SpriteConfig && (p1SpriteConfig.type === 'sprite_sheet' || p1SpriteConfig.hasAnimation)) {
+                    p1Display.sprite.setScale(2.4); // Tiny Heroes selected scale
+                } else {
+                    p1Display.sprite.setScale(3.6); // Mini Pixel Pack selected scale
+                }
             }
         }
 
-        if (!this.player2Confirmed) {
-            const p2Display = this.charactersDisplay[this.player2Selection];
-            const p2Character = CHARACTERS[this.characterKeys[this.player2Selection]];
-            const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
+        if (!this.player2Confirmed && 
+            this.player2Selection >= 0 && 
+            this.player2Selection < this.charactersDisplay.length && 
+            this.charactersDisplay[this.player2Selection]) {
             
-            p2Display.sprite.setTint(0x0080ff);
-            if (p2SpriteConfig && (p2SpriteConfig.type === 'sprite_sheet' || p2SpriteConfig.hasAnimation)) {
-                p2Display.sprite.setScale(2.4); // Tiny Heroes selected scale
-            } else {
-                p2Display.sprite.setScale(3.6); // Mini Pixel Pack selected scale
+            const p2Display = this.charactersDisplay[this.player2Selection];
+            const p2CharacterKey = this.characterKeys[this.player2Selection];
+            const p2Character = CHARACTERS[p2CharacterKey];
+            
+            if (p2Character && p2Display.sprite) {
+                const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
+                
+                p2Display.sprite.setTint(0x0080ff);
+                if (p2SpriteConfig && (p2SpriteConfig.type === 'sprite_sheet' || p2SpriteConfig.hasAnimation)) {
+                    p2Display.sprite.setScale(2.4); // Tiny Heroes selected scale
+                } else {
+                    p2Display.sprite.setScale(3.6); // Mini Pixel Pack selected scale
+                }
             }
         }
 
@@ -2211,10 +2269,10 @@ class GameScene extends Phaser.Scene {
         
         if (this.leftScore > this.rightScore) {
         winner = 'left';
-        winMessage = 'Time\'s Up! Left Player Wins!';
+        winMessage = 'Time\'s Up! Player 1 Wins!';
         } else if (this.rightScore > this.leftScore) {
         winner = 'right';
-        winMessage = 'Time\'s Up! Right Player Wins!';
+        winMessage = 'Time\'s Up! Player 2 Wins!';
     } else {
         winner = 'tie';
         winMessage = 'Time\'s Up! It\'s a Tie!';
@@ -2445,7 +2503,7 @@ class GameScene extends Phaser.Scene {
         this.ball.setVelocity(0, 0);
     
         if (this.leftScore >= 3 || this.rightScore >= 3) {
-        const winMessage = scoringPlayer === 'left' ? 'Left Player Wins!' : 'Right Player Wins!';
+        const winMessage = scoringPlayer === 'left' ? 'Player 1 Wins!' : 'Player 2 Wins!';
             this.handleGameOver(scoringPlayer, winMessage);
     }
 }
@@ -2460,43 +2518,87 @@ class GameScene extends Phaser.Scene {
         this.ball.setVelocity(0, 0);
         this.ball.body.setGravityY(0);
     
+        // Update SessionState - increment wins and total rounds
+        SessionState.totalRoundsPlayed++;
+        if (winner === 'left') {
+            SessionState.player1Wins++;
+        } else if (winner === 'right') {
+            SessionState.player2Wins++;
+        }
+        // Note: Ties don't increment anyone's wins, but still count as rounds played
+    
     let winnerText;
     if (customMessage) {
         winnerText = customMessage;
     } else {
-        winnerText = winner === 'left' ? 'Left Player Wins!' : 
-                    winner === 'right' ? 'Right Player Wins!' : 
+        winnerText = winner === 'left' ? 'Player 1 Wins!' : 
+                    winner === 'right' ? 'Player 2 Wins!' : 
                     'It\'s a Tie!';
     }
     
-        this.gameOverText = this.add.text(400, 200, winnerText, {
+        this.gameOverText = this.add.text(400, 180, winnerText, {
         fontSize: '48px',
         fill: '#ffff00',
         backgroundColor: '#000000',
         padding: { x: 20, y: 10 }
         }).setOrigin(0.5);
     
-        this.add.text(400, 260, 'Press R to restart | Press C to choose characters', {
+        // Display win totals
+        this.add.text(400, 240, `P1 Wins: ${SessionState.player1Wins}     P2 Wins: ${SessionState.player2Wins}`, {
+            fontSize: '24px',
+            fill: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 16, y: 8 }
+        }).setOrigin(0.5);
+    
+        this.add.text(400, 280, 'Press R to Rematch', {
             fontSize: '20px',
-        fill: '#ffffff',
-        backgroundColor: '#000000',
-        padding: { x: 16, y: 8 }
+            fill: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 16, y: 8 }
         }).setOrigin(0.5);
         
-        this.input.keyboard.on('keydown-R', this.restartGame, this);
-        this.input.keyboard.on('keydown-C', this.chooseCharacters, this);
+        this.add.text(400, 310, 'Press C to Change Characters', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 16, y: 8 }
+        }).setOrigin(0.5);
+        
+        // Store the event listeners so we can remove them later
+        this.restartHandler = this.restartGame.bind(this);
+        this.chooseCharactersHandler = this.chooseCharacters.bind(this);
+        
+        this.input.keyboard.on('keydown-R', this.restartHandler);
+        this.input.keyboard.on('keydown-C', this.chooseCharactersHandler);
     }
 
     restartGame() {
+        // Clean up event listeners before restarting
+        this.input.keyboard.off('keydown-R', this.restartHandler);
+        this.input.keyboard.off('keydown-C', this.chooseCharactersHandler);
+        
         this.scene.restart();
     }
 
     chooseCharacters() {
+        // Clean up event listeners before transitioning
+        this.input.keyboard.off('keydown-R', this.restartHandler);
+        this.input.keyboard.off('keydown-C', this.chooseCharactersHandler);
+        
         // Reset selected characters
         selectedCharacters = {
             player1: null,
             player2: null
         };
+        
+        // Reset SessionState when returning to character selection
+        SessionState = {
+            player1Wins: 0,
+            player2Wins: 0,
+            totalRoundsPlayed: 0
+        };
+        
         this.scene.start('CharacterSelectionScene');
     }
 
