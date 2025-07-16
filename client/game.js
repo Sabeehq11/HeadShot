@@ -50,6 +50,9 @@ let selectedCharacters = {
     player2: null
 };
 
+// Global map selection state
+let selectedMap = 'city_3'; // Default to city_3
+
 // Character Selection Scene
 class CharacterSelectionScene extends Phaser.Scene {
     constructor() {
@@ -417,11 +420,268 @@ class CharacterSelectionScene extends Phaser.Scene {
                 padding: { x: 16, y: 8 }
             }).setOrigin(0.5);
 
-            // Wait a moment then start the game
+            // Wait a moment then start map selection
             this.time.delayedCall(1500, () => {
-                this.scene.start('GameScene');
+                this.scene.start('MapSelectScene');
             });
         }
+    }
+}
+
+// Map Selection Scene
+class MapSelectScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'MapSelectScene' });
+        this.selectedMapKey = 'city_3'; // Default selection
+    }
+
+    preload() {
+        // Load all map images for thumbnails
+        this.load.image('city_3', 'assets/Sprites/Backgrounds/city_3.png');
+        this.load.image('pollen', 'assets/Sprites/Backgrounds/pollen.png');
+        this.load.image('space', 'assets/Sprites/Backgrounds/space.png');
+        
+        console.log('MapSelectScene: Loading map images...');
+    }
+
+    create() {
+        console.log('MapSelectScene: Creating map selection screen...');
+        
+        // Background
+        this.add.rectangle(400, 300, 800, 600, 0x2c3e50);
+
+        // Title
+        this.add.text(400, 50, '🗺️ MAP SELECTION 🗺️', {
+            fontSize: '32px',
+            fill: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 20, y: 10 }
+        }).setOrigin(0.5);
+
+        // Instructions
+        this.add.text(400, 100, 'Choose your battleground!', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 16, y: 8 }
+        }).setOrigin(0.5);
+
+        // Additional instruction for selection
+        this.add.text(400, 130, 'Click on a map to select it', {
+            fontSize: '16px',
+            fill: '#cccccc',
+            backgroundColor: '#000000',
+            padding: { x: 12, y: 6 }
+        }).setOrigin(0.5);
+
+        // Create map thumbnails
+        this.createMapThumbnails();
+
+        // Create selected map status
+        const initialMapName = this.selectedMapKey === 'city_3' ? 'City 3' : 
+                             this.selectedMapKey === 'pollen' ? 'Pollen' : 
+                             this.selectedMapKey === 'space' ? 'Space' : this.selectedMapKey;
+        this.selectedMapStatus = this.add.text(400, 380, `Selected: ${initialMapName}`, {
+            fontSize: '18px',
+            fill: '#00ff00',
+            backgroundColor: '#000000',
+            padding: { x: 12, y: 6 }
+        }).setOrigin(0.5);
+
+        // Create Start Match button
+        this.createStartButton();
+    }
+
+    createMapThumbnails() {
+        const mapConfigs = [
+            {
+                key: 'city_3',
+                name: 'City 3',
+                x: 130,
+                description: 'Urban battlefield with city skyline'
+            },
+            {
+                key: 'pollen',
+                name: 'Pollen',
+                x: 400,
+                description: 'Space environment with star field'
+            },
+            {
+                key: 'space',
+                name: 'Space',
+                x: 670,
+                description: 'Deep space cosmic environment'
+            }
+        ];
+
+        this.mapThumbnails = [];
+
+        mapConfigs.forEach(config => {
+            // Create clickable background for better interaction
+            const clickArea = this.add.rectangle(config.x, 220, 220, 150, 0x444444, 0.3);
+            clickArea.setStrokeStyle(2, 0x666666);
+            clickArea.setInteractive();
+
+            // Create thumbnail image
+            const thumbnail = this.add.image(config.x, 220, config.key);
+            thumbnail.setScale(0.28); // Slightly smaller for better spacing
+            thumbnail.setOrigin(0.5);
+            thumbnail.setInteractive();
+
+            // Add white border around thumbnail for visibility
+            const thumbnailBorder = this.add.rectangle(config.x, 220, 160, 90, 0x000000, 0);
+            thumbnailBorder.setStrokeStyle(2, 0xffffff);
+
+            // Create selection border (initially hidden)
+            const border = this.add.rectangle(config.x, 220, 220, 150, 0x00ff00, 0);
+            border.setStrokeStyle(4, 0x00ff00);
+            border.setVisible(false);
+
+            // Map name
+            const nameText = this.add.text(config.x, 300, config.name, {
+                fontSize: '20px',
+                fill: '#ffffff',
+                backgroundColor: '#000000',
+                padding: { x: 12, y: 6 }
+            }).setOrigin(0.5);
+
+            // Map description
+            const descText = this.add.text(config.x, 330, config.description, {
+                fontSize: '14px',
+                fill: '#cccccc',
+                backgroundColor: '#000000',
+                padding: { x: 8, y: 4 },
+                wordWrap: { width: 180, useAdvancedWrap: true }
+            }).setOrigin(0.5);
+
+            // Click handlers for both thumbnail and click area
+            const selectHandler = () => {
+                console.log('Selected map:', config.key);
+                this.selectMap(config.key);
+            };
+
+            thumbnail.on('pointerdown', selectHandler);
+            clickArea.on('pointerdown', selectHandler);
+
+            // Hover effects
+            const hoverIn = () => {
+                if (this.selectedMapKey !== config.key) {
+                    thumbnail.setTint(0xcccccc);
+                    clickArea.setStrokeStyle(3, 0xaaaaaa);
+                    thumbnailBorder.setStrokeStyle(3, 0xcccccc);
+                }
+            };
+
+            const hoverOut = () => {
+                if (this.selectedMapKey !== config.key) {
+                    thumbnail.clearTint();
+                    clickArea.setStrokeStyle(2, 0x666666);
+                    thumbnailBorder.setStrokeStyle(2, 0xffffff);
+                }
+            };
+
+            thumbnail.on('pointerover', hoverIn);
+            thumbnail.on('pointerout', hoverOut);
+            clickArea.on('pointerover', hoverIn);
+            clickArea.on('pointerout', hoverOut);
+
+            // Store references
+            this.mapThumbnails.push({
+                key: config.key,
+                thumbnail,
+                border,
+                nameText,
+                descText,
+                clickArea,
+                thumbnailBorder
+            });
+        });
+
+        // Select default map
+        this.selectMap(this.selectedMapKey);
+    }
+
+    selectMap(mapKey) {
+        this.selectedMapKey = mapKey;
+        selectedMap = mapKey; // Update global variable
+
+        console.log('Map selected:', mapKey);
+
+        // Update visual selection
+        this.mapThumbnails.forEach(mapData => {
+            if (mapData.key === mapKey) {
+                // Selected map styling
+                mapData.border.setVisible(true);
+                mapData.nameText.setStyle({ fill: '#00ff00' });
+                mapData.thumbnail.setTint(0x00ff00);
+                mapData.clickArea.setStrokeStyle(3, 0x00ff00);
+                mapData.thumbnailBorder.setStrokeStyle(3, 0x00ff00);
+            } else {
+                // Unselected map styling
+                mapData.border.setVisible(false);
+                mapData.nameText.setStyle({ fill: '#ffffff' });
+                mapData.thumbnail.clearTint();
+                mapData.clickArea.setStrokeStyle(2, 0x666666);
+                mapData.thumbnailBorder.setStrokeStyle(2, 0xffffff);
+            }
+        });
+
+        // Update start button text
+        if (this.startButton) {
+            const mapName = mapKey === 'city_3' ? 'City 3' : 
+                          mapKey === 'pollen' ? 'Pollen' : 
+                          mapKey === 'space' ? 'Space' : mapKey;
+            this.startButton.setText(`Start Match on ${mapName}`);
+        }
+
+        // Update selected map status
+        if (this.selectedMapStatus) {
+            const mapName = mapKey === 'city_3' ? 'City 3' : 
+                          mapKey === 'pollen' ? 'Pollen' : 
+                          mapKey === 'space' ? 'Space' : mapKey;
+            this.selectedMapStatus.setText(`Selected: ${mapName}`);
+        }
+    }
+
+    createStartButton() {
+        const initialMapName = this.selectedMapKey === 'city_3' ? 'City 3' : 
+                             this.selectedMapKey === 'pollen' ? 'Pollen' : 
+                             this.selectedMapKey === 'space' ? 'Space' : this.selectedMapKey;
+        this.startButton = this.add.text(400, 450, `Start Match on ${initialMapName}`, {
+            fontSize: '24px',
+            fill: '#ffffff',
+            backgroundColor: '#228b22',
+            padding: { x: 20, y: 10 }
+        }).setOrigin(0.5);
+
+        this.startButton.setInteractive();
+
+        this.startButton.on('pointerdown', () => {
+            this.startMatch();
+        });
+
+        this.startButton.on('pointerover', () => {
+            this.startButton.setStyle({ backgroundColor: '#32cd32' });
+        });
+
+        this.startButton.on('pointerout', () => {
+            this.startButton.setStyle({ backgroundColor: '#228b22' });
+        });
+    }
+
+    startMatch() {
+        // Show loading message
+        this.add.text(400, 520, 'Loading match...', {
+            fontSize: '20px',
+            fill: '#ffff00',
+            backgroundColor: '#000000',
+            padding: { x: 16, y: 8 }
+        }).setOrigin(0.5);
+
+        // Start the game scene after a brief delay
+        this.time.delayedCall(1000, () => {
+            this.scene.start('GameScene');
+        });
     }
 }
 
@@ -432,6 +692,9 @@ class GameScene extends Phaser.Scene {
     }
 
     preload() {
+        // Load selected background
+        this.load.image(selectedMap, `assets/Sprites/Backgrounds/${selectedMap}.png`);
+
         // Get selected characters
         const p1Character = CHARACTERS[selectedCharacters.player1];
         const p2Character = CHARACTERS[selectedCharacters.player2];
@@ -489,7 +752,7 @@ class GameScene extends Phaser.Scene {
         }
     
     this.add.graphics()
-        .fillStyle(0x8b4513)
+        .fillStyle(0x2d5016)
         .fillRect(0, 0, 800, 50)
         .generateTexture('ground', 800, 50);
     
@@ -501,7 +764,14 @@ class GameScene extends Phaser.Scene {
 }
 
     create() {
-    // Store scene reference for later use
+        // Add background first (behind everything)
+        this.add.image(0, 0, selectedMap)
+            .setOrigin(0)
+            .setDepth(-1)
+            .setScrollFactor(0)
+            .setScale(1.39, 1.85); // All backgrounds are now 576x324, scale to fit 800x600
+
+        // Store scene reference for later use
         this.gameScene = this;
         
         // Initialize game state
@@ -571,7 +841,7 @@ class GameScene extends Phaser.Scene {
         const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
     
     // Create ground
-    const ground = this.add.rectangle(400, 575, 800, 50, 0x8b4513);
+    const ground = this.add.rectangle(400, 575, 800, 50, 0x2d5016);
         this.physics.add.existing(ground, true);
         
         // Create Player 1 with selected character sprite
@@ -2414,7 +2684,7 @@ const config = {
             debug: false
         }
     },
-    scene: [CharacterSelectionScene, GameScene]
+    scene: [CharacterSelectionScene, MapSelectScene, GameScene]
 };
 
 // Initialize the game
