@@ -537,6 +537,33 @@ class GameScene extends Phaser.Scene {
             }
         };
         
+        // Initialize chaos manager
+        const initialDelay = this.getRandomChaosDelay();
+        this.chaosManager = {
+            active: false,
+            currentEvent: null,
+            nextEventTime: Date.now() + initialDelay,
+            eventDuration: 0,
+            eventEndTime: 0,
+            originalGravity: 300,
+            originalPlayer1Speed: 160,
+            originalPlayer2Speed: 160,
+            meteors: [],
+            clonedBall: null,
+            eventBanner: null,
+            originalPlayer1Scale: null,
+            originalPlayer2Scale: null,
+            screenFlipped: false,
+            lastDebugTime: 0,
+            darkOverlay: null,
+            player1Light: null,
+            player2Light: null,
+            ballLight: null,
+            originalPlayer1MaxVelocity: null,
+            originalPlayer2MaxVelocity: null,
+            originalBallMaxVelocity: null
+        };
+        
         // Get selected characters
         const p1Character = CHARACTERS[selectedCharacters.player1];
         const p2Character = CHARACTERS[selectedCharacters.player2];
@@ -706,7 +733,7 @@ class GameScene extends Phaser.Scene {
         fill: '#ffff00',
         backgroundColor: '#000000',
         padding: { x: 20, y: 10 }
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
     
         // Score display
         this.scoreText = this.add.text(400, 30, 'Left: 0 | Right: 0', {
@@ -714,7 +741,7 @@ class GameScene extends Phaser.Scene {
         fill: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 16, y: 8 }
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
         
         // FPS text
         this.fpsText = this.add.text(16, 16, 'FPS: 60', {
@@ -722,7 +749,7 @@ class GameScene extends Phaser.Scene {
         fill: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 8, y: 4 }
-    });
+    }).setScrollFactor(0).setDepth(1000);
     
         // Character info
         this.add.text(16, 100, `Player 1: ${p1Character.name} (${p1Character.power})`, {
@@ -730,21 +757,21 @@ class GameScene extends Phaser.Scene {
             fill: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 8, y: 4 }
-    });
+    }).setScrollFactor(0).setDepth(1000);
     
         this.add.text(16, 130, `Player 2: ${p2Character.name} (${p2Character.power})`, {
         fontSize: '16px',
         fill: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 8, y: 4 }
-    });
+    }).setScrollFactor(0).setDepth(1000);
     
         this.add.text(16, 160, 'Controls: WASD (P1) | Arrow Keys (P2)', {
         fontSize: '16px',
         fill: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 8, y: 4 }
-    });
+    }).setScrollFactor(0).setDepth(1000);
     
         // Connection status
         this.connectionStatusText = this.add.text(16, 190, 'Socket: Connecting...', {
@@ -752,14 +779,14 @@ class GameScene extends Phaser.Scene {
         fill: '#ffff00',
         backgroundColor: '#000000',
         padding: { x: 8, y: 4 }
-    });
+    }).setScrollFactor(0).setDepth(1000);
     
         this.socketText = this.add.text(16, 220, 'Socket ID: Not connected', {
         fontSize: '16px',
         fill: '#00ffff',
         backgroundColor: '#000000',
         padding: { x: 8, y: 4 }
-    });
+    }).setScrollFactor(0).setDepth(1000);
     
     // Power UI
     this.createPowerUI();
@@ -917,9 +944,15 @@ class GameScene extends Phaser.Scene {
     }
     
     executeFlameUppercut(player, opponent) {
+        // Create fire start effect
+        this.createBlazeStartEffect(player);
+        
         // Launch player upward with flame effect
         player.setVelocityY(-400);
         player.setTint(0xff4500);
+        
+        // Create fire loop effect that follows player
+        this.createBlazeLoopEffect(player);
         
         // Check for nearby opponent
         const distance = Phaser.Math.Distance.Between(player.x, player.y, opponent.x, opponent.y);
@@ -956,8 +989,160 @@ class GameScene extends Phaser.Scene {
             });
         }
         
-        // Clear player tint
-        this.time.delayedCall(800, () => player.clearTint());
+        // Clear player tint and create end effect
+        this.time.delayedCall(800, () => {
+            player.clearTint();
+            this.createBlazeEndEffect(player);
+        });
+    }
+    
+    createBlazeStartEffect(player) {
+        // Create start fire effect - explosive burst
+        const startEffect = this.add.graphics();
+        startEffect.setDepth(5);
+        startEffect.x = player.x;
+        startEffect.y = player.y;
+        
+        // Create flame particles
+        const flames = [];
+        for (let i = 0; i < 8; i++) {
+            const flame = this.add.circle(player.x, player.y, 6, 0xff4500);
+            flame.setDepth(5);
+            flame.setAlpha(0.8);
+            
+            // Random spread pattern
+            const angle = (i * Math.PI * 2) / 8;
+            const radius = 20 + Math.random() * 15;
+            
+            // Animate flame burst
+            this.tweens.add({
+                targets: flame,
+                x: player.x + Math.cos(angle) * radius,
+                y: player.y + Math.sin(angle) * radius,
+                alpha: 0,
+                scaleX: 1.5,
+                scaleY: 1.5,
+                duration: 400,
+                ease: 'Power2',
+                onComplete: () => flame.destroy()
+            });
+            
+            flames.push(flame);
+        }
+        
+        // Central burst effect
+        const centerFlame = this.add.circle(player.x, player.y, 15, 0xff4500);
+        centerFlame.setDepth(5);
+        centerFlame.setAlpha(0.9);
+        
+        this.tweens.add({
+            targets: centerFlame,
+            scaleX: 2.0,
+            scaleY: 2.0,
+            alpha: 0,
+            duration: 300,
+            ease: 'Power2',
+            onComplete: () => centerFlame.destroy()
+        });
+        
+        // Cleanup start effect
+        this.time.delayedCall(500, () => {
+            if (startEffect.active) startEffect.destroy();
+        });
+    }
+    
+    createBlazeLoopEffect(player) {
+        // Create loop fire effect that follows player
+        const loopFlames = [];
+        
+        // Create multiple flame particles that orbit around player
+        for (let i = 0; i < 6; i++) {
+            const flame = this.add.circle(player.x, player.y, 4, 0xff4500);
+            flame.setDepth(5);
+            flame.setAlpha(0.7);
+            
+            // Store reference to player for following
+            flame.blazePlayer = player;
+            flame.blazeAngle = (i * Math.PI * 2) / 6;
+            flame.blazeRadius = 25;
+            
+            loopFlames.push(flame);
+        }
+        
+        // Update loop flames to follow player with orbital motion
+        const loopTimer = this.time.addEvent({
+            delay: 32, // ~30 FPS
+            repeat: 24, // 0.8 seconds
+            callback: () => {
+                loopFlames.forEach((flame, index) => {
+                    if (flame.active && flame.blazePlayer) {
+                        // Orbital motion around player
+                        flame.blazeAngle += 0.2;
+                        const x = flame.blazePlayer.x + Math.cos(flame.blazeAngle) * flame.blazeRadius;
+                        const y = flame.blazePlayer.y + Math.sin(flame.blazeAngle) * flame.blazeRadius;
+                        
+                        flame.setPosition(x, y);
+                        
+                        // Flickering effect
+                        flame.setAlpha(0.5 + Math.random() * 0.3);
+                    }
+                });
+            }
+        });
+        
+        // Cleanup loop effect
+        this.time.delayedCall(800, () => {
+            loopFlames.forEach(flame => {
+                if (flame.active) flame.destroy();
+            });
+            if (loopTimer.active) loopTimer.remove();
+        });
+    }
+    
+    createBlazeEndEffect(player) {
+        // Create end fire effect - dissipating flames
+        const endFlames = [];
+        
+        // Create dissipating flame particles
+        for (let i = 0; i < 12; i++) {
+            const flame = this.add.circle(
+                player.x + (Math.random() - 0.5) * 40, 
+                player.y + (Math.random() - 0.5) * 40, 
+                3 + Math.random() * 4, 
+                0xff4500
+            );
+            flame.setDepth(5);
+            flame.setAlpha(0.6);
+            
+            // Animate dissipation
+            this.tweens.add({
+                targets: flame,
+                y: flame.y - 20 - Math.random() * 30,
+                alpha: 0,
+                scaleX: 0.3,
+                scaleY: 0.3,
+                duration: 600 + Math.random() * 400,
+                ease: 'Power2',
+                onComplete: () => flame.destroy()
+            });
+            
+            endFlames.push(flame);
+        }
+        
+        // Smoke effect
+        const smoke = this.add.circle(player.x, player.y, 20, 0x666666);
+        smoke.setDepth(4);
+        smoke.setAlpha(0.3);
+        
+        this.tweens.add({
+            targets: smoke,
+            scaleX: 1.8,
+            scaleY: 1.8,
+            alpha: 0,
+            duration: 800,
+            ease: 'Power2',
+            onComplete: () => smoke.destroy()
+        });
     }
     
     executeIceBlast(player, opponent) {
@@ -1215,11 +1400,476 @@ class GameScene extends Phaser.Scene {
         });
     }
 
-
-
-
-
-
+    // === CHAOS EVENT SYSTEM ===
+    
+    getRandomChaosDelay() {
+        // Random delay around 7 seconds (6000-8000ms)
+        const delay = 6000 + Math.random() * 2000;
+        return delay;
+    }
+    
+    updateChaosManager() {
+        if (this.gameOver) return;
+        
+        try {
+            const currentTime = Date.now();
+            
+            // Optional: Debug timing (commented out for production)
+            // if (!this.chaosManager.lastDebugTime || currentTime - this.chaosManager.lastDebugTime > 2000) {
+            //     const timeUntilNext = (this.chaosManager.nextEventTime - currentTime) / 1000;
+            //     if (timeUntilNext > 0) {
+            //         console.log(`🕐 Debug: ${timeUntilNext.toFixed(1)}s until next chaos event`);
+            //     }
+            //     this.chaosManager.lastDebugTime = currentTime;
+            // }
+            
+            // Check if current event should end
+            if (this.chaosManager.active && currentTime >= this.chaosManager.eventEndTime) {
+                this.endChaosEvent();
+            }
+            
+            // Check if it's time for next event (only if no event is active)
+            if (!this.chaosManager.active && currentTime >= this.chaosManager.nextEventTime) {
+                this.startRandomChaosEvent();
+            }
+            
+            // Update meteors if active
+            if (this.chaosManager.currentEvent === 'meteor_drop' && this.chaosManager.meteors.length > 0) {
+                this.updateMeteors();
+            }
+            
+            // Update darkroom lights if active
+            if (this.chaosManager.currentEvent === 'darkroom' && this.chaosManager.darkOverlay) {
+                this.updateDarkroomLights();
+            }
+        } catch (error) {
+            console.error('🌪️ Error in chaos manager:', error);
+        }
+    }
+    
+    startRandomChaosEvent() {
+        if (this.chaosManager.active) return;
+        
+        const events = ['zero_gravity', 'flip_screen', 'speed_boost', 'meteor_drop', 'ball_clone', 'big_head', 'darkroom'];
+        const eventType = events[Math.floor(Math.random() * events.length)];
+        
+        this.chaosManager.active = true;
+        this.chaosManager.currentEvent = eventType;
+        this.chaosManager.eventDuration = 8000 + Math.random() * 4000; // 8-12 seconds
+        this.chaosManager.eventEndTime = Date.now() + this.chaosManager.eventDuration;
+        
+        // Store original values
+        this.chaosManager.originalPlayer1Scale = { x: this.player1.scaleX, y: this.player1.scaleY };
+        this.chaosManager.originalPlayer2Scale = { x: this.player2.scaleX, y: this.player2.scaleY };
+        
+        console.log(`🌪️ Chaos Event Started: ${eventType.toUpperCase()} (${this.chaosManager.eventDuration/1000}s)`);
+        
+        // Show event banner
+        this.showEventBanner(eventType);
+        
+        // Execute specific event
+        switch (eventType) {
+            case 'zero_gravity':
+                this.startZeroGravityEvent();
+                break;
+            case 'flip_screen':
+                this.startFlipScreenEvent();
+                break;
+            case 'speed_boost':
+                this.startSpeedBoostEvent();
+                break;
+            case 'meteor_drop':
+                this.startMeteorDropEvent();
+                break;
+            case 'ball_clone':
+                this.startBallCloneEvent();
+                break;
+            case 'big_head':
+                this.startBigHeadEvent();
+                break;
+            case 'darkroom':
+                this.startDarkroomEvent();
+                break;
+        }
+    }
+    
+    endChaosEvent() {
+        if (!this.chaosManager.active) return;
+        
+        console.log(`🌪️ Chaos Event Ended: ${this.chaosManager.currentEvent.toUpperCase()}`);
+        
+        // End specific event
+        switch (this.chaosManager.currentEvent) {
+            case 'zero_gravity':
+                this.endZeroGravityEvent();
+                break;
+            case 'flip_screen':
+                this.endFlipScreenEvent();
+                break;
+            case 'speed_boost':
+                this.endSpeedBoostEvent();
+                break;
+            case 'meteor_drop':
+                this.endMeteorDropEvent();
+                break;
+            case 'ball_clone':
+                this.endBallCloneEvent();
+                break;
+            case 'big_head':
+                this.endBigHeadEvent();
+                break;
+            case 'darkroom':
+                this.endDarkroomEvent();
+                break;
+        }
+        
+        // Remove event banner
+        if (this.chaosManager.eventBanner) {
+            this.chaosManager.eventBanner.destroy();
+            this.chaosManager.eventBanner = null;
+        }
+        
+        // Reset chaos manager
+        this.chaosManager.active = false;
+        this.chaosManager.currentEvent = null;
+        this.chaosManager.nextEventTime = Date.now() + this.getRandomChaosDelay();
+    }
+    
+    showEventBanner(eventType) {
+        const eventNames = {
+            'zero_gravity': '🌀 ZERO GRAVITY!',
+            'flip_screen': '🔄 FLIP SCREEN!',
+            'speed_boost': '⚡ SPEED BOOST!',
+            'meteor_drop': '☄️ METEOR DROP!',
+            'ball_clone': '⚽ BALL CLONE!',
+            'big_head': '🧠 BIG HEAD MODE!',
+            'darkroom': '🌑 DARKROOM!'
+        };
+        
+        const eventColors = {
+            'zero_gravity': '#00bfff',
+            'flip_screen': '#ff69b4',
+            'speed_boost': '#ffff00',
+            'meteor_drop': '#ff4500',
+            'ball_clone': '#32cd32',
+            'big_head': '#9370db',
+            'darkroom': '#444444'
+        };
+        
+        const eventName = eventNames[eventType] || '⚠️ CHAOS EVENT!';
+        const eventColor = eventColors[eventType] || '#ffffff';
+        
+        try {
+            this.chaosManager.eventBanner = this.add.text(400, 100, eventName, {
+                fontSize: '36px',
+                fill: eventColor,
+                backgroundColor: '#000000',
+                padding: { x: 20, y: 10 },
+                stroke: '#ffffff',
+                strokeThickness: 2
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+            
+            // Remove banner after 2 seconds
+            this.time.delayedCall(2000, () => {
+                if (this.chaosManager.eventBanner) {
+                    this.chaosManager.eventBanner.destroy();
+                    this.chaosManager.eventBanner = null;
+                }
+            });
+        } catch (error) {
+            console.error('🎨 Error creating banner:', error);
+        }
+    }
+    
+    // === CHAOS EVENTS ===
+    
+    startZeroGravityEvent() {
+        // Store original values for restoration
+        this.chaosManager.originalPlayer1MaxVelocity = this.player1.body.maxVelocity.y;
+        this.chaosManager.originalPlayer2MaxVelocity = this.player2.body.maxVelocity.y;
+        this.chaosManager.originalBallMaxVelocity = this.ball.body.maxVelocity.y;
+        
+        // Reduce fall speed for floaty feeling
+        this.player1.body.setMaxVelocity(300, 200); // Slower falling
+        this.player2.body.setMaxVelocity(300, 200); // Slower falling
+        this.ball.body.setMaxVelocity(350, 250); // Slower falling
+    }
+    
+    endZeroGravityEvent() {
+        // Restore original max velocities
+        this.player1.body.setMaxVelocity(300, this.chaosManager.originalPlayer1MaxVelocity);
+        this.player2.body.setMaxVelocity(300, this.chaosManager.originalPlayer2MaxVelocity);
+        this.ball.body.setMaxVelocity(350, this.chaosManager.originalBallMaxVelocity);
+    }
+    
+    startFlipScreenEvent() {
+        console.log('🔄 Flip Screen Event: Flipping camera horizontally');
+        this.cameras.main.setRotation(Math.PI); // Rotate 180 degrees (upside down)
+        this.chaosManager.screenFlipped = true;
+    }
+    
+    endFlipScreenEvent() {
+        console.log('🔄 Flip Screen Event: Restoring camera orientation');
+        this.cameras.main.setRotation(0); // Restore normal rotation
+        this.chaosManager.screenFlipped = false;
+    }
+    
+    startSpeedBoostEvent() {
+        this.chaosManager.originalPlayer1Speed = 160;
+        this.chaosManager.originalPlayer2Speed = 160;
+        // Speed boost will be applied in update loop
+    }
+    
+    endSpeedBoostEvent() {
+        // Speed will be restored in update loop
+    }
+    
+    startMeteorDropEvent() {
+        // Clean up any existing meteor timer first (prevents freezing on 2nd meteor shower)
+        if (this.meteorSpawnTimer) {
+            this.meteorSpawnTimer.remove();
+            this.meteorSpawnTimer = null;
+        }
+        
+        this.chaosManager.meteors = [];
+        
+        // Start spawning meteors
+        this.meteorSpawnTimer = this.time.addEvent({
+            delay: 800, // Spawn every 0.8 seconds
+            repeat: Math.floor(this.chaosManager.eventDuration / 800) - 1,
+            callback: this.spawnMeteor,
+            callbackScope: this
+        });
+    }
+    
+    spawnMeteor() {
+        const x = 50 + Math.random() * 700; // Random x position
+        const meteor = this.add.circle(x, -30, 12, 0xff4500);
+        this.physics.add.existing(meteor);
+        
+        meteor.body.setVelocity(
+            -50 + Math.random() * 100, // Random horizontal velocity
+            150 + Math.random() * 100   // Downward velocity
+        );
+        meteor.body.setBounce(0.8, 0.6);
+        meteor.body.setCollideWorldBounds(true);
+        
+        // Add collision with players - now with stun functionality
+        this.physics.add.collider(meteor, this.player1, (meteor, player) => {
+            // Apply knockback
+            player.setVelocity(
+                (player.x - meteor.x) * 2, // Knock away from meteor
+                -200 // Upward knock
+            );
+            
+            // Apply stun effect
+            const playerKey = 'player1';
+            const playerPower = this.powers[playerKey];
+            
+            if (!playerPower.immune && !playerPower.shieldActive) {
+                // Stun the player
+                player.setTint(0xffa500); // Orange tint for stun
+                playerPower.frozen = true; // Reuse freeze system for stun
+                playerPower.frozenUntil = Date.now() + 1500; // 1.5 seconds stun
+                
+                // Clear stun after duration
+                this.time.delayedCall(1500, () => {
+                    playerPower.frozen = false;
+                    player.clearTint();
+                });
+            }
+            
+            this.cameras.main.shake(200, 0.01);
+        });
+        
+        this.physics.add.collider(meteor, this.player2, (meteor, player) => {
+            // Apply knockback
+            player.setVelocity(
+                (player.x - meteor.x) * 2, // Knock away from meteor
+                -200 // Upward knock
+            );
+            
+            // Apply stun effect
+            const playerKey = 'player2';
+            const playerPower = this.powers[playerKey];
+            
+            if (!playerPower.immune && !playerPower.shieldActive) {
+                // Stun the player
+                player.setTint(0xffa500); // Orange tint for stun
+                playerPower.frozen = true; // Reuse freeze system for stun
+                playerPower.frozenUntil = Date.now() + 1500; // 1.5 seconds stun
+                
+                // Clear stun after duration
+                this.time.delayedCall(1500, () => {
+                    playerPower.frozen = false;
+                    player.clearTint();
+                });
+            }
+            
+            this.cameras.main.shake(200, 0.01);
+        });
+        
+        this.chaosManager.meteors.push(meteor);
+    }
+    
+    updateMeteors() {
+        // Remove meteors that have stopped moving for too long
+        this.chaosManager.meteors = this.chaosManager.meteors.filter(meteor => {
+            if (!meteor.active) return false;
+            
+            const velocity = Math.abs(meteor.body.velocity.x) + Math.abs(meteor.body.velocity.y);
+            if (velocity < 10) {
+                meteor.destroy();
+                return false;
+            }
+            return true;
+        });
+    }
+    
+    updateDarkroomLights() {
+        // Update light circles to follow players and ball
+        const lightRadius = 80;
+        
+        if (this.chaosManager.player1Light) {
+            this.chaosManager.player1Light.clear();
+            this.chaosManager.player1Light.fillStyle(0xffffff, 0.3);
+            this.chaosManager.player1Light.fillCircle(this.player1.x, this.player1.y, lightRadius);
+        }
+        
+        if (this.chaosManager.player2Light) {
+            this.chaosManager.player2Light.clear();
+            this.chaosManager.player2Light.fillStyle(0xffffff, 0.3);
+            this.chaosManager.player2Light.fillCircle(this.player2.x, this.player2.y, lightRadius);
+        }
+        
+        if (this.chaosManager.ballLight) {
+            this.chaosManager.ballLight.clear();
+            this.chaosManager.ballLight.fillStyle(0xffffff, 0.2);
+            this.chaosManager.ballLight.fillCircle(this.ball.x, this.ball.y, lightRadius * 0.6);
+        }
+    }
+    
+    endMeteorDropEvent() {
+        // Clean up meteors
+        this.chaosManager.meteors.forEach(meteor => {
+            if (meteor.active) meteor.destroy();
+        });
+        this.chaosManager.meteors = [];
+        
+        if (this.meteorSpawnTimer) {
+            this.meteorSpawnTimer.remove();
+            this.meteorSpawnTimer = null;
+        }
+    }
+    
+    startBallCloneEvent() {
+        // Create cloned ball
+        this.chaosManager.clonedBall = this.physics.add.sprite(300, 450, 'ball');
+        this.chaosManager.clonedBall.setScale(0.5);
+        this.chaosManager.clonedBall.setOrigin(0.5, 1);
+        this.chaosManager.clonedBall.setBounce(0.6);
+        this.chaosManager.clonedBall.setCollideWorldBounds(true);
+        this.chaosManager.clonedBall.setDrag(100);
+        this.chaosManager.clonedBall.setMass(0.5);
+        this.chaosManager.clonedBall.setMaxVelocity(350, 500);
+        this.chaosManager.clonedBall.setTint(0x00ff00); // Green tint to distinguish
+        
+        // Add physics collisions for cloned ball
+        this.physics.add.collider(this.chaosManager.clonedBall, this.player1, this.handlePlayerBallCollision, null, this);
+        this.physics.add.collider(this.chaosManager.clonedBall, this.player2, this.handlePlayerBallCollision, null, this);
+        
+        // Add ground collision
+        const ground = this.physics.world.staticBodies.entries[0]; // Get the ground body
+        this.physics.add.collider(this.chaosManager.clonedBall, ground);
+        
+        // Add goal detection for cloned ball
+        this.physics.add.overlap(this.chaosManager.clonedBall, this.leftGoal, () => this.handleGoalScored('right'));
+        this.physics.add.overlap(this.chaosManager.clonedBall, this.rightGoal, () => this.handleGoalScored('left'));
+    }
+    
+    endBallCloneEvent() {
+        if (this.chaosManager.clonedBall) {
+            this.chaosManager.clonedBall.destroy();
+            this.chaosManager.clonedBall = null;
+        }
+    }
+    
+    startBigHeadEvent() {
+        // Increase player scale by 1.5x
+        this.player1.setScale(
+            this.chaosManager.originalPlayer1Scale.x * 1.5,
+            this.chaosManager.originalPlayer1Scale.y * 1.5
+        );
+        this.player2.setScale(
+            this.chaosManager.originalPlayer2Scale.x * 1.5,
+            this.chaosManager.originalPlayer2Scale.y * 1.5
+        );
+    }
+    
+    endBigHeadEvent() {
+        // Restore original scale
+        this.player1.setScale(
+            this.chaosManager.originalPlayer1Scale.x,
+            this.chaosManager.originalPlayer1Scale.y
+        );
+        this.player2.setScale(
+            this.chaosManager.originalPlayer2Scale.x,
+            this.chaosManager.originalPlayer2Scale.y
+        );
+    }
+    
+    startDarkroomEvent() {
+        console.log('🌑 Darkroom Event: Creating darkness overlay');
+        
+        // Create dark overlay that covers entire screen
+        this.chaosManager.darkOverlay = this.add.graphics();
+        this.chaosManager.darkOverlay.fillStyle(0x000000, 0.85); // Dark overlay with 85% opacity
+        this.chaosManager.darkOverlay.fillRect(0, 0, 800, 600);
+        this.chaosManager.darkOverlay.setDepth(500); // High depth but below UI
+        this.chaosManager.darkOverlay.setScrollFactor(0); // Stay in place
+        
+        // Create light circles around players and ball
+        this.chaosManager.player1Light = this.add.graphics();
+        this.chaosManager.player1Light.setDepth(501);
+        
+        this.chaosManager.player2Light = this.add.graphics();
+        this.chaosManager.player2Light.setDepth(501);
+        
+        this.chaosManager.ballLight = this.add.graphics();
+        this.chaosManager.ballLight.setDepth(501);
+        
+        // Set blend mode to create light effect
+        this.chaosManager.player1Light.setBlendMode(Phaser.BlendModes.SCREEN);
+        this.chaosManager.player2Light.setBlendMode(Phaser.BlendModes.SCREEN);
+        this.chaosManager.ballLight.setBlendMode(Phaser.BlendModes.SCREEN);
+    }
+    
+    endDarkroomEvent() {
+        console.log('🌑 Darkroom Event: Removing darkness');
+        
+        // Remove dark overlay and lights
+        if (this.chaosManager.darkOverlay) {
+            this.chaosManager.darkOverlay.destroy();
+            this.chaosManager.darkOverlay = null;
+        }
+        
+        if (this.chaosManager.player1Light) {
+            this.chaosManager.player1Light.destroy();
+            this.chaosManager.player1Light = null;
+        }
+        
+        if (this.chaosManager.player2Light) {
+            this.chaosManager.player2Light.destroy();
+            this.chaosManager.player2Light = null;
+        }
+        
+        if (this.chaosManager.ballLight) {
+            this.chaosManager.ballLight.destroy();
+            this.chaosManager.ballLight = null;
+        }
+    }
+    
+    // === TIMER SYSTEM ===
 
     startMatchTimer() {
         this.timerEvent = this.time.addEvent({
@@ -1551,6 +2201,51 @@ class GameScene extends Phaser.Scene {
         this.scene.start('CharacterSelectionScene');
     }
 
+    preventBallSqueezing() {
+        // Helper function to check and fix ball squeezing
+        const checkBallSqueezing = (ball) => {
+            if (!ball || !ball.active) return;
+            
+            const player1Distance = Phaser.Math.Distance.Between(ball.x, ball.y, this.player1.x, this.player1.y);
+            const player2Distance = Phaser.Math.Distance.Between(ball.x, ball.y, this.player2.x, this.player2.y);
+            
+            const criticalDistance = 45; // Distance that's too close for both players
+            
+            if (player1Distance < criticalDistance && player2Distance < criticalDistance) {
+                // Ball is getting squeezed between players - gently push it away from the closest player
+                const closestPlayer = player1Distance < player2Distance ? this.player1 : this.player2;
+                
+                // Calculate escape direction (away from closest player)
+                const escapeX = ball.x - closestPlayer.x;
+                const escapeY = ball.y - closestPlayer.y;
+                const escapeDistance = Math.sqrt(escapeX * escapeX + escapeY * escapeY);
+                
+                if (escapeDistance > 0) {
+                    // Normalize and apply gentle separation
+                    const normalX = escapeX / escapeDistance;
+                    const normalY = escapeY / escapeDistance;
+                    
+                    // Small push to prevent phasing
+                    const pushForce = 3;
+                    ball.x += normalX * pushForce;
+                    ball.y += normalY * pushForce;
+                    
+                    // Ensure ball stays within bounds
+                    ball.x = Math.max(20, Math.min(780, ball.x));
+                    ball.y = Math.max(20, Math.min(550, ball.y));
+                }
+            }
+        };
+        
+        // Check main ball
+        checkBallSqueezing(this.ball);
+        
+        // Check cloned ball if it exists
+        if (this.chaosManager.clonedBall) {
+            checkBallSqueezing(this.chaosManager.clonedBall);
+        }
+    }
+
     update() {
         this.fpsText.setText('FPS: ' + Math.round(this.game.loop.actualFps));
         
@@ -1558,6 +2253,9 @@ class GameScene extends Phaser.Scene {
         
         // Update power system
         this.updatePowerSystem();
+        
+        // Update chaos manager
+        this.updateChaosManager();
         
         // Handle power activation
         if (Phaser.Input.Keyboard.JustDown(this.powerKeys.E)) {
@@ -1567,19 +2265,39 @@ class GameScene extends Phaser.Scene {
             this.activatePower('player2');
         }
         
-        const speed = 160;
-        const jumpSpeed = 330;
+        // DEBUG: Test chaos event trigger (press T key)
+        if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey('T'))) {
+            console.log('🧪 Manual chaos event trigger!');
+            if (!this.chaosManager.active) {
+                this.startRandomChaosEvent();
+            }
+        }
+        
+        // Calculate speed (apply speed boost if active)
+        let speed = 160;
+        if (this.chaosManager.currentEvent === 'speed_boost') {
+            speed = 160 * 1.5; // 1.5x speed boost
+        }
+        
+        // Calculate jump speed and movement behavior based on zero gravity
+        let jumpSpeed = 330;
+        let horizontalSpeed = speed;
+        
+        if (this.chaosManager.currentEvent === 'zero_gravity') {
+            jumpSpeed = 500; // Higher jumps in zero gravity
+            horizontalSpeed = speed * 0.7; // Slower horizontal movement
+        }
         
         // Player 1 movement (WASD) - with animations
         if (!this.powers.player1.frozen) {
             if (this.wasd.A.isDown) {
-                this.player1.setVelocityX(-speed);
+                this.player1.setVelocityX(-horizontalSpeed);
                 this.player1.setFlipX(true);
                 if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_walk_anim') {
                     this.player1.play('player1_walk_anim');
                 }
             } else if (this.wasd.D.isDown) {
-                this.player1.setVelocityX(speed);
+                this.player1.setVelocityX(horizontalSpeed);
                 this.player1.setFlipX(false);
                 if (this.player1.anims && this.player1.anims.currentAnim && this.player1.anims.currentAnim.key !== 'player1_walk_anim') {
                     this.player1.play('player1_walk_anim');
@@ -1602,13 +2320,13 @@ class GameScene extends Phaser.Scene {
         // Player 2 movement (Arrow keys) - with animations
         if (!this.powers.player2.frozen) {
             if (this.cursors.left.isDown) {
-                this.player2.setVelocityX(-speed);
+                this.player2.setVelocityX(-horizontalSpeed);
                 this.player2.setFlipX(true);
                 if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_walk_anim') {
                     this.player2.play('player2_walk_anim');
                 }
             } else if (this.cursors.right.isDown) {
-                this.player2.setVelocityX(speed);
+                this.player2.setVelocityX(horizontalSpeed);
                 this.player2.setFlipX(false);
                 if (this.player2.anims && this.player2.anims.currentAnim && this.player2.anims.currentAnim.key !== 'player2_walk_anim') {
                     this.player2.play('player2_walk_anim');
@@ -1627,6 +2345,27 @@ class GameScene extends Phaser.Scene {
             // Frozen - stop horizontal movement but allow gravity
             this.player2.setVelocityX(0);
         }
+        
+        // Apply zero gravity effects
+        if (this.chaosManager.currentEvent === 'zero_gravity') {
+            // Apply gentle upward force to counteract gravity for floaty effect
+            const antiGravityForce = 180; // Counteract most of the gravity (300 -> 120 effective)
+            
+            // Apply to both players
+            this.player1.body.setAccelerationY(-antiGravityForce);
+            this.player2.body.setAccelerationY(-antiGravityForce);
+            
+            // Apply to ball
+            this.ball.body.setAccelerationY(-antiGravityForce);
+        } else {
+            // Restore normal gravity acceleration
+            this.player1.body.setAccelerationY(0);
+            this.player2.body.setAccelerationY(0);
+            this.ball.body.setAccelerationY(0);
+        }
+        
+        // Ball safety check - prevent ball from getting trapped between players
+        this.preventBallSqueezing();
     }
 
     initializeSocket() {
