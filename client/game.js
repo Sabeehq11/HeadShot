@@ -2604,6 +2604,12 @@ class GameScene extends Phaser.Scene {
         this.ball.setPosition(400, 450);
         this.ball.setVelocity(0, 0);
         
+        // Reset players to their starting positions
+        this.player1.setPosition(200, 450);
+        this.player1.setVelocity(0, 0);
+        this.player2.setPosition(600, 450);
+        this.player2.setVelocity(0, 0);
+        
         // Check for game end (first to 3 goals or time up)
         if (this.leftScore >= 3 || this.rightScore >= 3) {
             this.handleGameOver(scorer === 'left' ? 'Player 1' : 'Player 2');
