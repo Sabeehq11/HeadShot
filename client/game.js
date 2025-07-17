@@ -199,6 +199,14 @@ let selectedCharacters = {
 // Global map selection state
 let selectedMap = 'nightcity';
 
+// Global game mode selection state
+let selectedGameMode = 'soccer'; // 'soccer' or 'fight'
+let selectedMatchSettings = {
+    time: 60,
+    goalLimit: 3,
+    heartLimit: 3
+};
+
 // Global session state for tracking wins across matches
 let SessionState = {
     player1Wins: 0,
@@ -1747,11 +1755,295 @@ class CharacterSelectionScene extends Phaser.Scene {
                 shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
             }).setOrigin(0.5);
 
-            // Wait a moment then start map selection
+            // Wait a moment then start game mode selection
             this.time.delayedCall(1500, () => {
-                this.scene.start('MapSelectScene');
+                this.scene.start('GameModesScene');
             });
         }
+    }
+}
+
+// Game Modes Scene
+class GameModesScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'GameModesScene' });
+        this.selectedMode = 'soccer'; // Default to soccer mode
+        this.selectedConfig = 0; // Default to first config option
+    }
+
+    create() {
+        // Arcade-style gradient background (match Character Selection)
+        this.add.rectangle(400, 300, 800, 600, 0x000000);
+        this.add.rectangle(400, 300, 800, 600, 0x1a0d33, 0.8);
+        
+        // Arcade border frame (match Character Selection)
+        this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
+        this.add.rectangle(400, 300, 770, 570, 0x000000, 0).setStrokeStyle(2, 0xff00ff);
+
+        // Arcade-style title (match CHARACTER SELECTION styling)
+        this.add.text(400, 40, 'SELECT GAME MODE', {
+            fontSize: '36px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
+        // Title underline (match Character Selection)
+        this.add.rectangle(400, 60, 500, 3, 0x00ffff);
+
+        // Create mode toggle tabs
+        this.createModeToggleTabs();
+
+        // Create match configuration options
+        this.createMatchOptions();
+
+        // Create continue button
+        this.createContinueButton();
+
+        // Setup keyboard controls
+        this.setupControls();
+    }
+
+    createModeToggleTabs() {
+        // Soccer Mode Tab
+        this.soccerTabBg = this.add.rectangle(250, 120, 200, 50, 0x000000, 0.9);
+        this.soccerTabBg.setStrokeStyle(4, 0x00ff00);
+        this.soccerTabBg.setInteractive();
+        
+        this.soccerTabText = this.add.text(250, 120, 'SOCCER MODE', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#00ff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
+        // Fight Mode Tab
+        this.fightTabBg = this.add.rectangle(550, 120, 200, 50, 0x000000, 0.9);
+        this.fightTabBg.setStrokeStyle(4, 0x666666);
+        this.fightTabBg.setInteractive();
+        
+        this.fightTabText = this.add.text(550, 120, 'FIGHT MODE', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#666666',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
+        // Add click handlers
+        this.soccerTabBg.on('pointerdown', () => this.selectMode('soccer'));
+        this.fightTabBg.on('pointerdown', () => this.selectMode('fight'));
+
+        // Add hover effects
+        this.soccerTabBg.on('pointerover', () => {
+            if (this.selectedMode !== 'soccer') {
+                this.soccerTabBg.setFillStyle(0x001100, 0.9);
+            }
+        });
+        this.soccerTabBg.on('pointerout', () => {
+            if (this.selectedMode !== 'soccer') {
+                this.soccerTabBg.setFillStyle(0x000000, 0.9);
+            }
+        });
+
+        this.fightTabBg.on('pointerover', () => {
+            if (this.selectedMode !== 'fight') {
+                this.fightTabBg.setFillStyle(0x330000, 0.9);
+            }
+        });
+        this.fightTabBg.on('pointerout', () => {
+            if (this.selectedMode !== 'fight') {
+                this.fightTabBg.setFillStyle(0x000000, 0.9);
+            }
+        });
+    }
+
+    createMatchOptions() {
+        // Create containers for options (initially empty)
+        this.optionElements = [];
+        this.updateMatchOptions();
+    }
+
+    updateMatchOptions() {
+        // Clear existing options
+        this.optionElements.forEach(element => element.destroy());
+        this.optionElements = [];
+
+        const configs = this.selectedMode === 'soccer' ? 
+            [
+                { time: 60, limit: 3, text: '60 SECONDS • 3 GOALS' },
+                { time: 90, limit: 5, text: '90 SECONDS • 5 GOALS' },
+                { time: 120, limit: 7, text: '2 MINUTES • 7 GOALS' }
+            ] : 
+            [
+                { time: 60, limit: 3, text: '60 SECONDS • 3 HEARTS' },
+                { time: 90, limit: 5, text: '90 SECONDS • 5 HEARTS' },
+                { time: 120, limit: 7, text: '2 MINUTES • 7 HEARTS' }
+            ];
+
+        configs.forEach((config, index) => {
+            const y = 220 + (index * 70);
+            const isSelected = index === this.selectedConfig;
+            
+            // Option background
+            const optionBg = this.add.rectangle(400, y, 400, 50, 0x000000, 0.9);
+            optionBg.setStrokeStyle(4, isSelected ? 0x00ff00 : 0xffff00);
+            optionBg.setInteractive();
+            
+            // Option text
+            const optionText = this.add.text(400, y, config.text, {
+                fontSize: '18px',
+                fontStyle: 'bold',
+                fill: isSelected ? '#00ff00' : '#ffff00',
+                stroke: '#000000',
+                strokeThickness: 2,
+                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+            }).setOrigin(0.5);
+
+            // Add click handler
+            optionBg.on('pointerdown', () => this.selectConfig(index));
+
+            // Add hover effects
+            optionBg.on('pointerover', () => {
+                if (index !== this.selectedConfig) {
+                    optionBg.setFillStyle(0x333300, 0.9);
+                    optionText.setStyle({ fill: '#ffffff' });
+                }
+            });
+            optionBg.on('pointerout', () => {
+                if (index !== this.selectedConfig) {
+                    optionBg.setFillStyle(0x000000, 0.9);
+                    optionText.setStyle({ fill: '#ffff00' });
+                }
+            });
+
+            this.optionElements.push(optionBg, optionText);
+        });
+    }
+
+    selectMode(mode) {
+        this.selectedMode = mode;
+        this.selectedConfig = 0; // Reset to first config when switching modes
+
+        // Update tab styling
+        if (mode === 'soccer') {
+            this.soccerTabBg.setStrokeStyle(4, 0x00ff00);
+            this.soccerTabBg.setFillStyle(0x001100, 0.9);
+            this.soccerTabText.setStyle({ fill: '#00ff00' });
+            
+            this.fightTabBg.setStrokeStyle(4, 0x666666);
+            this.fightTabBg.setFillStyle(0x000000, 0.9);
+            this.fightTabText.setStyle({ fill: '#666666' });
+        } else {
+            this.fightTabBg.setStrokeStyle(4, 0xff0000);
+            this.fightTabBg.setFillStyle(0x330000, 0.9);
+            this.fightTabText.setStyle({ fill: '#ff0000' });
+            
+            this.soccerTabBg.setStrokeStyle(4, 0x666666);
+            this.soccerTabBg.setFillStyle(0x000000, 0.9);
+            this.soccerTabText.setStyle({ fill: '#666666' });
+        }
+
+        // Update match options
+        this.updateMatchOptions();
+    }
+
+    selectConfig(index) {
+        this.selectedConfig = index;
+        this.updateMatchOptions();
+    }
+
+    createContinueButton() {
+        // Create continue button (match MAP SELECTION "START MATCH" button styling)
+        this.continueButtonBg = this.add.rectangle(400, 500, 320, 60, 0x000000, 0.9);
+        this.continueButtonBg.setStrokeStyle(4, 0xffff00);
+        this.continueButtonBg.setInteractive();
+        
+        this.continueButton = this.add.text(400, 500, 'CONTINUE', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
+        this.continueButtonBg.on('pointerdown', () => {
+            this.continueToMapSelection();
+        });
+
+        this.continueButtonBg.on('pointerover', () => {
+            this.continueButtonBg.setFillStyle(0x333300, 0.9);
+            this.continueButtonBg.setStrokeStyle(4, 0xffff00);
+            this.continueButton.setStyle({ fill: '#ffffff' });
+        });
+
+        this.continueButtonBg.on('pointerout', () => {
+            this.continueButtonBg.setFillStyle(0x000000, 0.9);
+            this.continueButtonBg.setStrokeStyle(4, 0xffff00);
+            this.continueButton.setStyle({ fill: '#ffff00' });
+        });
+    }
+
+    setupControls() {
+        // Space key to continue
+        this.input.keyboard.on('keydown-SPACE', () => {
+            this.continueToMapSelection();
+        });
+
+        // Number keys to select config
+        this.input.keyboard.on('keydown-ONE', () => this.selectConfig(0));
+        this.input.keyboard.on('keydown-TWO', () => this.selectConfig(1));
+        this.input.keyboard.on('keydown-THREE', () => this.selectConfig(2));
+
+        // Tab key to switch modes
+        this.input.keyboard.on('keydown-TAB', () => {
+            this.selectMode(this.selectedMode === 'soccer' ? 'fight' : 'soccer');
+        });
+    }
+
+    continueToMapSelection() {
+        // Store selected game mode and settings
+        selectedGameMode = this.selectedMode;
+        
+        const configs = this.selectedMode === 'soccer' ? 
+            [
+                { time: 60, goalLimit: 3, heartLimit: 3 },
+                { time: 90, goalLimit: 5, heartLimit: 5 },
+                { time: 120, goalLimit: 7, heartLimit: 7 }
+            ] : 
+            [
+                { time: 60, goalLimit: 3, heartLimit: 3 },
+                { time: 90, goalLimit: 5, heartLimit: 5 },
+                { time: 120, goalLimit: 7, heartLimit: 7 }
+            ];
+
+        const selectedConfigData = configs[this.selectedConfig];
+        selectedMatchSettings = {
+            time: selectedConfigData.time,
+            goalLimit: selectedConfigData.goalLimit,
+            heartLimit: selectedConfigData.heartLimit
+        };
+
+        // Show loading message
+        this.add.text(400, 550, 'LOADING...', {
+            fontSize: '24px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
+        // Continue to map selection
+        this.time.delayedCall(1000, () => {
+            this.scene.start('MapSelectScene');
+        });
     }
 }
 
@@ -2052,9 +2344,18 @@ class MapSelectScene extends Phaser.Scene {
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Start the game scene after a brief delay
+        // Start the appropriate scene based on selected game mode
         this.time.delayedCall(1000, () => {
-            this.scene.start('GameScene');
+            if (selectedGameMode === 'fight') {
+                // Pass the selected settings to FightScene
+                const fightSettings = {
+                    time: selectedMatchSettings.time,
+                    heartLimit: selectedMatchSettings.heartLimit
+                };
+                this.scene.start('FightScene', fightSettings);
+            } else {
+                this.scene.start('GameScene');
+            }
         });
     }
 }
@@ -2199,7 +2500,8 @@ class GameScene extends Phaser.Scene {
         this.gameOver = false;
         this.leftScore = 0;
         this.rightScore = 0;
-        this.matchTime = 60;
+        this.matchTime = selectedMatchSettings.time;
+        this.maxGoals = selectedMatchSettings.goalLimit;
         this.gameStartTime = Date.now();
         
         // Initialize clean power system
@@ -2610,8 +2912,8 @@ class GameScene extends Phaser.Scene {
         this.player2.setPosition(600, 450);
         this.player2.setVelocity(0, 0);
         
-        // Check for game end (first to 3 goals or time up)
-        if (this.leftScore >= 3 || this.rightScore >= 3) {
+        // Check for game end (first to max goals or time up)
+        if (this.leftScore >= this.maxGoals || this.rightScore >= this.maxGoals) {
             this.handleGameOver(scorer === 'left' ? 'Player 1' : 'Player 2');
         }
     }
@@ -2772,7 +3074,14 @@ class GameScene extends Phaser.Scene {
         
         // Add click handlers to button backgrounds
         fightBtnBg.on('pointerdown', () => {
-            this.scene.start('FightScene');
+            // Use the original full time setting, not remaining time
+            const currentMatchSettings = {
+                time: selectedMatchSettings.time, // Full original time (90s if 90s was selected)
+                heartLimit: selectedMatchSettings.goalLimit // Hearts match the original goal limit
+            };
+            
+            // Store current settings temporarily for fight scene
+            this.scene.start('FightScene', currentMatchSettings);
         });
         
         continueBtnBg.on('pointerdown', () => {
@@ -2786,7 +3095,14 @@ class GameScene extends Phaser.Scene {
         
         // Add F key listener for fight mode
         this.input.keyboard.once('keydown-F', () => {
-            this.scene.start('FightScene');
+            // Use the original full time setting, not remaining time
+            const currentMatchSettings = {
+                time: selectedMatchSettings.time, // Full original time (90s if 90s was selected)
+                heartLimit: selectedMatchSettings.goalLimit // Hearts match the original goal limit
+            };
+            
+            // Store current settings temporarily for fight scene
+            this.scene.start('FightScene', currentMatchSettings);
         });
     }
 
@@ -4001,13 +4317,31 @@ class FightScene extends Phaser.Scene {
     constructor() {
         super({ key: 'FightScene' });
         this.gameOver = false;
-        this.player1HP = 3;
-        this.player2HP = 3;
         this.blastCooldown = 3000; // 3 seconds
         this.player1BlastReady = true;
         this.player2BlastReady = true;
         this.player1LastBlast = 0;
         this.player2LastBlast = 0;
+        
+        // Initialize with default settings (will be overridden by init() if data is passed)
+        this.matchTime = selectedMatchSettings.time;
+        this.player1HP = selectedMatchSettings.heartLimit;
+        this.player2HP = selectedMatchSettings.heartLimit;
+    }
+
+    init(data) {
+        // If data is passed from scene.start(), use those settings
+        if (data) {
+            this.matchTime = data.time;
+            this.player1HP = data.heartLimit;
+            this.player2HP = data.heartLimit;
+        }
+        
+        // Always reset the game start time when the scene initializes
+        this.gameStartTime = Date.now();
+        this.gameOver = false;
+        
+        console.log(`Fight Scene initialized with: ${this.matchTime}s, ${this.player1HP} hearts each`);
     }
 
     preload() {
@@ -4151,9 +4485,13 @@ class FightScene extends Phaser.Scene {
         // Create animations
         this.createPlayerAnimations(p1SpriteConfig, p2SpriteConfig);
 
-        // Start with idle animations
-        this.player1.play('player1_idle_anim');
-        this.player2.play('player2_idle_anim');
+        // Start with idle animations (only if they exist)
+        if (this.anims.exists('player1_idle_anim')) {
+            this.player1.play('player1_idle_anim');
+        }
+        if (this.anims.exists('player2_idle_anim')) {
+            this.player2.play('player2_idle_anim');
+        }
 
         // Physics collisions
         this.physics.add.collider(this.player1, ground);
@@ -4231,10 +4569,20 @@ class FightScene extends Phaser.Scene {
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
+        // Timer display - Arcade style (centered, prominent)
+        this.timerText = this.add.text(400, 70, `TIME: ${this.matchTime}`, {
+            fontSize: '28px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
         // Player 1 HP Hearts
         this.player1Hearts = [];
-        for (let i = 0; i < 3; i++) {
-            const heart = this.add.text(50 + (i * 40), 80, '❤️', {
+        for (let i = 0; i < this.player1HP; i++) {
+            const heart = this.add.text(50 + (i * 40), 110, '❤️', {
                 fontSize: '24px'
             });
             this.player1Hearts.push(heart);
@@ -4242,15 +4590,15 @@ class FightScene extends Phaser.Scene {
 
         // Player 2 HP Hearts
         this.player2Hearts = [];
-        for (let i = 0; i < 3; i++) {
-            const heart = this.add.text(710 - (i * 40), 80, '❤️', {
+        for (let i = 0; i < this.player2HP; i++) {
+            const heart = this.add.text(710 - (i * 40), 110, '❤️', {
                 fontSize: '24px'
             });
             this.player2Hearts.push(heart);
         }
 
         // Player names - Arcade style
-        this.add.text(50, 110, `PLAYER 1: ${CHARACTERS[selectedCharacters.player1].name.toUpperCase()}`, {
+        this.add.text(50, 140, `PLAYER 1: ${CHARACTERS[selectedCharacters.player1].name.toUpperCase()}`, {
             fontSize: '18px',
             fontStyle: 'bold',
             fill: '#00ff00',
@@ -4259,7 +4607,7 @@ class FightScene extends Phaser.Scene {
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         });
 
-        this.add.text(750, 110, `PLAYER 2: ${CHARACTERS[selectedCharacters.player2].name.toUpperCase()}`, {
+        this.add.text(750, 140, `PLAYER 2: ${CHARACTERS[selectedCharacters.player2].name.toUpperCase()}`, {
             fontSize: '18px',
             fontStyle: 'bold',
             fill: '#0080ff',
@@ -4269,7 +4617,7 @@ class FightScene extends Phaser.Scene {
         }).setOrigin(1, 0);
 
         // Blast cooldown displays - Arcade style
-        this.player1BlastText = this.add.text(50, 140, 'BLAST: READY [E]', {
+        this.player1BlastText = this.add.text(50, 170, 'BLAST: READY [E]', {
             fontSize: '16px',
             fontStyle: 'bold',
             fill: '#00ff00',
@@ -4278,7 +4626,7 @@ class FightScene extends Phaser.Scene {
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         });
 
-        this.player2BlastText = this.add.text(750, 140, 'BLAST: READY [K]', {
+        this.player2BlastText = this.add.text(750, 170, 'BLAST: READY [K]', {
             fontSize: '16px',
             fontStyle: 'bold',
             fill: '#0080ff',
@@ -4347,6 +4695,9 @@ class FightScene extends Phaser.Scene {
     update() {
         if (this.gameOver) return;
 
+        // Update match timer
+        this.updateMatchTimer();
+
         // Update blast cooldowns
         this.updateBlastCooldowns();
 
@@ -4354,18 +4705,18 @@ class FightScene extends Phaser.Scene {
         if (this.wasd.A.isDown) {
             this.player1.setVelocityX(-160);
             this.player1.setFlipX(true);
-            if (this.player1.body.touching.down) {
+            if (this.player1.body.touching.down && this.anims.exists('player1_walk_anim')) {
                 this.player1.play('player1_walk_anim', true);
             }
         } else if (this.wasd.D.isDown) {
             this.player1.setVelocityX(160);
             this.player1.setFlipX(false);
-            if (this.player1.body.touching.down) {
+            if (this.player1.body.touching.down && this.anims.exists('player1_walk_anim')) {
                 this.player1.play('player1_walk_anim', true);
             }
         } else {
             this.player1.setVelocityX(0);
-            if (this.player1.body.touching.down) {
+            if (this.player1.body.touching.down && this.anims.exists('player1_idle_anim')) {
                 this.player1.play('player1_idle_anim', true);
             }
         }
@@ -4378,18 +4729,18 @@ class FightScene extends Phaser.Scene {
         if (this.cursors.left.isDown) {
             this.player2.setVelocityX(-160);
             this.player2.setFlipX(true);
-            if (this.player2.body.touching.down) {
+            if (this.player2.body.touching.down && this.anims.exists('player2_walk_anim')) {
                 this.player2.play('player2_walk_anim', true);
             }
         } else if (this.cursors.right.isDown) {
             this.player2.setVelocityX(160);
             this.player2.setFlipX(false);
-            if (this.player2.body.touching.down) {
+            if (this.player2.body.touching.down && this.anims.exists('player2_walk_anim')) {
                 this.player2.play('player2_walk_anim', true);
             }
         } else {
             this.player2.setVelocityX(0);
-            if (this.player2.body.touching.down) {
+            if (this.player2.body.touching.down && this.anims.exists('player2_idle_anim')) {
                 this.player2.play('player2_idle_anim', true);
             }
         }
@@ -4456,6 +4807,38 @@ class FightScene extends Phaser.Scene {
                 });
             }
         }
+    }
+
+    updateMatchTimer() {
+        // Only update if timer text exists
+        if (!this.timerText) return;
+        
+        const currentTime = Date.now();
+        const elapsedTime = Math.floor((currentTime - this.gameStartTime) / 1000);
+        const remainingTime = Math.max(0, this.matchTime - elapsedTime);
+
+        this.timerText.setText(`TIME: ${remainingTime}`);
+
+        // Check for time up (only if some time has actually passed to avoid immediate timeout)
+        if (remainingTime <= 0 && !this.gameOver && elapsedTime >= this.matchTime) {
+            this.handleTimeUp();
+        }
+    }
+
+    handleTimeUp() {
+        this.gameOver = true;
+        
+        // Determine winner based on remaining HP
+        let winner;
+        if (this.player1HP > this.player2HP) {
+            winner = 'Player 1';
+        } else if (this.player2HP > this.player1HP) {
+            winner = 'Player 2';
+        } else {
+            winner = 'Draw';
+        }
+        
+        this.handleFightEnd(winner);
     }
 
     fireBlast(player) {
@@ -4654,8 +5037,8 @@ class FightScene extends Phaser.Scene {
     }
 
     updateHeartsDisplay() {
-        // Update Player 1 hearts
-        for (let i = 0; i < 3; i++) {
+        // Update Player 1 hearts - loop through all hearts, not just 3
+        for (let i = 0; i < this.player1Hearts.length; i++) {
             if (i < this.player1HP) {
                 this.player1Hearts[i].setText('❤️');
             } else {
@@ -4663,8 +5046,8 @@ class FightScene extends Phaser.Scene {
             }
         }
 
-        // Update Player 2 hearts
-        for (let i = 0; i < 3; i++) {
+        // Update Player 2 hearts - loop through all hearts, not just 3
+        for (let i = 0; i < this.player2Hearts.length; i++) {
             if (i < this.player2HP) {
                 this.player2Hearts[i].setText('❤️');
             } else {
@@ -4673,16 +5056,18 @@ class FightScene extends Phaser.Scene {
         }
     }
 
-    handleFightEnd() {
+    handleFightEnd(winner = null) {
         this.gameOver = true;
         
-        const winner = this.player1HP > 0 ? 'Player 1' : 'Player 2';
+        // Use provided winner or determine based on HP
+        const finalWinner = winner || (this.player1HP > 0 ? 'Player 1' : 'Player 2');
         
         // Create overlay
         const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
         
         // Winner announcement - Match CHARACTER SELECTION styling
-        this.add.text(400, 200, `${winner.toUpperCase()} WINS THE FIGHT!`, {
+        const winnerText = finalWinner === 'Draw' ? 'DRAW!' : `${finalWinner.toUpperCase()} WINS THE FIGHT!`;
+        this.add.text(400, 200, winnerText, {
             fontSize: '48px',
             fontStyle: 'bold',
             fill: '#ffff00',
@@ -4777,7 +5162,7 @@ const config = {
             debug: false
         }
     },
-    scene: [CharacterSelectionScene, MapSelectScene, GameScene, FightScene]
+    scene: [CharacterSelectionScene, GameModesScene, MapSelectScene, GameScene, FightScene]
 };
 
 // Initialize the game
