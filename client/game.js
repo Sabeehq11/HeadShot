@@ -10,7 +10,7 @@ const CHARACTERS = {
     frostbite: {
         name: 'Frostbite',
         power: 'Ice Freeze',
-        description: 'Freezes opponents and slows down the ball',
+        description: 'Soccer: Snowball projectile freezes opponent in ice cocoon. Fight: Standard ice blast',
         color: 0x00bfff,
         sprite: { category: 'tinyHeroes', id: 'pinkMonster' }
     },
@@ -1597,7 +1597,7 @@ class CharacterSelectionScene extends Phaser.Scene {
                 key: 'frostbite',
                 name: 'FROSTBITE',
                 power: 'Ice Freeze',
-                description: 'Freezes opponents completely for 2 seconds'
+                description: 'Soccer: Snowball projectile creates ice cocoon freeze. Fight: Standard ice blast'
             },
             {
                 key: 'volt',
@@ -2572,6 +2572,27 @@ class GameScene extends Phaser.Scene {
         
         // Load goal sprite
         this.load.image('goalPost', 'assets/Sprites/goals/Head Ball/Assets/Sprites/porta.png');
+        
+        // Load Frostbite enhanced sprites for soccer mode - using correct dimensions
+        console.log('🎨 Loading Frostbite sprites with correct dimensions...');
+        
+        // Load main snowball spritesheet (1536x771, 3x2 = 6 frames of 512x386)
+        this.load.spritesheet('snowball_main', 
+            'assets/Sprites/Powers/Frostbite/snowball/spritesheet/snowball_spritesheet_3x2.png',
+            { frameWidth: 512, frameHeight: 386 }
+        );
+        
+        // Load FreeIceCoolPack snowball (192x160, try different frame layouts)
+        this.load.spritesheet('snowball_freecool', 
+            'assets/Sprites/Powers/Frostbite/FreeIceCoolPack/Free/Sheets/SnowBall.png',
+            { frameWidth: 32, frameHeight: 160 } // 6 frames of 32x160
+        );
+        
+        // Load ice cocoon as sprite sheet (160x160 total, using 32x32 frames for 5x5 grid)
+        this.load.spritesheet('ice_cocoon', 'assets/Sprites/Powers/Frostbite/FreeIceCoolPack/Free/Sheets/IceCocoon.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
     }
 
     calculatePowerCooldown(playerId) {
@@ -2783,6 +2804,45 @@ class GameScene extends Phaser.Scene {
         
         // Create animations for both players
         this.createPlayerAnimations(p1SpriteConfig, p2SpriteConfig);
+        
+        // Debug loaded textures
+        console.log('🔍 Checking loaded textures...');
+        console.log('Snowball main exists:', this.textures.exists('snowball_main'));
+        console.log('Snowball freecool exists:', this.textures.exists('snowball_freecool'));
+        console.log('Ice cocoon exists:', this.textures.exists('ice_cocoon'));
+        
+        // Create Frostbite snowball animations with correct frame counts
+        console.log('🎬 Creating snowball animations...');
+        
+        // Create main snowball animation (6 frames: 0-5)
+        if (this.textures.exists('snowball_main')) {
+            try {
+                this.anims.create({
+                    key: 'snowball_roll',
+                    frames: this.anims.generateFrameNumbers('snowball_main', { start: 0, end: 5 }),
+                    frameRate: 12,
+                    repeat: -1
+                });
+                console.log('✅ Main snowball animation created (6 frames)');
+            } catch (error) {
+                console.error('❌ Failed to create main snowball animation:', error.message);
+            }
+        }
+        
+        // Create freecool snowball animation (6 frames: 0-5)
+        if (this.textures.exists('snowball_freecool')) {
+            try {
+                this.anims.create({
+                    key: 'snowball_freecool_anim',
+                    frames: this.anims.generateFrameNumbers('snowball_freecool', { start: 0, end: 5 }),
+                    frameRate: 10,
+                    repeat: -1
+                });
+                console.log('✅ Freecool snowball animation created (6 frames)');
+            } catch (error) {
+                console.error('❌ Failed to create freecool snowball animation:', error.message);
+            }
+        }
         
         // Start with idle animations
         this.player1.play('player1_idle_anim');
@@ -3624,6 +3684,8 @@ class GameScene extends Phaser.Scene {
     }
 
     activatePower(player) {
+        console.log(`🔥 activatePower called for ${player}`);
+        
         // Check if power is available (either ready or has charges)
         if (!this.powers[player].ready && this.powers[player].charges <= 0) {
             console.log(`❌ ${player} power not available - no charges and not ready`);
@@ -3658,6 +3720,8 @@ class GameScene extends Phaser.Scene {
         const characterKey = player === 'player1' ? selectedCharacters.player1 : selectedCharacters.player2;
         const character = CHARACTERS[characterKey];
         const playerSprite = player === 'player1' ? this.player1 : this.player2;
+        
+        console.log(`⚡ Applying power for character: ${characterKey}, character name: ${character.name}`);
         
         // Apply character-specific power
         this.applyCharacterPower(player, character, playerSprite);
@@ -3870,56 +3934,190 @@ class GameScene extends Phaser.Scene {
     }
 
     executeIceBlast(player, opponent) {
-        // Create ice projectile
-        const projectile = this.add.circle(player.x, player.y - 20, 8, 0x00bfff);
-        this.physics.add.existing(projectile);
-        
-        // Set projectile velocity
         const direction = player.flipX ? -1 : 1;
-        projectile.body.setVelocity(direction * 300, 0);
-        projectile.body.setGravityY(-300);
         
-        // Handle collision with opponent
-        this.physics.add.overlap(projectile, opponent, () => {
-            // Check if opponent is immune (only Brick can block)
-            const opponentKey = opponent === this.player1 ? 'player1' : 'player2';
-            const opponentPower = this.powers[opponentKey];
+        console.log('🧊 Frostbite executeIceBlast called, game mode:', selectedGameMode);
+        
+        // Enhanced soccer mode with snowball projectile and ice cocoon overlay
+        if (selectedGameMode === 'soccer') {
+            console.log('❄️ Using enhanced soccer mode snowball projectile');
             
-            if (opponentPower.immune) {
-                // Brick's immunity blocks the ice attack - projectile bounces off
-                projectile.body.setVelocity(-projectile.body.velocity.x, -Math.abs(projectile.body.velocity.y));
-                
-                // Visual effect for immunity block
-                opponent.setTint(0xffd700);
-                this.time.delayedCall(200, () => {
-                    // Restore Brick's golden immunity tint
-                    opponent.setTint(0xffd700);
-                });
-                
-                console.log('🛡️ Brick blocked ice blast with immunity!');
-                return;
+            // Create snowball projectile (prioritize main spritesheet)
+            let projectile;
+            
+            if (this.textures.exists('snowball_main') && this.anims.exists('snowball_roll')) {
+                console.log('✅ Using main snowball spritesheet with animation');
+                projectile = this.add.sprite(player.x + (direction * 30), player.y - 20, 'snowball_main');
+                projectile.setScale(0.1); // Scale down the large 512x386 frames
+                projectile.play('snowball_roll');
+            } else if (this.textures.exists('snowball_freecool') && this.anims.exists('snowball_freecool_anim')) {
+                console.log('✅ Using FreeIceCoolPack snowball spritesheet');
+                projectile = this.add.sprite(player.x + (direction * 30), player.y - 20, 'snowball_freecool');
+                projectile.setScale(0.3); // Scale down the 32x160 frames
+                projectile.play('snowball_freecool_anim');
+            } else if (this.textures.exists('snowball_main')) {
+                console.log('✅ Using main snowball spritesheet (static)');
+                projectile = this.add.sprite(player.x + (direction * 30), player.y - 20, 'snowball_main');
+                projectile.setScale(0.1);
+                projectile.setFrame(0); // Use first frame as static
+            } else {
+                console.warn('⚠️ No snowball sprites found, using fallback white circle');
+                projectile = this.add.circle(player.x + (direction * 30), player.y - 20, 12, 0xffffff);
             }
             
-            opponent.setVelocity(0, 0);
-            opponent.setTint(0x87ceeb);
+            this.physics.add.existing(projectile);
             
-            // Actually freeze the opponent - disable movement
-            opponentPower.frozen = true;
-            opponentPower.frozenUntil = Date.now() + 2000; // 2 seconds
+            // Set projectile velocity straight across the screen - exactly like the old blue circle
+            projectile.body.setVelocity(direction * 350, 0);
+            projectile.body.setGravityY(-300); // Negative gravity to counteract world gravity like fight mode
+            projectile.body.setCollideWorldBounds(false); // Don't collide with world bounds
+            projectile.body.setSize(20, 20); // Set collision size
             
-            // Clear freeze after 2 seconds
-            this.time.delayedCall(2000, () => {
-                opponentPower.frozen = false;
-                opponent.clearTint();
+            // Handle collision with opponent
+            this.physics.add.overlap(projectile, opponent, () => {
+                // Check if opponent is immune (only Brick can block)
+                const opponentKey = opponent === this.player1 ? 'player1' : 'player2';
+                const opponentPower = this.powers[opponentKey];
+                
+                if (opponentPower.immune) {
+                    // Brick's immunity blocks the ice attack - projectile bounces off
+                    projectile.body.setVelocity(-projectile.body.velocity.x, -Math.abs(projectile.body.velocity.y));
+                    
+                    // Visual effect for immunity block
+                    opponent.setTint(0xffd700);
+                    this.time.delayedCall(200, () => {
+                        // Restore Brick's golden immunity tint
+                        opponent.setTint(0xffd700);
+                    });
+                    
+                    console.log('🛡️ Brick blocked snowball with immunity!');
+                    return;
+                }
+                
+                // Stop opponent movement
+                opponent.setVelocity(0, 0);
+                
+                // Create ice cocoon overlay effect
+                this.applyIceCocoonEffect(opponent, opponentPower);
+                
+                projectile.destroy();
             });
             
-            projectile.destroy();
+            // Auto-destroy after 3 seconds
+            this.time.delayedCall(3000, () => {
+                if (projectile.active) projectile.destroy();
+            });
+        } else {
+            // Original fight mode behavior - simple ice projectile
+            const projectile = this.add.circle(player.x, player.y - 20, 8, 0x00bfff);
+            this.physics.add.existing(projectile);
+            
+            projectile.body.setVelocity(direction * 300, 0);
+            projectile.body.setGravityY(-300);
+            
+            // Handle collision with opponent (fight mode)
+            this.physics.add.overlap(projectile, opponent, () => {
+                const opponentKey = opponent === this.player1 ? 'player1' : 'player2';
+                const opponentPower = this.powers[opponentKey];
+                
+                if (opponentPower.immune) {
+                    projectile.body.setVelocity(-projectile.body.velocity.x, -Math.abs(projectile.body.velocity.y));
+                    opponent.setTint(0xffd700);
+                    this.time.delayedCall(200, () => {
+                        opponent.setTint(0xffd700);
+                    });
+                    console.log('🛡️ Brick blocked ice blast with immunity!');
+                    return;
+                }
+                
+                opponent.setVelocity(0, 0);
+                opponent.setTint(0x87ceeb);
+                
+                opponentPower.frozen = true;
+                opponentPower.frozenUntil = Date.now() + 2000;
+                
+                this.time.delayedCall(2000, () => {
+                    opponentPower.frozen = false;
+                    opponent.clearTint();
+                });
+                
+                projectile.destroy();
+            });
+            
+            this.time.delayedCall(2000, () => {
+                if (projectile.active) projectile.destroy();
+            });
+        }
+    }
+
+    applyIceCocoonEffect(opponent, opponentPower) {
+        console.log('❄️ Applying ice cocoon effect...');
+        
+        // Create ice cocoon overlay using just one frame from the sprite sheet
+        let iceCocoon;
+        if (this.textures.exists('ice_cocoon')) {
+            console.log('✅ Using ice cocoon sprite sheet - frame 14 (5th in 3rd row)');
+            iceCocoon = this.add.sprite(opponent.x, opponent.y - 30, 'ice_cocoon');
+            iceCocoon.setFrame(14); // Use 5th image in 3rd row (0-indexed: row 3 = frames 10-14, so frame 14)
+            iceCocoon.setScale(3.0); // Scale up the 32x32 frame to cover the character completely
+        } else {
+            console.warn('⚠️ Ice cocoon sprite not found, using fallback blue circle');
+            iceCocoon = this.add.circle(opponent.x, opponent.y - 30, 25, 0x87ceeb, 0.7);
+        }
+        
+        iceCocoon.setDepth(10); // Ensure it appears above the player
+        iceCocoon.setAlpha(0.9);
+        
+        // Store reference to cocoon in opponent for cleanup
+        opponent.iceCocoonOverlay = iceCocoon;
+        
+        // Freeze the opponent - disable movement
+        opponentPower.frozen = true;
+        opponentPower.frozenUntil = Date.now() + 2000; // 2 seconds
+        
+        // Add a subtle ice tint to the player
+        opponent.setTint(0xb3e5fc);
+        
+        // Ice cocoon appears instantly without animation
+        
+        // Track cocoon with player movement (though they should be frozen)
+        const updateCocoonPosition = () => {
+            if (iceCocoon && iceCocoon.active && opponent && opponent.active) {
+                iceCocoon.setPosition(opponent.x, opponent.y - 30);
+            }
+        };
+        
+        // Clear freeze and ice cocoon after 2 seconds
+        this.time.delayedCall(2000, () => {
+            opponentPower.frozen = false;
+            opponent.clearTint();
+            
+            // Fade out and destroy ice cocoon
+            if (iceCocoon && iceCocoon.active) {
+                this.tweens.add({
+                    targets: iceCocoon,
+                    alpha: 0,
+                    scaleX: 0.8,
+                    scaleY: 0.8,
+                    duration: 300,
+                    onComplete: () => {
+                        iceCocoon.destroy();
+                        opponent.iceCocoonOverlay = null;
+                    }
+                });
+            }
+            
+            console.log('❄️ Frostbite freeze effect ended');
         });
         
-        // Auto-destroy after 2 seconds
-        this.time.delayedCall(2000, () => {
-            if (projectile.active) projectile.destroy();
+        // Update cocoon position every frame while active
+        const positionTimer = this.time.addEvent({
+            delay: 16, // ~60fps
+            callback: updateCocoonPosition,
+            repeat: 125 // For 2 seconds (2000ms / 16ms)
         });
+        
+        console.log('❄️ Frostbite applied ice cocoon freeze effect!');
     }
 
     executeElectricDash(player) {
