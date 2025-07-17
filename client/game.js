@@ -225,6 +225,11 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.lockerElements = [];
         this.lockerCharElements = [];
         
+        // Info Panel state
+        this.infoPanelOpen = false;
+        this.infoCurrentTab = 'tutorial'; // 'tutorial' or 'characters'
+        this.infoPanelElements = [];
+        
         // Add fallback functions if CharacterSpriteHelper is missing functions
         if (!CharacterSpriteHelper.getSkinDisplayName) {
             CharacterSpriteHelper.getSkinDisplayName = function(skinType) {
@@ -275,6 +280,10 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.currentLockerPlayer = null;
         this.lockerElements = [];
         this.lockerCharElements = [];
+        this.infoPanelOpen = false;
+        this.infoCurrentTab = 'tutorial';
+        this.infoPanelElements = [];
+        this.infoContentElements = [];
     }
 
     preload() {
@@ -308,6 +317,17 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.load.image('nature_thumb', 'assets/Sprites/Backgrounds/nature.png');
         this.load.image('nighttree_thumb', 'assets/Sprites/Backgrounds/nighttree.png');
         this.load.image('outsideworld_thumb', 'assets/Sprites/Backgrounds/outsideworld.png');
+        
+        // Load character skin sprites for locker
+        this.characterKeys.forEach(key => {
+            const skinTypes = ['base', 'bronze', 'silver', 'gold', 'shadow'];
+            skinTypes.forEach(skinType => {
+                const skinPath = `assets/Sprites/skins/${key}/${skinType}/idle.png`;
+                this.load.image(`${key}_${skinType}`, skinPath);
+            });
+        });
+        
+        // Power sprites removed for cleaner layout
     }
 
     create() {
@@ -337,90 +357,132 @@ class CharacterSelectionScene extends Phaser.Scene {
             };
         }
         
-        // Background
-        this.add.rectangle(400, 300, 800, 600, 0x2c3e50);
+        // Arcade-style gradient background
+        this.add.rectangle(400, 300, 800, 600, 0x000000);
+        this.add.rectangle(400, 300, 800, 600, 0x1a0d33, 0.8);
+        
+        // Arcade border frame
+        this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
+        this.add.rectangle(400, 300, 770, 570, 0x000000, 0).setStrokeStyle(2, 0xff00ff);
 
-        // Title
-        this.add.text(400, 30, '⚡ CHARACTER SELECTION ⚡', {
+        // Arcade-style title with glow effect
+        this.add.text(400, 40, 'CHARACTER SELECTION', {
+            fontSize: '36px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
+        // Title underline
+        this.add.rectangle(400, 60, 500, 3, 0x00ffff);
+
+        // Split screen divider with arcade styling
+        this.add.rectangle(400, 350, 6, 450, 0x00ffff);
+        this.add.rectangle(400, 350, 2, 450, 0xffffff);
+
+        // Info button (top-left corner with proper margin, moved down slightly) - arcade style (smaller size)
+        this.infoBtn = this.add.rectangle(85, 50, 100, 32, 0x000000, 0.9);
+        this.infoBtn.setStrokeStyle(3, 0x00ffff);
+        this.infoBtnText = this.add.text(85, 50, 'INFO', {
+            fontSize: '14px',
+            fontStyle: 'bold',
+            fill: '#00ffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        this.infoBtn.setInteractive();
+        this.infoBtn.on('pointerdown', () => this.openInfoPanel());
+        
+        // Add hover effects
+        this.infoBtn.on('pointerover', () => {
+            this.infoBtn.setFillStyle(0x003333, 0.9);
+            this.infoBtn.setStrokeStyle(3, 0x00ffff);
+            this.infoBtnText.setStyle({ fill: '#ffffff' });
+        });
+        this.infoBtn.on('pointerout', () => {
+            this.infoBtn.setFillStyle(0x000000, 0.9);
+            this.infoBtn.setStrokeStyle(3, 0x00ffff);
+            this.infoBtnText.setStyle({ fill: '#00ffff' });
+        });
+
+        // Player 1 Side (Left) - Arcade style
+        this.add.rectangle(200, 100, 320, 50, 0x000000, 0.8);
+        this.add.rectangle(200, 100, 320, 50, 0x001100, 0).setStrokeStyle(4, 0x00ff00);
+        this.add.text(200, 100, 'PLAYER 1', {
             fontSize: '28px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 20, y: 10 }
-        }).setOrigin(0.5);
-
-        // Split screen divider
-        this.add.rectangle(400, 300, 4, 600, 0x555555);
-
-        // Player 1 Side (Left)
-        this.add.rectangle(200, 80, 380, 40, 0x003300, 0.8);
-        this.add.text(200, 80, 'Player 1', {
-            fontSize: '24px',
+            fontStyle: 'bold',
             fill: '#00ff00',
-            backgroundColor: '#000000',
-            padding: { x: 12, y: 6 }
+            stroke: '#000000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Player 1 controls
-        this.add.text(200, 110, 'A/D to navigate • W to select', {
-            fontSize: '12px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 8, y: 4 }
-        }).setOrigin(0.5);
+        // Player 1 controls moved to UI panel
 
-        // Player 1 Locker button
-        this.player1LockerBtn = this.add.rectangle(340, 80, 80, 30, 0x444444, 0.8);
-        this.player1LockerText = this.add.text(340, 80, 'LOCKER', {
+        // Player 1 Locker button - arcade style (centered in Player 1 column, moved up slightly)
+        this.player1LockerBtn = this.add.rectangle(200, 145, 80, 28, 0x000000, 0.8);
+        this.player1LockerBtn.setStrokeStyle(3, 0x00ff00);
+        this.player1LockerText = this.add.text(200, 145, 'LOCKER', {
             fontSize: '12px',
-            fill: '#ffffff'
+            fontStyle: 'bold',
+            fill: '#00ff00',
+            stroke: '#000000',
+            strokeThickness: 2
         }).setOrigin(0.5);
         this.player1LockerBtn.setInteractive();
         this.player1LockerBtn.on('pointerdown', () => this.openLocker('player1'));
         
         // Add hover effects
         this.player1LockerBtn.on('pointerover', () => {
-            this.player1LockerBtn.setFillStyle(0x666666, 0.9);
-            this.player1LockerText.setStyle({ fill: '#00ff00' });
-        });
-        this.player1LockerBtn.on('pointerout', () => {
-            this.player1LockerBtn.setFillStyle(0x444444, 0.8);
+            this.player1LockerBtn.setFillStyle(0x001100, 0.9);
+            this.player1LockerBtn.setStrokeStyle(3, 0x00ff00);
             this.player1LockerText.setStyle({ fill: '#ffffff' });
         });
+        this.player1LockerBtn.on('pointerout', () => {
+            this.player1LockerBtn.setFillStyle(0x000000, 0.8);
+            this.player1LockerBtn.setStrokeStyle(3, 0x00ff00);
+            this.player1LockerText.setStyle({ fill: '#00ff00' });
+        });
 
-        // Player 2 Side (Right)
-        this.add.rectangle(600, 80, 380, 40, 0x000033, 0.8);
-        this.add.text(600, 80, 'Player 2', {
-            fontSize: '24px',
+        // Player 2 Side (Right) - Arcade style
+        this.add.rectangle(600, 100, 320, 50, 0x000000, 0.8);
+        this.add.rectangle(600, 100, 320, 50, 0x001133, 0).setStrokeStyle(4, 0x0080ff);
+        this.add.text(600, 100, 'PLAYER 2', {
+            fontSize: '28px',
+            fontStyle: 'bold',
             fill: '#0080ff',
-            backgroundColor: '#000000',
-            padding: { x: 12, y: 6 }
+            stroke: '#000000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Player 2 controls
-        this.add.text(600, 110, '← → to navigate • ↑ to select', {
-            fontSize: '12px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 8, y: 4 }
-        }).setOrigin(0.5);
+        // Player 2 controls moved to UI panel
 
-        // Player 2 Locker button
-        this.player2LockerBtn = this.add.rectangle(740, 80, 80, 30, 0x444444, 0.8);
-        this.player2LockerText = this.add.text(740, 80, 'LOCKER', {
+        // Player 2 Locker button - arcade style (centered in Player 2 column, moved up slightly)
+        this.player2LockerBtn = this.add.rectangle(600, 145, 80, 28, 0x000000, 0.8);
+        this.player2LockerBtn.setStrokeStyle(3, 0x0080ff);
+        this.player2LockerText = this.add.text(600, 145, 'LOCKER', {
             fontSize: '12px',
-            fill: '#ffffff'
+            fontStyle: 'bold',
+            fill: '#0080ff',
+            stroke: '#000000',
+            strokeThickness: 2
         }).setOrigin(0.5);
         this.player2LockerBtn.setInteractive();
         this.player2LockerBtn.on('pointerdown', () => this.openLocker('player2'));
         
         // Add hover effects
         this.player2LockerBtn.on('pointerover', () => {
-            this.player2LockerBtn.setFillStyle(0x666666, 0.9);
-            this.player2LockerText.setStyle({ fill: '#0080ff' });
+            this.player2LockerBtn.setFillStyle(0x001133, 0.9);
+            this.player2LockerBtn.setStrokeStyle(3, 0x0080ff);
+            this.player2LockerText.setStyle({ fill: '#ffffff' });
         });
         this.player2LockerBtn.on('pointerout', () => {
-            this.player2LockerBtn.setFillStyle(0x444444, 0.8);
-            this.player2LockerText.setStyle({ fill: '#ffffff' });
+            this.player2LockerBtn.setFillStyle(0x000000, 0.8);
+            this.player2LockerBtn.setStrokeStyle(3, 0x0080ff);
+            this.player2LockerText.setStyle({ fill: '#0080ff' });
         });
 
         // Create character grids for each player
@@ -447,13 +509,13 @@ class CharacterSelectionScene extends Phaser.Scene {
         const cellWidth = 110;
         const cellHeight = 120;
         
-        // Player 1 grid (left side)
+        // Player 1 grid (left side) - adjusted for arcade layout
         const p1StartX = 90;
-        const p1StartY = 150;
+        const p1StartY = 200;
         
-        // Player 2 grid (right side)
+        // Player 2 grid (right side) - adjusted for arcade layout
         const p2StartX = 490;
-        const p2StartY = 150;
+        const p2StartY = 200;
 
         this.characterKeys.forEach((key, index) => {
             const character = CHARACTERS[key];
@@ -470,24 +532,16 @@ class CharacterSelectionScene extends Phaser.Scene {
             
             const p1Sprite = this.createCharacterPreview(p1X, p1Y, key, p1EquippedSkin);
             const p1Name = this.add.text(p1X, p1Y + 50, character.name, {
-                fontSize: '12px',
-                fill: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 6, y: 3 }
-            }).setOrigin(0.5);
-            
-            // Player 1 skin indicator
-            const p1SkinText = this.add.text(p1X, p1Y + 70, CharacterSpriteHelper.getSkinDisplayName(p1EquippedSkin), {
-                fontSize: '10px',
-                fill: CharacterSpriteHelper.getSkinRarityColor(p1EquippedSkin),
-                backgroundColor: '#000000',
-                padding: { x: 4, y: 2 }
+                fontSize: '16px',
+                fontStyle: 'bold',
+                fill: '#FFD700',
+                stroke: '#000000',
+                strokeThickness: 2
             }).setOrigin(0.5);
 
             this.player1Grid.push({
                 sprite: p1Sprite,
                 name: p1Name,
-                skinText: p1SkinText,
                 character: key,
                 index: index
             });
@@ -498,24 +552,16 @@ class CharacterSelectionScene extends Phaser.Scene {
             
             const p2Sprite = this.createCharacterPreview(p2X, p2Y, key, p2EquippedSkin);
             const p2Name = this.add.text(p2X, p2Y + 50, character.name, {
-                fontSize: '12px',
-                fill: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 6, y: 3 }
-            }).setOrigin(0.5);
-            
-            // Player 2 skin indicator
-            const p2SkinText = this.add.text(p2X, p2Y + 70, CharacterSpriteHelper.getSkinDisplayName(p2EquippedSkin), {
-                fontSize: '10px',
-                fill: CharacterSpriteHelper.getSkinRarityColor(p2EquippedSkin),
-                backgroundColor: '#000000',
-                padding: { x: 4, y: 2 }
+                fontSize: '16px',
+                fontStyle: 'bold',
+                fill: '#FFD700',
+                stroke: '#000000',
+                strokeThickness: 2
             }).setOrigin(0.5);
 
             this.player2Grid.push({
                 sprite: p2Sprite,
                 name: p2Name,
-                skinText: p2SkinText,
                 character: key,
                 index: index
             });
@@ -587,61 +633,85 @@ class CharacterSelectionScene extends Phaser.Scene {
     }
 
     createPlayerUI() {
-        // Player 1 UI (Left side)
+        // Player 1 UI (Left side) - Arcade style (better positioning)
         this.player1UI = {
-            panel: this.add.rectangle(150, 420, 250, 150, 0x003300, 0.8),
-            title: this.add.text(150, 370, 'Player 1 Selection', {
+            panel: this.add.rectangle(200, 480, 320, 140, 0x000000, 0.9).setStrokeStyle(4, 0x00ff00),
+            title: this.add.text(200, 425, 'PLAYER 1 SELECTION', {
                 fontSize: '18px',
+                fontStyle: 'bold',
                 fill: '#00ff00',
-                backgroundColor: '#000000',
-                padding: { x: 12, y: 6 }
+                stroke: '#000000',
+                strokeThickness: 3,
+                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
             }).setOrigin(0.5),
-            character: this.add.text(150, 400, '', {
-                fontSize: '20px',
+            character: this.add.text(200, 455, '', {
+                fontSize: '22px',
+                fontStyle: 'bold',
                 fill: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 10, y: 5 }
+                stroke: '#000000',
+                strokeThickness: 2
             }).setOrigin(0.5),
-            power: this.add.text(150, 430, '', {
-                fontSize: '14px',
+            power: this.add.text(200, 485, '', {
+                fontSize: '16px',
+                fontStyle: 'bold',
                 fill: '#ffff00',
-                backgroundColor: '#000000',
-                padding: { x: 8, y: 4 }
+                stroke: '#000000',
+                strokeThickness: 2
             }).setOrigin(0.5),
-            status: this.add.text(150, 460, 'Press W or Enter to confirm', {
+            status: this.add.text(200, 510, 'PRESS W TO CONFIRM', {
+                fontSize: '14px',
+                fontStyle: 'bold',
+                fill: '#00ffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5),
+            controls: this.add.text(200, 530, 'A/D • W TO SELECT', {
                 fontSize: '12px',
-                fill: '#cccccc',
-                backgroundColor: '#000000',
-                padding: { x: 6, y: 3 }
+                fontStyle: 'bold',
+                fill: '#CCCCCC',
+                stroke: '#000000',
+                strokeThickness: 1
             }).setOrigin(0.5)
         };
 
-        // Player 2 UI (Right side)
+        // Player 2 UI (Right side) - Arcade style (better positioning)
         this.player2UI = {
-            panel: this.add.rectangle(650, 420, 250, 150, 0x000033, 0.8),
-            title: this.add.text(650, 370, 'Player 2 Selection', {
+            panel: this.add.rectangle(600, 480, 320, 140, 0x000000, 0.9).setStrokeStyle(4, 0x0080ff),
+            title: this.add.text(600, 425, 'PLAYER 2 SELECTION', {
                 fontSize: '18px',
+                fontStyle: 'bold',
                 fill: '#0080ff',
-                backgroundColor: '#000000',
-                padding: { x: 12, y: 6 }
+                stroke: '#000000',
+                strokeThickness: 3,
+                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
             }).setOrigin(0.5),
-            character: this.add.text(650, 400, '', {
-                fontSize: '20px',
+            character: this.add.text(600, 455, '', {
+                fontSize: '22px',
+                fontStyle: 'bold',
                 fill: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 10, y: 5 }
+                stroke: '#000000',
+                strokeThickness: 2
             }).setOrigin(0.5),
-            power: this.add.text(650, 430, '', {
-                fontSize: '14px',
+            power: this.add.text(600, 485, '', {
+                fontSize: '16px',
+                fontStyle: 'bold',
                 fill: '#ffff00',
-                backgroundColor: '#000000',
-                padding: { x: 8, y: 4 }
+                stroke: '#000000',
+                strokeThickness: 2
             }).setOrigin(0.5),
-            status: this.add.text(650, 460, 'Press ↑ or Enter to confirm', {
+            status: this.add.text(600, 510, 'PRESS ↑ TO CONFIRM', {
+                fontSize: '14px',
+                fontStyle: 'bold',
+                fill: '#00ffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5),
+            controls: this.add.text(600, 530, '← → • ↑ TO SELECT', {
                 fontSize: '12px',
-                fill: '#cccccc',
-                backgroundColor: '#000000',
-                padding: { x: 6, y: 3 }
+                fontStyle: 'bold',
+                fill: '#CCCCCC',
+                stroke: '#000000',
+                strokeThickness: 1
             }).setOrigin(0.5)
         };
     }
@@ -808,31 +878,36 @@ class CharacterSelectionScene extends Phaser.Scene {
 
         // Update Player 1 UI
         const p1Character = CHARACTERS[this.characterKeys[this.player1Selection]];
-        this.player1UI.character.setText(p1Character.name);
-        this.player1UI.power.setText(p1Character.power);
+        this.player1UI.character.setText(p1Character.name.toUpperCase());
+        this.player1UI.power.setText(p1Character.power.toUpperCase());
         if (this.player1Confirmed) {
             this.player1UI.status.setText('✓ CONFIRMED');
             this.player1UI.status.setStyle({ fill: '#00ff00' });
         } else {
-            this.player1UI.status.setText('Press W to confirm');
-            this.player1UI.status.setStyle({ fill: '#cccccc' });
+            this.player1UI.status.setText('PRESS W TO CONFIRM');
+            this.player1UI.status.setStyle({ fill: '#00ffff' });
         }
 
         // Update Player 2 UI
         const p2Character = CHARACTERS[this.characterKeys[this.player2Selection]];
-        this.player2UI.character.setText(p2Character.name);
-        this.player2UI.power.setText(p2Character.power);
+        this.player2UI.character.setText(p2Character.name.toUpperCase());
+        this.player2UI.power.setText(p2Character.power.toUpperCase());
         if (this.player2Confirmed) {
             this.player2UI.status.setText('✓ CONFIRMED');
             this.player2UI.status.setStyle({ fill: '#0080ff' });
         } else {
-            this.player2UI.status.setText('Press ↑ to confirm');
-            this.player2UI.status.setStyle({ fill: '#cccccc' });
+            this.player2UI.status.setText('PRESS ↑ TO CONFIRM');
+            this.player2UI.status.setStyle({ fill: '#00ffff' });
         }
     }
 
     openLocker(playerId) {
         console.log(`Opening locker for ${playerId}`);
+        
+        // Close info panel if it's open
+        if (this.infoPanelOpen) {
+            this.closeInfoPanel();
+        }
         
         // Prevent multiple lockers from opening
         if (this.lockerOpen) {
@@ -847,8 +922,8 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.lockerBackdrop.setInteractive();
         this.lockerBackdrop.on('pointerdown', () => this.closeLocker());
         
-        // Create modal panel - darker and more opaque
-        this.lockerPanel = this.add.rectangle(400, 300, 700, 500, 0x1a1a1a, 0);
+        // Create modal panel - arcade style (increased height for better spacing)
+        this.lockerPanel = this.add.rectangle(400, 300, 700, 550, 0x000000, 0);
         this.lockerPanel.setStrokeStyle(4, playerId === 'player1' ? 0x00ff00 : 0x0080ff);
         this.lockerPanel.setScale(0.8);
         
@@ -870,45 +945,55 @@ class CharacterSelectionScene extends Phaser.Scene {
             ease: 'Back.easeOut'
         });
         
-        // Title
+        // Title - arcade style
         const progress = PLAYER_PROGRESS.loadPlayerProgress(playerId);
         const level = XP_SYSTEM.calculateLevel(progress.xp);
         this.lockerTitle = this.add.text(400, 80, `${playerId.toUpperCase()} LOCKER`, {
-            fontSize: '24px',
+            fontSize: '32px',
+            fontStyle: 'bold',
             fill: playerId === 'player1' ? '#00ff00' : '#0080ff',
-            backgroundColor: '#000000',
-            padding: { x: 12, y: 6 }
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
         
-        // XP and Level info
-        this.lockerXPInfo = this.add.text(400, 110, `Level ${level} • ${progress.xp} XP`, {
-            fontSize: '16px',
+        // XP and Level info - arcade style
+        this.lockerXPInfo = this.add.text(400, 110, `LEVEL ${level} • ${progress.xp} XP`, {
+            fontSize: '18px',
+            fontStyle: 'bold',
             fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 10, y: 4 }
+            stroke: '#000000',
+            strokeThickness: 2
         }).setOrigin(0.5);
         
-        // Close button
-        this.lockerCloseBtn = this.add.rectangle(650, 80, 60, 30, 0x660000, 0.8);
+        // Create character skin grids
+        this.createLockerContent(playerId);
+        
+        // Close button - arcade style (positioned above WHIRLWIND column, created after content to ensure it's on top)
+        const whirlwindColumnX = 400 - (600/2) + (100/2) + (5 * 100); // Calculate WHIRLWIND column position
+        this.lockerCloseBtn = this.add.rectangle(whirlwindColumnX, 55, 75, 35, 0x000000, 0.9);
+        this.lockerCloseBtn.setStrokeStyle(3, 0xff0000);
         this.lockerCloseBtn.setInteractive();
         this.lockerCloseBtn.on('pointerdown', () => this.closeLocker());
-        this.lockerCloseText = this.add.text(650, 80, 'CLOSE', {
-            fontSize: '12px',
-            fill: '#ffffff'
+        this.lockerCloseText = this.add.text(whirlwindColumnX, 55, 'CLOSE', {
+            fontSize: '14px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2
         }).setOrigin(0.5);
         
         // Add hover effects to close button
         this.lockerCloseBtn.on('pointerover', () => {
-            this.lockerCloseBtn.setFillStyle(0x880000, 0.9);
-            this.lockerCloseText.setStyle({ fill: '#ffdddd' });
-        });
-        this.lockerCloseBtn.on('pointerout', () => {
-            this.lockerCloseBtn.setFillStyle(0x660000, 0.8);
+            this.lockerCloseBtn.setFillStyle(0x330000, 0.9);
+            this.lockerCloseBtn.setStrokeStyle(3, 0xff0000);
             this.lockerCloseText.setStyle({ fill: '#ffffff' });
         });
-        
-        // Create character skin grids
-        this.createLockerContent(playerId);
+        this.lockerCloseBtn.on('pointerout', () => {
+            this.lockerCloseBtn.setFillStyle(0x000000, 0.9);
+            this.lockerCloseBtn.setStrokeStyle(3, 0xff0000);
+            this.lockerCloseText.setStyle({ fill: '#ff0000' });
+        });
         
         // Store locker elements for cleanup
         this.lockerElements = [
@@ -925,74 +1010,88 @@ class CharacterSelectionScene extends Phaser.Scene {
         const progress = PLAYER_PROGRESS.loadPlayerProgress(playerId);
         const unlockedSkins = XP_SYSTEM.getUnlockedSkins(progress.xp);
         
-        // Grid settings
-        const startX = 150;
-        const startY = 160;
-        const charSpacing = 90;
-        const skinSpacing = 50;
-        
         this.lockerCharElements = [];
         
-        // Add large dark background for entire locker content area
-        const contentBackground = this.add.rectangle(400, 280, 650, 400, 0x0f0f0f, 0.98);
-        contentBackground.setStrokeStyle(2, 0x333333);
+        // Add large dark background for entire locker content area - arcade style (increased height)
+        const contentBackground = this.add.rectangle(400, 290, 650, 450, 0x000000, 0.98);
+        contentBackground.setStrokeStyle(3, 0x444444);
         this.lockerCharElements.push(contentBackground);
+        
+        // Calculate responsive layout
+        const totalWidth = 600; // Available width for all columns
+        const columnWidth = totalWidth / this.characterKeys.length;
+        const startX = 400 - (totalWidth / 2) + (columnWidth / 2);
+        const startY = 130; // Moved down slightly for better title spacing
+        const verticalPadding = 25; // Increased for better spacing between rows
+        
+        // Define skin order: base first, then others
+        const skinOrder = ['base', 'bronze', 'silver', 'gold', 'shadow'];
         
         this.characterKeys.forEach((charKey, charIndex) => {
             const character = CHARACTERS[charKey];
-            const charX = startX + (charIndex * charSpacing);
+            const columnX = startX + (charIndex * columnWidth);
             
-            // Character name
-            const charName = this.add.text(charX, startY - 20, character.name, {
-                fontSize: '12px',
-                fill: '#ffffff',
-                backgroundColor: '#222222',
-                padding: { x: 6, y: 3 }
+            // Character title at top of column
+            const charTitle = this.add.text(columnX, startY, character.name.toUpperCase(), {
+                fontSize: '14px',
+                fontStyle: 'bold',
+                fill: '#ffff00',
+                stroke: '#000000',
+                strokeThickness: 2,
+                shadow: { offsetX: 1, offsetY: 1, color: '#000000', blur: 0, stroke: true, fill: true }
             }).setOrigin(0.5);
+            this.lockerCharElements.push(charTitle);
             
-            this.lockerCharElements.push(charName);
-            
-            // Skin options for this character
-            const allSkins = CharacterSpriteHelper.getAllSkinTypes();
-            allSkins.forEach((skinType, skinIndex) => {
-                const skinY = startY + (skinIndex * skinSpacing);
+            // Create skin entries vertically below title (increased gap from title)
+            skinOrder.forEach((skinType, skinIndex) => {
+                const skinY = startY + 55 + (skinIndex * (55 + verticalPadding)); // Increased gap from title and row height
                 const isUnlocked = unlockedSkins.includes(skinType);
                 const isEquipped = progress.equippedSkins[charKey] === skinType;
                 
-                // Add dark background for each skin preview area
-                const skinBg = this.add.rectangle(charX, skinY, 70, 40, 0x222222, 0.95);
+                // Skin container background (increased height for better spacing)
+                const skinContainer = this.add.rectangle(columnX, skinY, columnWidth - 20, 50, 0x1a1a1a, 0.95);
                 if (isEquipped) {
-                    skinBg.setStrokeStyle(3, 0x00ff00); // Green border for equipped
+                    skinContainer.setStrokeStyle(3, 0x00ff00); // Green border for equipped
                 } else if (isUnlocked) {
-                    skinBg.setStrokeStyle(2, 0x888888); // Gray border for unlocked
+                    skinContainer.setStrokeStyle(2, 0x888888); // Gray border for unlocked
                 } else {
-                    skinBg.setStrokeStyle(1, 0x555555); // Dark border for locked
+                    skinContainer.setStrokeStyle(1, 0x555555); // Dark border for locked
                 }
-                this.lockerCharElements.push(skinBg);
+                this.lockerCharElements.push(skinContainer);
                 
-                // Create skin preview
-                const skinPreview = this.createSkinPreview(charX, skinY, charKey, skinType, isUnlocked, isEquipped);
-                this.lockerCharElements.push(skinPreview);
+                // Character skin sprite (left side of container)
+                const spriteX = columnX - (columnWidth / 2) + 25;
+                const skinSprite = this.createSkinPreview(spriteX, skinY, charKey, skinType, isUnlocked, isEquipped);
+                this.lockerCharElements.push(skinSprite);
                 
-                // Skin name and status
-                const skinName = this.add.text(charX + 25, skinY - 10, CharacterSpriteHelper.getSkinDisplayName(skinType), {
-                    fontSize: '10px',
+                // Skin label (centered in container with shorter text)
+                const labelX = columnX + 5;
+                
+                // Get shorter skin name to fit in container
+                let displayName = CharacterSpriteHelper.getSkinDisplayName(skinType).toUpperCase();
+                if (displayName === 'BRONZE') displayName = 'BRONZ';
+                if (displayName === 'SILVER') displayName = 'SILVR';
+                if (displayName === 'SHADOW') displayName = 'SHDW';
+                // GOLD and BASE are already short enough
+                
+                const skinLabel = this.add.text(columnX, skinY - 12, displayName, {
+                    fontSize: '11px',
+                    fontStyle: 'bold',
                     fill: isUnlocked ? '#ffffff' : '#666666',
-                    backgroundColor: '#000000',
-                    padding: { x: 3, y: 1 }
-                }).setOrigin(0, 0.5);
+                    stroke: '#000000',
+                    strokeThickness: 1
+                }).setOrigin(0.5, 0.5);
+                this.lockerCharElements.push(skinLabel);
                 
-                this.lockerCharElements.push(skinName);
-                
-                // Status indicator
+                // Status indicator below label with improved spacing and shorter text
                 let statusText = '';
                 let statusColor = '#cccccc';
                 
                 if (isEquipped) {
-                    statusText = 'EQUIPPED';
+                    statusText = 'EQUIP';
                     statusColor = '#00ff00';
                 } else if (isUnlocked) {
-                    statusText = 'UNLOCKED';
+                    statusText = 'READY';
                     statusColor = '#ffffff';
                 } else {
                     const requiredXP = XP_SYSTEM.XP_THRESHOLDS[Object.keys(XP_SYSTEM.SKIN_TYPES).find(k => XP_SYSTEM.SKIN_TYPES[k] === skinType) - 1];
@@ -1000,20 +1099,28 @@ class CharacterSelectionScene extends Phaser.Scene {
                     statusColor = '#ff6666';
                 }
                 
-                const statusLabel = this.add.text(charX + 25, skinY + 10, statusText, {
+                const statusLabel = this.add.text(columnX, skinY + 15, statusText, {
                     fontSize: '8px',
+                    fontStyle: 'bold',
                     fill: statusColor,
-                    backgroundColor: '#000000',
-                    padding: { x: 2, y: 1 }
-                }).setOrigin(0, 0.5);
-                
+                    stroke: '#000000',
+                    strokeThickness: 1
+                }).setOrigin(0.5, 0.5);
                 this.lockerCharElements.push(statusLabel);
                 
                 // Add click handler for unlocked skins
                 if (isUnlocked) {
-                    skinPreview.setInteractive();
-                    skinPreview.on('pointerdown', () => {
+                    skinContainer.setInteractive();
+                    skinContainer.on('pointerdown', () => {
                         this.equipSkin(playerId, charKey, skinType);
+                    });
+                    
+                    // Add hover effect
+                    skinContainer.on('pointerover', () => {
+                        skinContainer.setFillStyle(0x252525, 0.95);
+                    });
+                    skinContainer.on('pointerout', () => {
+                        skinContainer.setFillStyle(0x1a1a1a, 0.95);
                     });
                 }
             });
@@ -1026,59 +1133,51 @@ class CharacterSelectionScene extends Phaser.Scene {
         
         let preview;
         
-        // Create character preview using the loaded sprite
-        if (this.textures.exists(`${charKey}_preview`)) {
+        // Try to load actual skin sprite from skins directory
+        const skinSpritePath = `${charKey}_${skinType}`;
+        
+        if (this.textures.exists(skinSpritePath)) {
+            // Use actual skin sprite
+            preview = this.add.image(x, y, skinSpritePath);
+            preview.setScale(1.0).setOrigin(0.5);
+        } else if (this.textures.exists(`${charKey}_preview`)) {
+            // Fallback to character preview with skin tint
             if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
                 preview = this.add.image(x, y, `${charKey}_preview`);
-                preview.setScale(0.8).setOrigin(0.5).setFrame(0);
+                preview.setScale(0.9).setOrigin(0.5).setFrame(0);
             } else {
                 preview = this.add.image(x, y, `${charKey}_preview`);
-                preview.setScale(1.2).setOrigin(0.5);
+                preview.setScale(1.1).setOrigin(0.5);
             }
         } else {
-            // Fallback to colored rectangle
+            // Final fallback to colored rectangle
             preview = this.add.rectangle(x, y, 20, 20, character.color, 0.8);
         }
         
-        // Apply skin tint and states
+        // Apply skin visual effects
         if (isUnlocked) {
-            if (skinType !== 'base') {
+            if (skinType !== 'base' && !this.textures.exists(skinSpritePath)) {
+                // Apply skin tint only if not using actual skin sprite
                 const skinColor = CharacterSpriteHelper.getSkinRarityColor(skinType);
                 preview.setTint(skinColor);
             }
             preview.setAlpha(1.0);
         } else {
+            // Locked skin appearance
             preview.setTint(0x333333);
             preview.setAlpha(0.4);
         }
         
         // Add visual feedback for equipped skin
         if (isEquipped) {
-            // Add pulsing animation to equipped skin
+            // Add subtle pulsing animation to equipped skin
             this.tweens.add({
                 targets: preview,
-                alpha: { from: 1, to: 0.6 },
-                duration: 1000,
+                alpha: { from: 1, to: 0.7 },
+                duration: 1500,
                 yoyo: true,
                 repeat: -1,
                 ease: 'Sine.easeInOut'
-            });
-        }
-        
-        // Make it interactive if unlocked
-        if (isUnlocked) {
-            preview.setInteractive();
-            preview.on('pointerdown', () => {
-                this.equipSkin(this.currentLockerPlayer, charKey, skinType);
-                this.closeLocker();
-            });
-            
-            preview.on('pointerover', () => {
-                preview.setScale(preview.scaleX * 1.1, preview.scaleY * 1.1);
-            });
-            
-            preview.on('pointerout', () => {
-                preview.setScale(preview.scaleX / 1.1, preview.scaleY / 1.1);
             });
         }
         
@@ -1107,15 +1206,467 @@ class CharacterSelectionScene extends Phaser.Scene {
         }
     }
     
+    // Info Panel Methods
+    openInfoPanel() {
+        if (this.infoPanelOpen || this.lockerOpen) return;
+        
+        this.infoPanelOpen = true;
+        this.infoCurrentTab = 'tutorial';
+        
+        // Get screen dimensions for responsive layout
+        const screenWidth = this.cameras.main.width;
+        const screenHeight = this.cameras.main.height;
+        
+        // Calculate responsive modal size (80% of screen, max 700x500)
+        const modalWidth = Math.min(700, screenWidth * 0.85);
+        const modalHeight = Math.min(500, screenHeight * 0.85);
+        const centerX = screenWidth / 2;
+        const centerY = screenHeight / 2;
+        
+        // Create backdrop
+        this.infoBackdrop = this.add.rectangle(centerX, centerY, screenWidth, screenHeight, 0x000000, 0.8);
+        this.infoBackdrop.setInteractive();
+        this.infoBackdrop.on('pointerdown', () => this.closeInfoPanel());
+        
+        // Create main panel - responsive and centered
+        this.infoPanel = this.add.rectangle(centerX, centerY, modalWidth, modalHeight, 0x000000, 0.95);
+        this.infoPanel.setStrokeStyle(4, 0x00ffff);
+        this.infoPanel.setInteractive();
+        
+        // Calculate positions relative to modal
+        const modalTop = centerY - modalHeight / 2;
+        const modalLeft = centerX - modalWidth / 2;
+        const modalRight = centerX + modalWidth / 2;
+        
+        // Title - responsive positioning
+        this.infoPanelTitle = this.add.text(centerX, modalTop + 40, 'GAME INFO', {
+            fontSize: Math.min(36, modalWidth / 20) + 'px',
+            fontStyle: 'bold',
+            fill: '#00ffff',
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        
+        // Tab buttons - responsive positioning and sizing
+        const tabWidth = Math.min(140, modalWidth / 5);
+        const tabY = modalTop + 80;
+        const tabSpacing = modalWidth / 4;
+        
+        this.tutorialTab = this.add.rectangle(centerX - tabSpacing / 2, tabY, tabWidth, 40, 0x000000, 0.9);
+        this.tutorialTab.setStrokeStyle(3, 0x00ffff);
+        this.tutorialTabText = this.add.text(centerX - tabSpacing / 2, tabY, 'TUTORIAL', {
+            fontSize: Math.min(18, modalWidth / 40) + 'px',
+            fontStyle: 'bold',
+            fill: '#00ffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        this.tutorialTab.setInteractive();
+        this.tutorialTab.on('pointerdown', () => this.switchInfoTab('tutorial'));
+        
+        this.charactersTab = this.add.rectangle(centerX + tabSpacing / 2, tabY, tabWidth, 40, 0x000000, 0.9);
+        this.charactersTab.setStrokeStyle(3, 0x666666);
+        this.charactersTabText = this.add.text(centerX + tabSpacing / 2, tabY, 'CHARACTERS', {
+            fontSize: Math.min(18, modalWidth / 40) + 'px',
+            fontStyle: 'bold',
+            fill: '#aaaaaa',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        this.charactersTab.setInteractive();
+        this.charactersTab.on('pointerdown', () => this.switchInfoTab('characters'));
+        
+        // Close button - responsive positioning
+        this.infoCloseBtn = this.add.rectangle(modalRight - 50, modalTop + 40, 80, 40, 0x000000, 0.9);
+        this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
+        this.infoCloseBtn.setInteractive();
+        this.infoCloseBtn.on('pointerdown', () => this.closeInfoPanel());
+        this.infoCloseText = this.add.text(modalRight - 50, modalTop + 40, 'CLOSE', {
+            fontSize: '16px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        
+        // Add hover effects
+        this.infoCloseBtn.on('pointerover', () => {
+            this.infoCloseBtn.setFillStyle(0x330000, 0.9);
+            this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
+            this.infoCloseText.setStyle({ fill: '#ffffff' });
+        });
+        this.infoCloseBtn.on('pointerout', () => {
+            this.infoCloseBtn.setFillStyle(0x000000, 0.9);
+            this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
+            this.infoCloseText.setStyle({ fill: '#ff0000' });
+        });
+        
+        // Store modal dimensions for content creation
+        this.modalDimensions = {
+            width: modalWidth,
+            height: modalHeight,
+            centerX: centerX,
+            centerY: centerY,
+            top: modalTop,
+            left: modalLeft,
+            right: modalRight,
+            contentTop: modalTop + 120,
+            contentHeight: modalHeight - 140
+        };
+        
+        // Store panel elements
+        this.infoPanelElements = [
+            this.infoBackdrop,
+            this.infoPanel,
+            this.infoPanelTitle,
+            this.tutorialTab,
+            this.tutorialTabText,
+            this.charactersTab,
+            this.charactersTabText,
+            this.infoCloseBtn,
+            this.infoCloseText
+        ];
+        
+        // Create initial content
+        this.updateInfoContent();
+    }
+    
+    closeInfoPanel() {
+        if (!this.infoPanelOpen) return;
+        
+        this.infoPanelOpen = false;
+        
+        // Destroy all panel elements
+        this.infoPanelElements.forEach(element => {
+            if (element) element.destroy();
+        });
+        this.infoPanelElements = [];
+        
+        // Destroy content elements
+        if (this.infoContentElements) {
+            this.infoContentElements.forEach(element => {
+                if (element) element.destroy();
+            });
+            this.infoContentElements = [];
+        }
+        
+        // Clear modal dimensions
+        this.modalDimensions = null;
+    }
+    
+    switchInfoTab(tab) {
+        if (this.infoCurrentTab === tab) return;
+        
+        this.infoCurrentTab = tab;
+        
+        // Update tab appearance - responsive arcade style
+        if (tab === 'tutorial') {
+            this.tutorialTab.setFillStyle(0x000000, 0.9);
+            this.tutorialTab.setStrokeStyle(3, 0x00ffff);
+            this.tutorialTabText.setStyle({ fill: '#00ffff' });
+            this.charactersTab.setFillStyle(0x000000, 0.9);
+            this.charactersTab.setStrokeStyle(3, 0x666666);
+            this.charactersTabText.setStyle({ fill: '#aaaaaa' });
+        } else {
+            this.tutorialTab.setFillStyle(0x000000, 0.9);
+            this.tutorialTab.setStrokeStyle(3, 0x666666);
+            this.tutorialTabText.setStyle({ fill: '#aaaaaa' });
+            this.charactersTab.setFillStyle(0x000000, 0.9);
+            this.charactersTab.setStrokeStyle(3, 0x00ffff);
+            this.charactersTabText.setStyle({ fill: '#00ffff' });
+        }
+        
+        // Update content
+        this.updateInfoContent();
+    }
+    
+    updateInfoContent() {
+        // Clear existing content
+        if (this.infoContentElements) {
+            this.infoContentElements.forEach(element => {
+                if (element) element.destroy();
+            });
+        }
+        this.infoContentElements = [];
+        
+        if (this.infoCurrentTab === 'tutorial') {
+            this.createTutorialContent();
+        } else {
+            this.createCharactersContent();
+        }
+    }
+    
+    createTutorialContent() {
+        const modal = this.modalDimensions;
+        
+        // Calculate content area with generous padding
+        const contentWidth = modal.width - 60;
+        const contentHeight = modal.contentHeight;
+        const contentCenterX = modal.centerX;
+        const contentTop = modal.contentTop;
+        
+        // Create content background
+        const contentBg = this.add.rectangle(contentCenterX, contentTop + contentHeight / 2, contentWidth, contentHeight, 0x0f0f0f, 0.95);
+        contentBg.setStrokeStyle(2, 0x444444);
+        this.infoContentElements.push(contentBg);
+        
+        // Calculate 2x2 grid layout with proper spacing
+        const gridGap = 20; // 20px gap between boxes
+        const gridPadding = 20; // 20px padding from edges
+        
+        // Calculate box dimensions to fit 2x2 grid with gaps
+        const availableWidth = contentWidth - (gridPadding * 2) - gridGap;
+        const availableHeight = contentHeight - (gridPadding * 2) - gridGap;
+        
+        const boxWidth = availableWidth / 2;
+        const boxHeight = availableHeight / 2;
+        
+        // Calculate grid positions
+        const leftX = contentCenterX - (availableWidth / 2) + (boxWidth / 2);
+        const rightX = contentCenterX + (availableWidth / 2) - (boxWidth / 2);
+        const topY = contentTop + gridPadding + (boxHeight / 2);
+        const bottomY = contentTop + gridPadding + boxHeight + gridGap + (boxHeight / 2);
+        
+        // Section data for 2x2 grid
+        const sections = [
+            {
+                title: 'CONTROLS',
+                text: '• Player 1: WASD to move, E to use power\n• Player 2: Arrow keys to move, K to use power\n• R to restart, C to return to character selection',
+                x: leftX,
+                y: topY
+            },
+            {
+                title: 'OBJECTIVE',
+                text: '• Score goals or win in Fight Mode\n• Use powers after they charge (15s or 2 goals)\n• First to 3 goals or highest score in 60s wins',
+                x: rightX,
+                y: topY
+            },
+            {
+                title: 'XP + PROGRESSION',
+                text: '• Win matches to earn XP\n• XP unlocks new skins with visual upgrades\n• Some skins provide faster cooldowns\n• Progress saved via browser localStorage',
+                x: leftX,
+                y: bottomY
+            },
+            {
+                title: 'FIGHT MODE',
+                text: '• Optional bonus round after matches\n• Blast powers knock back opponents\n• First to deplete HP wins\n• Press F after matches to start',
+                x: rightX,
+                y: bottomY
+            }
+        ];
+        
+        // Create each section in the 2x2 grid
+        sections.forEach(section => {
+            // Section background panel (slightly lighter than modal background)
+            const sectionPanel = this.add.rectangle(section.x, section.y, boxWidth - 10, boxHeight - 10, 0x1a1a1a, 0.9);
+            sectionPanel.setStrokeStyle(2, 0x333333);
+            this.infoContentElements.push(sectionPanel);
+            
+            // Section title (bold yellow, centered at top)
+            const sectionTitle = this.add.text(section.x, section.y - (boxHeight / 2) + 25, section.title, {
+                fontSize: '14px',
+                fontStyle: 'bold',
+                fill: '#ffff00',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5);
+            this.infoContentElements.push(sectionTitle);
+            
+            // Section text (white bullet points with padding)
+            const sectionText = this.add.text(section.x, section.y + 10, section.text, {
+                fontSize: '11px',
+                fontStyle: 'bold',
+                fill: '#ffffff',
+                lineSpacing: 4,
+                align: 'left',
+                wordWrap: { width: boxWidth - 30, useAdvancedWrap: true }
+            }).setOrigin(0.5);
+            this.infoContentElements.push(sectionText);
+        });
+    }
+    
+    createCharactersContent() {
+        const modal = this.modalDimensions;
+        
+        // Calculate content area with padding
+        const contentWidth = modal.width - 60;
+        const contentHeight = modal.contentHeight;
+        const contentCenterX = modal.centerX;
+        const contentTop = modal.contentTop;
+        
+        // Create content background
+        const contentBg = this.add.rectangle(contentCenterX, contentTop + contentHeight / 2, contentWidth, contentHeight, 0x0f0f0f, 0.95);
+        contentBg.setStrokeStyle(2, 0x444444);
+        this.infoContentElements.push(contentBg);
+        
+        // Calculate 3x2 grid layout with proper spacing
+        const gridCols = 3;
+        const gridRows = 2;
+        const gridGap = 15; // Gap between boxes
+        const gridPadding = 20; // Padding from edges
+        
+        // Calculate box dimensions for 3x2 grid
+        const availableWidth = contentWidth - (gridPadding * 2) - (gridGap * (gridCols - 1));
+        const availableHeight = contentHeight - (gridPadding * 2) - (gridGap * (gridRows - 1));
+        
+        const boxWidth = availableWidth / gridCols;
+        const boxHeight = availableHeight / gridRows;
+        
+        // Calculate starting position for grid
+        const startX = contentCenterX - (availableWidth / 2) + (boxWidth / 2);
+        const startY = contentTop + gridPadding + (boxHeight / 2);
+        
+        // Character data with updated descriptions
+        const characterData = [
+            {
+                key: 'blaze',
+                name: 'BLAZE',
+                power: 'Fire Kick',
+                description: 'Fire balls pass through enemies unless they use power to deflect'
+            },
+            {
+                key: 'frostbite',
+                name: 'FROSTBITE',
+                power: 'Ice Freeze',
+                description: 'Freezes opponents and slows the ball'
+            },
+            {
+                key: 'volt',
+                name: 'VOLT',
+                power: 'Lightning Dash',
+                description: 'Super-fast movement with electric strikes'
+            },
+            {
+                key: 'jellyhead',
+                name: 'JELLYHEAD',
+                power: 'Bounce Shield',
+                description: 'Creates bouncy barriers for defense'
+            },
+            {
+                key: 'brick',
+                name: 'BRICK',
+                power: 'Immunity',
+                description: 'Immune to all attacks for 5 seconds'
+            },
+            {
+                key: 'whirlwind',
+                name: 'WHIRLWIND',
+                power: 'Air Spin',
+                description: 'Controls air currents to redirect the ball'
+            }
+        ];
+        
+        // Create each character box in 3x2 grid
+        characterData.forEach((charData, index) => {
+            const row = Math.floor(index / gridCols);
+            const col = index % gridCols;
+            
+            const charX = startX + (col * (boxWidth + gridGap));
+            const charY = startY + (row * (boxHeight + gridGap));
+            
+            // Character panel background
+            const charPanel = this.add.rectangle(charX, charY, boxWidth - 5, boxHeight - 5, 0x1a1a1a, 0.9);
+            charPanel.setStrokeStyle(2, 0x333333);
+            charPanel.setInteractive();
+            this.infoContentElements.push(charPanel);
+            
+            // Add hover effect for polish
+            charPanel.on('pointerover', () => {
+                charPanel.setFillStyle(0x252525, 0.9);
+            });
+            charPanel.on('pointerout', () => {
+                charPanel.setFillStyle(0x1a1a1a, 0.9);
+            });
+            
+            // Power sprites removed for cleaner layout
+            
+            // Large character sprite in top center
+            const mainSpriteX = charX;
+            const mainSpriteY = charY - (boxHeight / 4);
+            
+            let charSprite;
+            if (this.textures.exists(`${charData.key}_preview`)) {
+                charSprite = this.add.image(mainSpriteX, mainSpriteY, `${charData.key}_preview`);
+                const character = CHARACTERS[charData.key];
+                const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+                
+                // Increase size of all character sprites
+                let scale;
+                if (charData.key === 'brick' || charData.key === 'jellyhead' || charData.key === 'whirlwind') {
+                    scale = spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation) ? 3.2 : 3.5;
+                } else {
+                    scale = spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation) ? 2.5 : 2.8;
+                }
+                
+                if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
+                    charSprite.setScale(scale).setOrigin(0.5).setFrame(0);
+                } else {
+                    charSprite.setScale(scale).setOrigin(0.5);
+                }
+            } else {
+                const character = CHARACTERS[charData.key];
+                charSprite = this.add.rectangle(mainSpriteX, mainSpriteY, 32, 32, character.color);
+                charSprite.setScale(2.2);
+            }
+            this.infoContentElements.push(charSprite);
+            
+            // Text section at bottom - calculate positions from bottom up
+            const bottomY = charY + (boxHeight / 2) - 10;
+            
+            // Description (white text, wrapped) - at bottom
+            const descWidth = boxWidth - 20;
+            const description = this.add.text(charX, bottomY, charData.description, {
+                fontSize: Math.min(12, boxWidth / 22) + 'px',
+                fontStyle: 'normal',
+                fill: '#ffffff',
+                wordWrap: { width: descWidth, useAdvancedWrap: true },
+                lineSpacing: 2,
+                align: 'center'
+            }).setOrigin(0.5, 1);
+            this.infoContentElements.push(description);
+            
+            // Power name (bold yellow) - above description
+            const powerY = description.y - description.displayHeight - 5;
+            const powerName = this.add.text(charX, powerY, charData.power, {
+                fontSize: Math.min(11, boxWidth / 22) + 'px',
+                fontStyle: 'bold',
+                fill: '#ffff00',
+                stroke: '#000000',
+                strokeThickness: 1
+            }).setOrigin(0.5, 1);
+            this.infoContentElements.push(powerName);
+            
+            // Character name (bold white) - above power name
+            const nameY = powerName.y - powerName.displayHeight - 3;
+            const charName = this.add.text(charX, nameY, charData.name, {
+                fontSize: Math.min(12, boxWidth / 20) + 'px',
+                fontStyle: 'bold',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5, 1);
+            this.infoContentElements.push(charName);
+        });
+    }
+    
+    getCharacterIcon(characterKey) {
+        const icons = {
+            'blaze': '🔥',
+            'frostbite': '❄️',
+            'volt': '⚡',
+            'jellyhead': '🟣',
+            'brick': '🧱',
+            'whirlwind': '🌪️'
+        };
+        return icons[characterKey] || '⭐';
+    }
+    
     updateCharacterSelectionDisplay() {
         // Update the character previews in the selection screen with equipped skins
         this.player1Grid.forEach((display, index) => {
             const charKey = this.characterKeys[index];
             const equippedSkin = PLAYER_PROGRESS.getEquippedSkin('player1', charKey);
-            
-            // Update skin text
-            display.skinText.setText(CharacterSpriteHelper.getSkinDisplayName(equippedSkin));
-            display.skinText.setStyle({ fill: CharacterSpriteHelper.getSkinRarityColor(equippedSkin) });
             
             // Update sprite tint
             display.sprite.clearTint();
@@ -1127,10 +1678,6 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.player2Grid.forEach((display, index) => {
             const charKey = this.characterKeys[index];
             const equippedSkin = PLAYER_PROGRESS.getEquippedSkin('player2', charKey);
-            
-            // Update skin text
-            display.skinText.setText(CharacterSpriteHelper.getSkinDisplayName(equippedSkin));
-            display.skinText.setStyle({ fill: CharacterSpriteHelper.getSkinRarityColor(equippedSkin) });
             
             // Update sprite tint
             display.sprite.clearTint();
@@ -1190,12 +1737,14 @@ class CharacterSelectionScene extends Phaser.Scene {
 
     checkBothPlayersReady() {
         if (this.player1Confirmed && this.player2Confirmed) {
-            // Show "Starting match..." message
-            this.add.text(400, 550, 'Starting match...', {
-                fontSize: '24px',
-                fill: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 16, y: 8 }
+            // Show "Starting match..." message - arcade style (better positioning)
+            this.add.text(400, 570, 'STARTING MATCH...', {
+                fontSize: '28px',
+                fontStyle: 'bold',
+                fill: '#ffff00',
+                stroke: '#ff0000',
+                strokeThickness: 3,
+                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
             }).setOrigin(0.5);
 
             // Wait a moment then start map selection
@@ -1228,48 +1777,67 @@ class MapSelectScene extends Phaser.Scene {
     create() {
         console.log('MapSelectScene: Creating map selection screen...');
         
-        // Background
-        this.add.rectangle(400, 300, 800, 600, 0x2c3e50);
+        // Arcade-style gradient background (match Character Selection)
+        this.add.rectangle(400, 300, 800, 600, 0x000000);
+        this.add.rectangle(400, 300, 800, 600, 0x1a0d33, 0.8);
+        
+        // Arcade border frame (match Character Selection)
+        this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
+        this.add.rectangle(400, 300, 770, 570, 0x000000, 0).setStrokeStyle(2, 0xff00ff);
 
-        // Title
-        this.add.text(400, 50, '🗺️ MAP SELECTION 🗺️', {
-            fontSize: '32px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 20, y: 10 }
+        // Arcade-style title (match CHARACTER SELECTION styling)
+        this.add.text(400, 40, 'MAP SELECTION', {
+            fontSize: '36px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Instructions
-        this.add.text(400, 100, 'Choose your battleground!', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 16, y: 8 }
+        // Title underline (match Character Selection)
+        this.add.rectangle(400, 60, 400, 3, 0x00ffff);
+
+        // Instructions - arcade style (neon blue, smaller, centered)
+        this.add.text(400, 95, 'CHOOSE YOUR BATTLEGROUND!', {
+            fontSize: '18px',
+            fontStyle: 'bold',
+            fill: '#00ffff',
+            stroke: '#000000',
+            strokeThickness: 2
         }).setOrigin(0.5);
 
-        // Additional instruction for selection
-        this.add.text(400, 130, 'Click on a map to select it', {
-            fontSize: '16px',
-            fill: '#cccccc',
-            backgroundColor: '#000000',
-            padding: { x: 12, y: 6 }
+        // Additional instruction for selection (neon blue, smaller)
+        this.add.text(400, 120, 'CLICK ON A MAP TO SELECT IT', {
+            fontSize: '14px',
+            fontStyle: 'bold',
+            fill: '#00ffff',
+            stroke: '#000000',
+            strokeThickness: 2
         }).setOrigin(0.5);
 
         // Create map thumbnails
         this.createMapThumbnails();
 
-        // Create selected map status
-        const initialMapName = this.selectedMapKey === 'nightcity' ? 'Night City' : 
-                             this.selectedMapKey === 'ch' ? 'Ch' : 
-                             this.selectedMapKey === 'skyline' ? 'Skyline' : 
-                             this.selectedMapKey === 'nature' ? 'Nature' : 
-                             this.selectedMapKey === 'nighttree' ? 'Night Tree' : 
-                             this.selectedMapKey === 'outsideworld' ? 'Outside World' : this.selectedMapKey;
-        this.selectedMapStatus = this.add.text(400, 380, `Selected: ${initialMapName}`, {
+        // Create selected map status - arcade style (match character selection boxes)
+        const initialMapName = this.selectedMapKey === 'nightcity' ? 'NIGHT CITY' : 
+                             this.selectedMapKey === 'ch' ? 'CH' : 
+                             this.selectedMapKey === 'skyline' ? 'SKYLINE' : 
+                             this.selectedMapKey === 'nature' ? 'NATURE' : 
+                             this.selectedMapKey === 'nighttree' ? 'NIGHT TREE' : 
+                             this.selectedMapKey === 'outsideworld' ? 'OUTSIDE WORLD' : this.selectedMapKey.toUpperCase();
+        
+        // Create status background panel (match character selection style) - moved down for better spacing
+        this.selectedMapBg = this.add.rectangle(400, 410, 320, 50, 0x000000, 0.9);
+        this.selectedMapBg.setStrokeStyle(4, 0xffff00);
+        
+        this.selectedMapStatus = this.add.text(400, 410, `SELECTED: ${initialMapName}`, {
             fontSize: '18px',
-            fill: '#00ff00',
-            backgroundColor: '#000000',
-            padding: { x: 12, y: 6 }
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
         // Create Start Match button
@@ -1278,48 +1846,48 @@ class MapSelectScene extends Phaser.Scene {
 
     createMapThumbnails() {
         const mapConfigs = [
-            // Top row
+            // Top row - better spacing
             {
                 key: 'nightcity',
                 name: 'Night City',
                 x: 200,
-                y: 160,
+                y: 180,
                 description: 'Neon-lit cityscape under starry night sky'
             },
             {
                 key: 'ch',
                 name: 'Ch',
                 x: 400,
-                y: 160,
+                y: 180,
                 description: 'Action-packed urban battlefield'
             },
             {
                 key: 'skyline',
                 name: 'Skyline',
                 x: 600,
-                y: 160,
+                y: 180,
                 description: 'Urban skyline cityscape'
             },
-            // Bottom row
+            // Bottom row - adjusted spacing for larger images and better layout flow
             {
                 key: 'nature',
                 name: 'Nature',
                 x: 200,
-                y: 280,
+                y: 290,
                 description: 'Natural outdoor environment'
             },
             {
                 key: 'nighttree',
                 name: 'Night Tree',
                 x: 400,
-                y: 280,
+                y: 290,
                 description: 'Mysterious forest under moonlight'
             },
             {
                 key: 'outsideworld',
                 name: 'Outside World',
                 x: 600,
-                y: 280,
+                y: 290,
                 description: 'Vast outdoor landscape'
             }
         ];
@@ -1327,37 +1895,32 @@ class MapSelectScene extends Phaser.Scene {
         this.mapThumbnails = [];
 
         mapConfigs.forEach(config => {
-            // Create clickable background for better interaction (invisible)
-            const clickArea = this.add.rectangle(config.x, config.y, 160, 110, 0x000000, 0);
+            // Create clickable background for better interaction (invisible) - increased size for larger images
+            const clickArea = this.add.rectangle(config.x, config.y, 190, 140, 0x000000, 0);
             clickArea.setInteractive();
 
-            // Create thumbnail image
+            // Create thumbnail image (increased size for better visibility)
             const thumbnail = this.add.image(config.x, config.y, config.key);
-            thumbnail.setScale(0.20); // Smaller scale for 6-grid layout
+            thumbnail.setScale(0.26); // Slightly bigger for better visibility
             thumbnail.setOrigin(0.5);
             thumbnail.setInteractive();
 
-            // Create selection border around image only (initially hidden)
-            const border = this.add.rectangle(config.x, config.y, 115, 65, 0xff0000, 0);
-            border.setStrokeStyle(3, 0xff0000);
+            // Create selection border around image only (initially hidden) with light blue glow effect (adjusted for larger images)
+            const border = this.add.rectangle(config.x, config.y, 148, 85, 0x00ffff, 0);
+            border.setStrokeStyle(4, 0x00ffff);
             border.setVisible(false);
 
-            // Map name
-            const nameText = this.add.text(config.x, config.y + 80, config.name, {
-                fontSize: '20px',
-                fill: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 12, y: 6 }
+            // Map name - arcade style (bold, yellow, centered, slightly larger)
+            const nameText = this.add.text(config.x, config.y + 52, config.name.toUpperCase(), {
+                fontSize: '18px',
+                fontStyle: 'bold',
+                fill: '#ffff00',
+                stroke: '#000000',
+                strokeThickness: 2
             }).setOrigin(0.5);
 
-            // Map description
-            const descText = this.add.text(config.x, config.y + 110, config.description, {
-                fontSize: '14px',
-                fill: '#cccccc',
-                backgroundColor: '#000000',
-                padding: { x: 8, y: 4 },
-                wordWrap: { width: 180, useAdvancedWrap: true }
-            }).setOrigin(0.5);
+            // Map description - removed to prevent overlap
+            const descText = null;
 
             // Click handlers for both thumbnail and click area
             const selectHandler = () => {
@@ -1412,75 +1975,81 @@ class MapSelectScene extends Phaser.Scene {
             if (mapData.key === mapKey) {
                 // Selected map styling
                 mapData.border.setVisible(true);
-                mapData.nameText.setStyle({ fill: '#ffffff' });
+                mapData.nameText.setStyle({ fill: '#ffff00' });
                 mapData.thumbnail.clearTint();
             } else {
                 // Unselected map styling
                 mapData.border.setVisible(false);
-                mapData.nameText.setStyle({ fill: '#ffffff' });
+                mapData.nameText.setStyle({ fill: '#ffff00' });
                 mapData.thumbnail.clearTint();
             }
         });
 
-        // Update start button text
+        // Update start button text (simplified)
         if (this.startButton) {
-            const mapName = mapKey === 'nightcity' ? 'Night City' : 
-                          mapKey === 'ch' ? 'Ch' : 
-                          mapKey === 'skyline' ? 'Skyline' : 
-                          mapKey === 'nature' ? 'Nature' : 
-                          mapKey === 'nighttree' ? 'Night Tree' : 
-                          mapKey === 'outsideworld' ? 'Outside World' : mapKey;
-            this.startButton.setText(`Start Match on ${mapName}`);
+            this.startButton.setText('START MATCH');
         }
 
         // Update selected map status
         if (this.selectedMapStatus) {
-            const mapName = mapKey === 'nightcity' ? 'Night City' : 
-                          mapKey === 'ch' ? 'Ch' : 
-                          mapKey === 'skyline' ? 'Skyline' : 
-                          mapKey === 'nature' ? 'Nature' : 
-                          mapKey === 'nighttree' ? 'Night Tree' : 
-                          mapKey === 'outsideworld' ? 'Outside World' : mapKey;
-            this.selectedMapStatus.setText(`Selected: ${mapName}`);
+            const mapName = mapKey === 'nightcity' ? 'NIGHT CITY' : 
+                          mapKey === 'ch' ? 'CH' : 
+                          mapKey === 'skyline' ? 'SKYLINE' : 
+                          mapKey === 'nature' ? 'NATURE' : 
+                          mapKey === 'nighttree' ? 'NIGHT TREE' : 
+                          mapKey === 'outsideworld' ? 'OUTSIDE WORLD' : mapKey.toUpperCase();
+            this.selectedMapStatus.setText(`SELECTED: ${mapName}`);
         }
     }
 
     createStartButton() {
-        const initialMapName = this.selectedMapKey === 'nightcity' ? 'Night City' : 
-                             this.selectedMapKey === 'ch' ? 'Ch' : 
-                             this.selectedMapKey === 'skyline' ? 'Skyline' : 
-                             this.selectedMapKey === 'nature' ? 'Nature' : 
-                             this.selectedMapKey === 'nighttree' ? 'Night Tree' : 
-                             this.selectedMapKey === 'outsideworld' ? 'Outside World' : this.selectedMapKey;
-        this.startButton = this.add.text(400, 420, `Start Match on ${initialMapName}`, {
-            fontSize: '24px',
-            fill: '#ffffff',
-            backgroundColor: '#228b22',
-            padding: { x: 20, y: 10 }
+        const initialMapName = this.selectedMapKey === 'nightcity' ? 'NIGHT CITY' : 
+                             this.selectedMapKey === 'ch' ? 'CH' : 
+                             this.selectedMapKey === 'skyline' ? 'SKYLINE' : 
+                             this.selectedMapKey === 'nature' ? 'NATURE' : 
+                             this.selectedMapKey === 'nighttree' ? 'NIGHT TREE' : 
+                             this.selectedMapKey === 'outsideworld' ? 'OUTSIDE WORLD' : this.selectedMapKey.toUpperCase();
+        
+        // Create button background (match character selection style) - moved down for better spacing
+        this.startButtonBg = this.add.rectangle(400, 480, 320, 60, 0x000000, 0.9);
+        this.startButtonBg.setStrokeStyle(4, 0xffff00);
+        this.startButtonBg.setInteractive();
+        
+        this.startButton = this.add.text(400, 480, 'START MATCH', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        this.startButton.setInteractive();
-
-        this.startButton.on('pointerdown', () => {
+        this.startButtonBg.on('pointerdown', () => {
             this.startMatch();
         });
 
-        this.startButton.on('pointerover', () => {
-            this.startButton.setStyle({ backgroundColor: '#32cd32' });
+        this.startButtonBg.on('pointerover', () => {
+            this.startButtonBg.setFillStyle(0x333300, 0.9);
+            this.startButtonBg.setStrokeStyle(4, 0xffff00);
+            this.startButton.setStyle({ fill: '#ffffff' });
         });
 
-        this.startButton.on('pointerout', () => {
-            this.startButton.setStyle({ backgroundColor: '#228b22' });
+        this.startButtonBg.on('pointerout', () => {
+            this.startButtonBg.setFillStyle(0x000000, 0.9);
+            this.startButtonBg.setStrokeStyle(4, 0xffff00);
+            this.startButton.setStyle({ fill: '#ffff00' });
         });
     }
 
     startMatch() {
-        // Show loading message
-        this.add.text(400, 520, 'Loading match...', {
-            fontSize: '20px',
+        // Show loading message - arcade style
+        this.add.text(400, 520, 'LOADING MATCH...', {
+            fontSize: '24px',
+            fontStyle: 'bold',
             fill: '#ffff00',
-            backgroundColor: '#000000',
-            padding: { x: 16, y: 8 }
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
         // Start the game scene after a brief delay
