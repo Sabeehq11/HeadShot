@@ -2100,8 +2100,16 @@ class GameScene extends Phaser.Scene {
             padding: { x: 8, y: 4 }
         }).setOrigin(0.5);
         
-        // Continue button
-        const continueBtn = this.add.text(400, 480, 'Continue [SPACE]', {
+        // Fight Now button
+        const fightBtn = this.add.text(300, 480, '🔥 Fight Now [F]', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            backgroundColor: '#cc3300',
+            padding: { x: 16, y: 8 }
+        }).setOrigin(0.5);
+        
+        // Continue button (moved slightly right)
+        const continueBtn = this.add.text(500, 480, 'Continue [SPACE]', {
             fontSize: '20px',
             fill: '#ffffff',
             backgroundColor: '#228b22',
@@ -2111,6 +2119,11 @@ class GameScene extends Phaser.Scene {
         // Add space key listener
         this.input.keyboard.once('keydown-SPACE', () => {
             this.scene.start('CharacterSelectionScene');
+        });
+        
+        // Add F key listener for fight mode
+        this.input.keyboard.once('keydown-F', () => {
+            this.scene.start('FightScene');
         });
     }
 
@@ -2234,9 +2247,9 @@ class GameScene extends Phaser.Scene {
         let airMovementSpeed = 100; // Normal mode: allow air control at reduced speed
         
         if (this.chaosManager.currentEvent === 'zero_gravity') {
-            horizontalSpeed = 80; // Much slower horizontal movement in zero gravity
-            jumpSpeed = 200; // Slower, more controlled jumps
-            airMovementSpeed = 40; // Allow slow air movement in zero gravity
+            horizontalSpeed = 100; // Slower horizontal movement for slow motion
+            jumpSpeed = 200; // Slower jumps for slow motion
+            airMovementSpeed = 80; // Slower air movement
         }
         
         // Player 1 controls (WASD) - check if frozen
@@ -2958,7 +2971,7 @@ class GameScene extends Phaser.Scene {
     }
 
     startZeroGravityEvent() {
-        console.log('🌀 Zero Gravity Event: Simulating zero gravity with floaty physics');
+        console.log('🌀 Zero Gravity Event: Slow motion physics');
         
         // Store original values for restoration
         this.chaosManager.originalGravity = this.physics.world.gravity.y;
@@ -2968,19 +2981,20 @@ class GameScene extends Phaser.Scene {
         this.chaosManager.originalPlayer1Drag = this.player1.body.drag.x;
         this.chaosManager.originalPlayer2Drag = this.player2.body.drag.x;
         this.chaosManager.originalBallDrag = this.ball.body.drag.x;
+        this.chaosManager.originalPlayer1DragY = this.player1.body.drag.y;
+        this.chaosManager.originalPlayer2DragY = this.player2.body.drag.y;
+        this.chaosManager.originalBallDragY = this.ball.body.drag.y;
         
-        // Reduce gravity significantly but not to zero
-        this.physics.world.gravity.y = 80; // Much lower gravity for floaty feeling
+        // Reduce gravity for slow motion effect
+        this.physics.world.gravity.y = 150; // Slower falling, like slow motion
         
-        // Reduce all velocities for slow, floaty movement
-        this.player1.body.setMaxVelocity(150, 100); // Slower horizontal and vertical movement
-        this.player2.body.setMaxVelocity(150, 100); // Slower horizontal and vertical movement
-        this.ball.body.setMaxVelocity(200, 150); // Slower ball movement
+        // Slow down all movement for slow motion effect
+        this.player1.body.setMaxVelocity(180, 250); // Slower but not too slow
+        this.player2.body.setMaxVelocity(180, 250); // Slower but not too slow
+        this.ball.body.setMaxVelocity(220, 300); // Slower ball movement
         
-        // Increase drag to simulate air resistance in zero gravity
-        this.player1.body.setDrag(200); // More drag for floaty movement
-        this.player2.body.setDrag(200); // More drag for floaty movement
-        this.ball.body.setDrag(150); // More drag for ball
+        // Keep normal drag - we want slow motion, not floating
+        // No drag changes needed for slow motion
     }
     
     endZeroGravityEvent() {
@@ -2992,10 +3006,17 @@ class GameScene extends Phaser.Scene {
         this.player2.body.setMaxVelocity(300, this.chaosManager.originalPlayer2MaxVelocity);
         this.ball.body.setMaxVelocity(350, this.chaosManager.originalBallMaxVelocity);
         
-        // Restore original drag values
-        this.player1.body.setDrag(this.chaosManager.originalPlayer1Drag);
-        this.player2.body.setDrag(this.chaosManager.originalPlayer2Drag);
-        this.ball.body.setDrag(this.chaosManager.originalBallDrag);
+        // Restore original drag values (both X and Y) - only if they were changed
+        if (this.chaosManager.originalPlayer1DragY !== undefined) {
+            this.player1.body.setDrag(this.chaosManager.originalPlayer1Drag, this.chaosManager.originalPlayer1DragY);
+            this.player2.body.setDrag(this.chaosManager.originalPlayer2Drag, this.chaosManager.originalPlayer2DragY);
+            this.ball.body.setDrag(this.chaosManager.originalBallDrag, this.chaosManager.originalBallDragY);
+        } else {
+            // Fallback to just X drag if Y drag wasn't stored
+            this.player1.body.setDrag(this.chaosManager.originalPlayer1Drag);
+            this.player2.body.setDrag(this.chaosManager.originalPlayer2Drag);
+            this.ball.body.setDrag(this.chaosManager.originalBallDrag);
+        }
     }
     
     startFlipScreenEvent() {
@@ -3310,6 +3331,696 @@ class GameScene extends Phaser.Scene {
     }
 }
 
+// Fight Scene
+class FightScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'FightScene' });
+        this.gameOver = false;
+        this.player1HP = 3;
+        this.player2HP = 3;
+        this.blastCooldown = 3000; // 3 seconds
+        this.player1BlastReady = true;
+        this.player2BlastReady = true;
+        this.player1LastBlast = 0;
+        this.player2LastBlast = 0;
+    }
+
+    preload() {
+        // Load selected background (same as soccer match)
+        this.load.image(selectedMap, `assets/Sprites/Backgrounds/${selectedMap}.png`);
+
+        // Get selected characters
+        const p1Character = CHARACTERS[selectedCharacters.player1];
+        const p2Character = CHARACTERS[selectedCharacters.player2];
+
+        // Load Player 1 character sprites
+        const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
+        if (p1SpriteConfig) {
+            if (p1SpriteConfig.type === 'sprite_sheet') {
+                this.load.spritesheet('player1_idle', 
+                    p1SpriteConfig.basePath + p1SpriteConfig.animations.idle.file, 
+                    { frameWidth: 32, frameHeight: 32 }
+                );
+                this.load.spritesheet('player1_walk', 
+                    p1SpriteConfig.basePath + p1SpriteConfig.animations.walk.file, 
+                    { frameWidth: 32, frameHeight: 32 }
+                );
+            } else {
+                this.load.image('player1_idle', p1SpriteConfig.basePath + p1SpriteConfig.animations.idle.file);
+                this.load.image('player1_walk', p1SpriteConfig.basePath + p1SpriteConfig.animations.walk.file);
+            }
+        }
+
+        // Load Player 2 character sprites
+        const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
+        if (p2SpriteConfig) {
+            if (p2SpriteConfig.type === 'sprite_sheet') {
+                this.load.spritesheet('player2_idle', 
+                    p2SpriteConfig.basePath + p2SpriteConfig.animations.idle.file, 
+                    { frameWidth: 32, frameHeight: 32 }
+                );
+                this.load.spritesheet('player2_walk', 
+                    p2SpriteConfig.basePath + p2SpriteConfig.animations.walk.file, 
+                    { frameWidth: 32, frameHeight: 32 }
+                );
+            } else {
+                this.load.image('player2_idle', p2SpriteConfig.basePath + p2SpriteConfig.animations.idle.file);
+                this.load.image('player2_walk', p2SpriteConfig.basePath + p2SpriteConfig.animations.walk.file);
+            }
+        }
+
+        // Load ground texture
+        this.load.image('grass', 'assets/Sprites/Backgrounds/grass.png');
+        
+        // Load blast effect sprites for each character
+        this.loadBlastEffects();
+    }
+
+    loadBlastEffects() {
+        // Load sprite sheets with proper frame data for animations
+        
+        // Blaze → Fire sprite sheet with 8 frames (128x128 each) - using FireFreePack
+        this.load.spritesheet('fire_blast', 
+            'assets/Sprites/Powers/Blaze/FireFreePack/No_compressed/128/Fire_1_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+        
+        // Volt → Lightning sprite sheet with 8 frames (128x128 each)
+        this.load.spritesheet('lightning_blast', 
+            'assets/Sprites/Powers/Volt/LightningFreePack/128/Lightning_1_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+        
+        // Whirlwind → Energy sprite sheet with 8 frames (128x128 each)
+        this.load.spritesheet('energy_blast', 
+            'assets/Sprites/Powers/WhirlWind/EnergyFreePack/No_compressed/128/Energy_1_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+        
+        // Frostbite → Keep individual ice sprites (smaller size)
+        this.load.image('ice_blast', 'assets/Sprites/Powers/Frostbite/ice_shard/I5050-1.png');
+        
+        // Brick → Smoke sprite sheet with 8 frames (128x128 each)
+        this.load.spritesheet('smoke_blast', 
+            'assets/Sprites/Powers/Brick/SmokeFreePack_v2/NoCompressed/128/Smoke_1_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+        
+        // Jellyhead → Energy sprite sheet variant with 8 frames (128x128 each)
+        this.load.spritesheet('jelly_blast', 
+            'assets/Sprites/Powers/WhirlWind/EnergyFreePack/No_compressed/128/Energy_2_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+    }
+
+    create() {
+        // Add background
+        this.add.image(0, 0, selectedMap)
+            .setOrigin(0)
+            .setDepth(-1)
+            .setScrollFactor(0)
+            .setScale(1.39, 1.85);
+
+        // Create ground
+        const ground = this.add.image(400, 575, 'grass');
+        ground.setOrigin(0.5, 0.5);
+        ground.setDisplaySize(800, 50);
+        this.physics.add.existing(ground, true);
+
+        // Get selected characters and their sprite configs
+        const p1Character = CHARACTERS[selectedCharacters.player1];
+        const p2Character = CHARACTERS[selectedCharacters.player2];
+        const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
+        const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
+
+        // Create players
+        this.player1 = this.physics.add.sprite(200, 450, 'player1_idle');
+        this.player1.setBounce(0.2);
+        this.player1.setCollideWorldBounds(true);
+        this.player1.setMass(1);
+        this.player1.setDrag(100);
+        this.player1.setMaxVelocity(300, 800);
+
+        this.player2 = this.physics.add.sprite(600, 450, 'player2_idle');
+        this.player2.setBounce(0.2);
+        this.player2.setCollideWorldBounds(true);
+        this.player2.setMass(1);
+        this.player2.setDrag(100);
+        this.player2.setMaxVelocity(300, 800);
+
+        // Set player scales and collision bodies
+        this.setupPlayerSprite(this.player1, p1SpriteConfig);
+        this.setupPlayerSprite(this.player2, p2SpriteConfig);
+
+        // Apply equipped skin tints
+        const p1EquippedSkin = PLAYER_PROGRESS.getEquippedSkin('player1', selectedCharacters.player1);
+        const p2EquippedSkin = PLAYER_PROGRESS.getEquippedSkin('player2', selectedCharacters.player2);
+        
+        if (p1EquippedSkin !== 'base') {
+            this.player1.setTint(CharacterSpriteHelper.getSkinRarityColor(p1EquippedSkin));
+        }
+        if (p2EquippedSkin !== 'base') {
+            this.player2.setTint(CharacterSpriteHelper.getSkinRarityColor(p2EquippedSkin));
+        }
+
+        // Create animations
+        this.createPlayerAnimations(p1SpriteConfig, p2SpriteConfig);
+
+        // Start with idle animations
+        this.player1.play('player1_idle_anim');
+        this.player2.play('player2_idle_anim');
+
+        // Physics collisions
+        this.physics.add.collider(this.player1, ground);
+        this.physics.add.collider(this.player2, ground);
+        this.physics.add.collider(this.player1, this.player2, this.handlePlayerCollision, null, this);
+
+        // Create controls
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+        this.blastKeys = this.input.keyboard.addKeys('E,K');
+
+        // Create UI
+        this.createFightUI();
+        
+        // Create blast animations
+        this.createBlastAnimations();
+    }
+
+    setupPlayerSprite(player, spriteConfig) {
+        if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
+            player.setScale(2.0);
+            player.setOrigin(0.5, 1);
+            player.body.setSize(24, 30);
+            player.body.setOffset(4, 2);
+        } else {
+            player.setScale(3.0);
+            player.setOrigin(0.5, 1);
+            player.body.setSize(16, 16);
+            player.body.setOffset(0, 0);
+        }
+    }
+
+    createPlayerAnimations(p1SpriteConfig, p2SpriteConfig) {
+        // Create Player 1 animations
+        if (p1SpriteConfig.type === 'sprite_sheet') {
+            this.anims.create({
+                key: 'player1_idle_anim',
+                frames: this.anims.generateFrameNumbers('player1_idle', { start: 0, end: 3 }),
+                frameRate: 8,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'player1_walk_anim',
+                frames: this.anims.generateFrameNumbers('player1_walk', { start: 0, end: 5 }),
+                frameRate: 10,
+                repeat: -1
+            });
+        }
+
+        // Create Player 2 animations
+        if (p2SpriteConfig.type === 'sprite_sheet') {
+            this.anims.create({
+                key: 'player2_idle_anim',
+                frames: this.anims.generateFrameNumbers('player2_idle', { start: 0, end: 3 }),
+                frameRate: 8,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'player2_walk_anim',
+                frames: this.anims.generateFrameNumbers('player2_walk', { start: 0, end: 5 }),
+                frameRate: 10,
+                repeat: -1
+            });
+        }
+    }
+
+    createFightUI() {
+        // Title
+        this.add.text(400, 30, '⚔️ FIGHT MODE ⚔️', {
+            fontSize: '24px',
+            fill: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 20, y: 10 }
+        }).setOrigin(0.5);
+
+        // Player 1 HP Hearts
+        this.player1Hearts = [];
+        for (let i = 0; i < 3; i++) {
+            const heart = this.add.text(50 + (i * 40), 80, '❤️', {
+                fontSize: '24px'
+            });
+            this.player1Hearts.push(heart);
+        }
+
+        // Player 2 HP Hearts
+        this.player2Hearts = [];
+        for (let i = 0; i < 3; i++) {
+            const heart = this.add.text(710 - (i * 40), 80, '❤️', {
+                fontSize: '24px'
+            });
+            this.player2Hearts.push(heart);
+        }
+
+        // Player names
+        this.add.text(50, 110, `Player 1: ${CHARACTERS[selectedCharacters.player1].name}`, {
+            fontSize: '16px',
+            fill: '#00ff00',
+            backgroundColor: '#000000',
+            padding: { x: 8, y: 4 }
+        });
+
+        this.add.text(750, 110, `Player 2: ${CHARACTERS[selectedCharacters.player2].name}`, {
+            fontSize: '16px',
+            fill: '#0080ff',
+            backgroundColor: '#000000',
+            padding: { x: 8, y: 4 }
+        }).setOrigin(1, 0);
+
+        // Blast cooldown displays
+        this.player1BlastText = this.add.text(50, 140, 'Blast: Ready [E]', {
+            fontSize: '14px',
+            fill: '#00ff00',
+            backgroundColor: '#000000',
+            padding: { x: 8, y: 4 }
+        });
+
+        this.player2BlastText = this.add.text(750, 140, 'Blast: Ready [K]', {
+            fontSize: '14px',
+            fill: '#0080ff',
+            backgroundColor: '#000000',
+            padding: { x: 8, y: 4 }
+        }).setOrigin(1, 0);
+    }
+
+    createBlastAnimations() {
+        // Create animations for sprite sheet-based powers
+        
+        // Fire blast animation (8 frames) - key matches character name
+        this.anims.create({
+            key: 'blaze_blast_anim',
+            frames: this.anims.generateFrameNumbers('fire_blast', { start: 0, end: 7 }),
+            frameRate: 12,
+            repeat: -1
+        });
+
+        // Lightning blast animation (8 frames) - key matches character name
+        this.anims.create({
+            key: 'volt_blast_anim',
+            frames: this.anims.generateFrameNumbers('lightning_blast', { start: 0, end: 7 }),
+            frameRate: 15,
+            repeat: -1
+        });
+
+        // Energy blast animation (8 frames) - key matches character name
+        this.anims.create({
+            key: 'whirlwind_blast_anim',
+            frames: this.anims.generateFrameNumbers('energy_blast', { start: 0, end: 7 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        // Smoke blast animation (8 frames) - key matches character name
+        this.anims.create({
+            key: 'brick_blast_anim',
+            frames: this.anims.generateFrameNumbers('smoke_blast', { start: 0, end: 7 }),
+            frameRate: 8,
+            repeat: -1
+        });
+
+        // Jelly blast animation (8 frames) - key matches character name
+        this.anims.create({
+            key: 'jellyhead_blast_anim',
+            frames: this.anims.generateFrameNumbers('jelly_blast', { start: 0, end: 7 }),
+            frameRate: 12,
+            repeat: -1
+        });
+    }
+
+    handlePlayerCollision(player1, player2) {
+        // Simple knockback effect
+        const pushForce = 100;
+        if (player1.x < player2.x) {
+            player1.setVelocityX(-pushForce);
+            player2.setVelocityX(pushForce);
+        } else {
+            player1.setVelocityX(pushForce);
+            player2.setVelocityX(-pushForce);
+        }
+    }
+
+    update() {
+        if (this.gameOver) return;
+
+        // Update blast cooldowns
+        this.updateBlastCooldowns();
+
+        // Player 1 movement (WASD)
+        if (this.wasd.A.isDown) {
+            this.player1.setVelocityX(-160);
+            this.player1.setFlipX(true);
+            if (this.player1.body.touching.down) {
+                this.player1.play('player1_walk_anim', true);
+            }
+        } else if (this.wasd.D.isDown) {
+            this.player1.setVelocityX(160);
+            this.player1.setFlipX(false);
+            if (this.player1.body.touching.down) {
+                this.player1.play('player1_walk_anim', true);
+            }
+        } else {
+            this.player1.setVelocityX(0);
+            if (this.player1.body.touching.down) {
+                this.player1.play('player1_idle_anim', true);
+            }
+        }
+
+        if (this.wasd.W.isDown && this.player1.body.touching.down) {
+            this.player1.setVelocityY(-330);
+        }
+
+        // Player 2 movement (Arrow keys)
+        if (this.cursors.left.isDown) {
+            this.player2.setVelocityX(-160);
+            this.player2.setFlipX(true);
+            if (this.player2.body.touching.down) {
+                this.player2.play('player2_walk_anim', true);
+            }
+        } else if (this.cursors.right.isDown) {
+            this.player2.setVelocityX(160);
+            this.player2.setFlipX(false);
+            if (this.player2.body.touching.down) {
+                this.player2.play('player2_walk_anim', true);
+            }
+        } else {
+            this.player2.setVelocityX(0);
+            if (this.player2.body.touching.down) {
+                this.player2.play('player2_idle_anim', true);
+            }
+        }
+
+        if (this.cursors.up.isDown && this.player2.body.touching.down) {
+            this.player2.setVelocityY(-330);
+        }
+
+        // Blast attacks
+        if (this.blastKeys.E.isDown && this.player1BlastReady) {
+            this.fireBlast('player1');
+        }
+
+        if (this.blastKeys.K.isDown && this.player2BlastReady) {
+            this.fireBlast('player2');
+        }
+    }
+
+    updateBlastCooldowns() {
+        const currentTime = Date.now();
+
+        // Update Player 1 blast cooldown
+        if (!this.player1BlastReady) {
+            const timeLeft = Math.max(0, this.blastCooldown - (currentTime - this.player1LastBlast));
+            if (timeLeft <= 0) {
+                this.player1BlastReady = true;
+                this.player1BlastText.setText('Blast: Ready [E]');
+                this.player1BlastText.setStyle({ fill: '#00ff00' });
+            } else {
+                this.player1BlastText.setText(`Blast: ${(timeLeft/1000).toFixed(1)}s`);
+                this.player1BlastText.setStyle({ fill: '#ff0000' });
+            }
+        }
+
+        // Update Player 2 blast cooldown
+        if (!this.player2BlastReady) {
+            const timeLeft = Math.max(0, this.blastCooldown - (currentTime - this.player2LastBlast));
+            if (timeLeft <= 0) {
+                this.player2BlastReady = true;
+                this.player2BlastText.setText('Blast: Ready [K]');
+                this.player2BlastText.setStyle({ fill: '#0080ff' });
+            } else {
+                this.player2BlastText.setText(`Blast: ${(timeLeft/1000).toFixed(1)}s`);
+                this.player2BlastText.setStyle({ fill: '#ff0000' });
+            }
+        }
+    }
+
+    fireBlast(player) {
+        const isPlayer1 = player === 'player1';
+        const playerSprite = isPlayer1 ? this.player1 : this.player2;
+        const opponent = isPlayer1 ? this.player2 : this.player1;
+        const characterKey = isPlayer1 ? selectedCharacters.player1 : selectedCharacters.player2;
+
+        // Set blast on cooldown
+        if (isPlayer1) {
+            this.player1BlastReady = false;
+            this.player1LastBlast = Date.now();
+        } else {
+            this.player2BlastReady = false;
+            this.player2LastBlast = Date.now();
+        }
+
+        // Create blast projectile
+        this.createBlastProjectile(playerSprite, opponent, characterKey, isPlayer1);
+    }
+
+    createBlastProjectile(player, opponent, characterKey, isPlayer1) {
+        const direction = player.flipX ? -1 : 1;
+        const startX = player.x + (direction * 40);
+        const startY = player.y - 30;
+
+        // Create projectile based on character type
+        const blastTexture = this.getBlastTexture(characterKey);
+        let blast;
+        
+        // Create sprite or animated sprite based on character
+        if (characterKey === 'frostbite') {
+            // Frostbite uses static ice sprite (very small)
+            blast = this.add.image(startX, startY, blastTexture);
+            blast.setScale(0.3);
+        } else {
+            // Other characters use animated sprites - make them bigger
+            blast = this.add.sprite(startX, startY, blastTexture);
+            
+            // Set scale based on character for better visibility
+            if (characterKey === 'brick') {
+                blast.setScale(1.1); // Make Brick's smoke blast bigger for visibility
+            } else {
+                blast.setScale(0.9); // Normal size for other animated sprites
+            }
+            
+            // Play the appropriate animation
+            const animKey = `${characterKey}_blast_anim`;
+            blast.play(animKey);
+        }
+        
+        // Add physics
+        this.physics.add.existing(blast);
+        
+        // Set collision body for dodging - slightly smaller than visual
+        blast.body.setSize(blast.width * 0.7, blast.height * 0.7);
+
+        // Set projectile velocity - faster and more direct
+        blast.body.setVelocity(direction * 500, -60);
+        blast.body.setGravityY(120);
+
+        // Add slight rotation for dynamics
+        blast.setRotation(direction > 0 ? 0.2 : -0.2);
+
+        // Improved collision detection - only hits if actually touching
+        const collider = this.physics.add.overlap(blast, opponent, () => {
+            this.handleBlastHit(opponent, isPlayer1);
+            this.createBlastImpactEffect(blast.x, blast.y, characterKey);
+            blast.destroy();
+        });
+
+        // Auto-destroy after 2.5 seconds
+        this.time.delayedCall(2500, () => {
+            if (blast.active) {
+                this.createBlastImpactEffect(blast.x, blast.y, characterKey);
+                blast.destroy();
+            }
+        });
+
+        // Add simple launch effect
+        this.createSimpleLaunchEffect(player, characterKey);
+    }
+
+    getBlastTexture(characterKey) {
+        const textureMap = {
+            'blaze': 'fire_blast',
+            'volt': 'lightning_blast',
+            'whirlwind': 'energy_blast',
+            'frostbite': 'ice_blast',
+            'brick': 'smoke_blast',
+            'jellyhead': 'jelly_blast'
+        };
+        return textureMap[characterKey] || 'energy_blast';
+    }
+
+    createSimpleLaunchEffect(player, characterKey) {
+        // Create simple launch effect for smaller projectiles
+        const effectColor = CHARACTERS[characterKey].color;
+        
+        // Create a simple burst effect around the player
+        for (let i = 0; i < 6; i++) {
+            const particle = this.add.circle(player.x, player.y - 15, 4, effectColor);
+            particle.setAlpha(0.8);
+            particle.setDepth(10);
+            
+            const angle = (i * Math.PI * 2) / 6;
+            const speed = 40 + Math.random() * 20;
+            
+            this.tweens.add({
+                targets: particle,
+                x: player.x + Math.cos(angle) * speed,
+                y: player.y - 15 + Math.sin(angle) * speed,
+                alpha: 0,
+                scaleX: 1.2,
+                scaleY: 1.2,
+                duration: 300,
+                ease: 'Power2',
+                onComplete: () => particle.destroy()
+            });
+        }
+    }
+
+
+
+    createBlastImpactEffect(x, y, characterKey) {
+        // Create simple impact effect for smaller projectiles
+        const effectColor = CHARACTERS[characterKey].color;
+        
+        // Light screen shake for impact
+        this.cameras.main.shake(100, 0.01);
+        
+        // Create simple impact particles
+        for (let i = 0; i < 8; i++) {
+            const particle = this.add.circle(x, y, 3, effectColor);
+            particle.setAlpha(0.9);
+            particle.setDepth(15);
+            
+            const angle = (i * Math.PI * 2) / 8;
+            const speed = 30 + Math.random() * 20;
+            
+            this.tweens.add({
+                targets: particle,
+                x: x + Math.cos(angle) * speed,
+                y: y + Math.sin(angle) * speed,
+                alpha: 0,
+                scaleX: 1.3,
+                scaleY: 1.3,
+                duration: 400,
+                ease: 'Power2',
+                onComplete: () => particle.destroy()
+            });
+        }
+    }
+
+
+
+    handleBlastHit(opponent, attackerIsPlayer1) {
+        const isOpponentPlayer1 = opponent === this.player1;
+        
+        // Deal damage
+        if (isOpponentPlayer1) {
+            this.player1HP--;
+            this.updateHeartsDisplay();
+        } else {
+            this.player2HP--;
+            this.updateHeartsDisplay();
+        }
+
+        // Apply knockback
+        const knockbackForce = attackerIsPlayer1 ? 300 : -300;
+        opponent.setVelocity(knockbackForce, -200);
+
+        // Visual feedback
+        opponent.setTint(0xff0000);
+        this.cameras.main.shake(200, 0.02);
+        
+        this.time.delayedCall(300, () => {
+            // Restore original tint
+            const opponentKey = isOpponentPlayer1 ? selectedCharacters.player1 : selectedCharacters.player2;
+            const equippedSkin = PLAYER_PROGRESS.getEquippedSkin(
+                isOpponentPlayer1 ? 'player1' : 'player2', 
+                opponentKey
+            );
+            
+            if (equippedSkin !== 'base') {
+                opponent.setTint(CharacterSpriteHelper.getSkinRarityColor(equippedSkin));
+            } else {
+                opponent.clearTint();
+            }
+        });
+
+        // Check for fight end
+        if (this.player1HP <= 0 || this.player2HP <= 0) {
+            this.handleFightEnd();
+        }
+    }
+
+    updateHeartsDisplay() {
+        // Update Player 1 hearts
+        for (let i = 0; i < 3; i++) {
+            if (i < this.player1HP) {
+                this.player1Hearts[i].setText('❤️');
+            } else {
+                this.player1Hearts[i].setText('💔');
+            }
+        }
+
+        // Update Player 2 hearts
+        for (let i = 0; i < 3; i++) {
+            if (i < this.player2HP) {
+                this.player2Hearts[i].setText('❤️');
+            } else {
+                this.player2Hearts[i].setText('💔');
+            }
+        }
+    }
+
+    handleFightEnd() {
+        this.gameOver = true;
+        
+        const winner = this.player1HP > 0 ? 'Player 1' : 'Player 2';
+        
+        // Create overlay
+        const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
+        
+        // Winner announcement
+        this.add.text(400, 200, `${winner} Wins the Fight!`, {
+            fontSize: '48px',
+            fill: winner === 'Player 1' ? '#00ff00' : '#0080ff',
+            backgroundColor: '#000000',
+            padding: { x: 20, y: 10 }
+        }).setOrigin(0.5);
+
+        // Restart fight button
+        const restartBtn = this.add.text(300, 350, 'Restart Fight [R]', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            backgroundColor: '#228b22',
+            padding: { x: 16, y: 8 }
+        }).setOrigin(0.5);
+
+        // Character select button
+        const selectBtn = this.add.text(500, 350, 'Character Select [C]', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            backgroundColor: '#4444aa',
+            padding: { x: 16, y: 8 }
+        }).setOrigin(0.5);
+
+        // Add key listeners
+        this.input.keyboard.once('keydown-R', () => {
+            this.scene.restart();
+        });
+
+        this.input.keyboard.once('keydown-C', () => {
+            this.scene.start('CharacterSelectionScene');
+        });
+    }
+}
+
 // Game configuration
 const config = {
     type: Phaser.AUTO,
@@ -3324,7 +4035,7 @@ const config = {
             debug: false
         }
     },
-    scene: [CharacterSelectionScene, MapSelectScene, GameScene]
+    scene: [CharacterSelectionScene, MapSelectScene, GameScene, FightScene]
 };
 
 // Initialize the game
