@@ -2628,6 +2628,20 @@ class GameScene extends Phaser.Scene {
             'assets/Sprites/Powers/Volt/LightningFreePack/256/Lightning_4_256-sheet.png',
             { frameWidth: 256, frameHeight: 256 }
         );
+        
+        // Load WhirlWind energy sprite sheets for spin animation
+        this.load.spritesheet('energy_1', 
+            'assets/Sprites/Powers/WhirlWind/EnergyFreePack/No_compressed/128/Energy_1_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+        this.load.spritesheet('energy_2', 
+            'assets/Sprites/Powers/WhirlWind/EnergyFreePack/No_compressed/128/Energy_2_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+        this.load.spritesheet('energy_3', 
+            'assets/Sprites/Powers/WhirlWind/EnergyFreePack/No_compressed/128/Energy_3_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
     }
 
     calculatePowerCooldown(playerId) {
@@ -2941,6 +2955,28 @@ class GameScene extends Phaser.Scene {
             frames: this.anims.generateFrameNumbers('lightning_4', { start: 0, end: 7 }),
             frameRate: 12,
             repeat: 0 // Play once
+        });
+        
+        // Create WhirlWind energy animations for spin effect
+        this.anims.create({
+            key: 'energy_1_anim',
+            frames: this.anims.generateFrameNumbers('energy_1', { start: 0, end: 7 }),
+            frameRate: 15,
+            repeat: -1 // Loop indefinitely
+        });
+        
+        this.anims.create({
+            key: 'energy_2_anim',
+            frames: this.anims.generateFrameNumbers('energy_2', { start: 0, end: 7 }),
+            frameRate: 12,
+            repeat: -1 // Loop indefinitely
+        });
+        
+        this.anims.create({
+            key: 'energy_3_anim',
+            frames: this.anims.generateFrameNumbers('energy_3', { start: 0, end: 7 }),
+            frameRate: 10,
+            repeat: -1 // Loop indefinitely
         });
         
         // Start with idle animations
@@ -4458,26 +4494,56 @@ class GameScene extends Phaser.Scene {
         // Spin effect
         player.setTint(0x87ceeb);
         
-        // Create wind effect around player
-        const windEffect = this.add.circle(player.x, player.y, 60, 0x87ceeb, 0.2);
-        windEffect.setStrokeStyle(2, 0x87ceeb);
+        // Create energy sprite animation around the player
+        const energySprite = this.add.sprite(player.x, player.y, 'energy_1');
+        energySprite.setScale(2.0); // Make it bigger for visual impact
+        energySprite.setDepth(6); // Above everything else
+        energySprite.setTint(0x87ceeb); // WhirlWind's color
+        energySprite.play('energy_1_anim'); // Start the energy animation
         
-        // Wind effect follows player
-        const followWind = () => {
-            if (windEffect.active) {
-                windEffect.x = player.x;
-                windEffect.y = player.y;
+        // Energy effect follows player
+        const followEnergy = () => {
+            if (energySprite.active) {
+                energySprite.x = player.x;
+                energySprite.y = player.y;
             }
         };
         
-        // Update wind position every frame
-        const windTimer = this.time.addEvent({
+        // Update energy position every frame
+        const energyTimer = this.time.addEvent({
             delay: 16,
-            callback: followWind,
+            callback: followEnergy,
             repeat: 93 // 1.5 seconds at 60fps
         });
         
-        // Rotation tween
+        // Store original position for diagonal uppercut motion
+        const originalX = player.x;
+        const originalY = player.y;
+        
+        // Determine diagonal direction (forward and upward)
+        const direction = player.flipX ? -1 : 1; // Direction player is facing
+        const diagonalDistance = 120; // Distance to move diagonally
+        const upwardDistance = 100; // How high to go
+        
+        // Diagonal uppercut motion - move up and forward
+        this.tweens.add({
+            targets: player,
+            x: originalX + (direction * diagonalDistance),
+            y: originalY - upwardDistance,
+            duration: 750, // First half of spin - going up
+            ease: 'Power2.easeOut',
+            onComplete: () => {
+                // Second half - come down at the forward position (not back to original)
+                this.tweens.add({
+                    targets: player,
+                    y: originalY, // Only adjust Y, keep the new X position
+                    duration: 750, // Second half - coming down
+                    ease: 'Power2.easeIn'
+                });
+            }
+        });
+        
+        // Rotation tween (spinning while moving diagonally)
         this.tweens.add({
             targets: player,
             rotation: player.rotation + (Math.PI * 6),
@@ -4486,8 +4552,8 @@ class GameScene extends Phaser.Scene {
             onComplete: () => {
                 player.setRotation(0);
                 player.clearTint();
-                if (windEffect.active) windEffect.destroy();
-                windTimer.remove();
+                if (energySprite.active) energySprite.destroy();
+                energyTimer.remove();
             }
         });
         
