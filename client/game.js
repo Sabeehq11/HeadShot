@@ -2610,6 +2610,24 @@ class GameScene extends Phaser.Scene {
             'assets/Sprites/Powers/JellyHead/Slime-Sheet.png',
             { frameWidth: 52, frameHeight: 55 } // 416/8 = 52, 275/5 = 55
         );
+        
+        // Load Volt lightning sprite sheets for dash animation
+        this.load.spritesheet('lightning_1', 
+            'assets/Sprites/Powers/Volt/LightningFreePack/256/Lightning_1_256-sheet.png',
+            { frameWidth: 256, frameHeight: 256 }
+        );
+        this.load.spritesheet('lightning_2', 
+            'assets/Sprites/Powers/Volt/LightningFreePack/256/Lightning_2_256-sheet.png',
+            { frameWidth: 256, frameHeight: 256 }
+        );
+        this.load.spritesheet('lightning_3', 
+            'assets/Sprites/Powers/Volt/LightningFreePack/256/Lightning_3_256-sheet.png',
+            { frameWidth: 256, frameHeight: 256 }
+        );
+        this.load.spritesheet('lightning_4', 
+            'assets/Sprites/Powers/Volt/LightningFreePack/256/Lightning_4_256-sheet.png',
+            { frameWidth: 256, frameHeight: 256 }
+        );
     }
 
     calculatePowerCooldown(playerId) {
@@ -2894,6 +2912,35 @@ class GameScene extends Phaser.Scene {
             frames: this.anims.generateFrameNumbers('jellyhead_slime', { start: 16, end: 23 }), // 3rd row: frames 16-23
             frameRate: 8,
             repeat: -1 // Loop indefinitely
+        });
+        
+        // Create Volt lightning animations for dash effect
+        this.anims.create({
+            key: 'lightning_1_anim',
+            frames: this.anims.generateFrameNumbers('lightning_1', { start: 0, end: 7 }),
+            frameRate: 15,
+            repeat: 0 // Play once
+        });
+        
+        this.anims.create({
+            key: 'lightning_2_anim',
+            frames: this.anims.generateFrameNumbers('lightning_2', { start: 0, end: 7 }),
+            frameRate: 12,
+            repeat: 0 // Play once
+        });
+        
+        this.anims.create({
+            key: 'lightning_3_anim',
+            frames: this.anims.generateFrameNumbers('lightning_3', { start: 0, end: 7 }),
+            frameRate: 12,
+            repeat: 0 // Play once
+        });
+        
+        this.anims.create({
+            key: 'lightning_4_anim',
+            frames: this.anims.generateFrameNumbers('lightning_4', { start: 0, end: 7 }),
+            frameRate: 12,
+            repeat: 0 // Play once
         });
         
         // Start with idle animations
@@ -4119,10 +4166,27 @@ class GameScene extends Phaser.Scene {
         const startX = player.x;
         const startY = player.y;
         
-        // Apply electric visual effects
-        player.setTint(0xffff00);
+        // Create Lightning 1 animation ON the player character
+        const lightning1Sprite = this.add.sprite(player.x, player.y - 20, 'lightning_1');
+        lightning1Sprite.setScale(0.5); // Bigger scale for more dramatic effect
+        lightning1Sprite.play('lightning_1_anim');
         
-        // Create lightning trail effect
+        // Move lightning 1 sprite with player during dash
+        this.tweens.add({
+            targets: lightning1Sprite,
+            x: targetX,
+            y: player.y - 20, // Maintain the raised position
+            duration: 200,
+            ease: 'Power2',
+            onComplete: () => {
+                // Destroy lightning 1 sprite after animation completes
+                this.time.delayedCall(400, () => {
+                    if (lightning1Sprite.active) lightning1Sprite.destroy();
+                });
+            }
+        });
+        
+        // Create lightning trail effect using sprites 2, 3, and 4
         this.createLightningTrail(startX, startY, targetX, player.y);
         
         // Scale effect during dash
@@ -4154,27 +4218,55 @@ class GameScene extends Phaser.Scene {
     }
     
     createLightningTrail(startX, startY, endX, endY) {
-        // Create a simple lightning trail effect
-        const trail = this.add.graphics();
-        trail.lineStyle(4, 0xffff00, 0.8);
-        trail.beginPath();
-        trail.moveTo(startX, startY);
-        trail.lineTo(endX, endY);
-        trail.strokePath();
+        // Calculate trail positions between start and end points
+        const distance = Math.abs(endX - startX);
+        const segments = 3; // Using 3 sprite sheets (2, 3, 4)
+        const segmentDistance = distance / segments;
         
-        // Add some lightning branches
-        const midX = (startX + endX) / 2;
-        const midY = (startY + endY) / 2;
-        trail.moveTo(midX, midY);
-        trail.lineTo(midX + (Math.random() - 0.5) * 40, midY - 20);
-        trail.strokePath();
+        // Create lightning trail sprites 2, 3, and 4 along the path
+        const trailSprites = [];
         
-        // Fade out the trail
-        this.tweens.add({
-            targets: trail,
-            alpha: 0,
-            duration: 400,
-            onComplete: () => trail.destroy()
+        for (let i = 0; i < segments; i++) {
+            const segmentX = startX + (i * segmentDistance) + (segmentDistance / 2);
+            const segmentY = startY - 40 + (Math.random() - 0.5) * 30; // Raise up higher with more variation
+            
+            let spriteKey;
+            let animKey;
+            
+            // Use different lightning sprites for variety
+            switch (i) {
+                case 0:
+                    spriteKey = 'lightning_2';
+                    animKey = 'lightning_2_anim';
+                    break;
+                case 1:
+                    spriteKey = 'lightning_3';
+                    animKey = 'lightning_3_anim';
+                    break;
+                case 2:
+                    spriteKey = 'lightning_4';
+                    animKey = 'lightning_4_anim';
+                    break;
+            }
+            
+            // Create trail sprite
+            const trailSprite = this.add.sprite(segmentX, segmentY, spriteKey);
+            trailSprite.setScale(0.4); // Bigger scale for more dramatic trail effect
+            trailSprite.play(animKey);
+            
+            // Add slight delay between trail segments for cascading effect
+            this.time.delayedCall(i * 50, () => {
+                if (trailSprite.active) trailSprite.play(animKey);
+            });
+            
+            trailSprites.push(trailSprite);
+        }
+        
+        // Destroy all trail sprites after animations complete
+        this.time.delayedCall(600, () => {
+            trailSprites.forEach(sprite => {
+                if (sprite.active) sprite.destroy();
+            });
         });
     }
     
@@ -5237,10 +5329,10 @@ class FightScene extends Phaser.Scene {
             { frameWidth: 128, frameHeight: 128 }
         );
         
-        // Jellyhead → Energy sprite sheet variant with 8 frames (128x128 each)
-        this.load.spritesheet('jelly_blast', 
-            'assets/Sprites/Powers/WhirlWind/EnergyFreePack/No_compressed/128/Energy_2_128-sheet.png',
-            { frameWidth: 128, frameHeight: 128 }
+        // Jellyhead → Load slime sprite sheet (same as soccer mode)
+        this.load.spritesheet('jellyhead_slime', 
+            'assets/Sprites/Powers/JellyHead/Slime-Sheet.png',
+            { frameWidth: 52, frameHeight: 55 }
         );
     }
 
@@ -5515,11 +5607,11 @@ class FightScene extends Phaser.Scene {
             repeat: -1
         });
 
-        // Jelly blast animation (8 frames) - key matches character name
+        // Jellyhead slime animation (same as soccer mode)
         this.anims.create({
-            key: 'jellyhead_blast_anim',
-            frames: this.anims.generateFrameNumbers('jelly_blast', { start: 0, end: 7 }),
-            frameRate: 12,
+            key: 'jellyhead_slime_anim',
+            frames: this.anims.generateFrameNumbers('jellyhead_slime', { start: 16, end: 23 }),
+            frameRate: 8,
             repeat: -1
         });
     }
@@ -5889,6 +5981,11 @@ class FightScene extends Phaser.Scene {
             // Frostbite uses static ice sprite (very small)
             blast = this.add.image(startX, startY, blastTexture);
             blast.setScale(0.3);
+        } else if (characterKey === 'jellyhead') {
+            // Jellyhead uses slime sprite (same as soccer mode)
+            blast = this.add.sprite(startX, startY, blastTexture);
+            blast.setScale(0.5); // Smaller when shot (same as soccer mode)
+            blast.play('jellyhead_slime_anim');
         } else {
             // Other characters use animated sprites - make them bigger
             blast = this.add.sprite(startX, startY, blastTexture);
@@ -5944,7 +6041,7 @@ class FightScene extends Phaser.Scene {
             'whirlwind': 'energy_blast',
             'frostbite': 'ice_blast',
             'brick': 'smoke_blast',
-            'jellyhead': 'jelly_blast'
+            'jellyhead': 'jellyhead_slime'
         };
         return textureMap[characterKey] || 'energy_blast';
     }
