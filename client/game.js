@@ -2593,6 +2593,16 @@ class GameScene extends Phaser.Scene {
             frameWidth: 32,
             frameHeight: 32
         });
+        
+        // Load Blaze fireball animation frames (60 individual PNG files)
+        for (let i = 0; i < 60; i++) {
+            this.load.image(`fireball_${i}`, `assets/Sprites/Powers/Blaze/Free pack 6/1/1_${i}.png`);
+        }
+        
+        // Load Blaze fire column animation frames (14 individual PNG files)
+        for (let i = 1; i <= 14; i++) {
+            this.load.image(`fire_column_${i}`, `assets/Sprites/Powers/Blaze/pack_effect_fire_column/fire_column_medium/fire_column_medium_${i}.png`);
+        }
     }
 
     calculatePowerCooldown(playerId) {
@@ -2843,6 +2853,32 @@ class GameScene extends Phaser.Scene {
                 console.error('❌ Failed to create freecool snowball animation:', error.message);
             }
         }
+        
+        // Create fireball animation from individual frames
+        const fireballFrames = [];
+        for (let i = 0; i < 60; i++) {
+            fireballFrames.push({ key: `fireball_${i}` });
+        }
+        
+        this.anims.create({
+            key: 'fireball_anim',
+            frames: fireballFrames,
+            frameRate: 15, // 15 FPS for smooth animation
+            repeat: -1 // Loop indefinitely
+        });
+        
+        // Create fire column animation from individual frames
+        const fireColumnFrames = [];
+        for (let i = 1; i <= 14; i++) {
+            fireColumnFrames.push({ key: `fire_column_${i}` });
+        }
+        
+        this.anims.create({
+            key: 'fire_column_anim',
+            frames: fireColumnFrames,
+            frameRate: 12, // 12 FPS for fire column animation
+            repeat: 0 // Play once
+        });
         
         // Start with idle animations
         this.player1.play('player1_idle_anim');
@@ -3187,9 +3223,15 @@ class GameScene extends Phaser.Scene {
             this.powers.player2.goals++;
         }
         
-        // Reset ball position
+        // Reset ball position and clear any active fireball effects
         this.ball.setPosition(400, 450);
         this.ball.setVelocity(0, 0);
+        
+        // Clean up any active fireball sprite when ball is reset
+        if (this.ball.fireballSprite && this.ball.fireballSprite.active) {
+            this.ball.fireballSprite.destroy();
+        }
+        this.ball.fireKicked = false;
         
         // Reset players to their starting positions
         this.player1.setPosition(200, 450);
@@ -3410,9 +3452,6 @@ class GameScene extends Phaser.Scene {
                 // Player has active power - they can deflect the fire ball
                 console.log('🛡️ Player with active power deflects fire ball');
                 
-                // Add special deflection effect
-                this.cameras.main.shake(200, 0.02);
-                
                 // Give the ball a powerful deflection
                 const deflectionDirection = isPlayer1 ? -1 : 1;
                 ball.setVelocity(deflectionDirection * 500, -250);
@@ -3422,7 +3461,9 @@ class GameScene extends Phaser.Scene {
                 this.time.delayedCall(300, () => player.clearTint());
                 
                 // Clear fire effect since it was deflected
-                ball.clearTint();
+                if (ball.fireballSprite && ball.fireballSprite.active) {
+                    ball.fireballSprite.destroy();
+                }
                 ball.fireKicked = false;
                 
                 return;
@@ -3441,7 +3482,6 @@ class GameScene extends Phaser.Scene {
                 
                 // Fire damage effect
                 player.setTint(0xff4500);
-                this.cameras.main.shake(300, 0.03);
                 
                 // Clear player tint
                 this.time.delayedCall(500, () => player.clearTint());
@@ -3643,6 +3683,24 @@ class GameScene extends Phaser.Scene {
         // Apply chaos effects
         this.applyChaosEffects();
         
+        // Update fireball sprite position to follow ball with offset
+        if (this.ball.fireballSprite && this.ball.fireballSprite.active) {
+            // Maintain the offset based on sprite flip state
+            const spriteOffsetX = this.ball.fireballSprite.flipX ? -25 : 25;
+            const spriteOffsetY = -15; // Move sprite up from the ball
+            this.ball.fireballSprite.setPosition(this.ball.x + spriteOffsetX, this.ball.y + spriteOffsetY);
+        }
+        
+        // Update fire column sprite position to follow player1 (Blaze) at ground level
+        if (this.player1.fireColumnSprite && this.player1.fireColumnSprite.active) {
+            this.player1.fireColumnSprite.setPosition(this.player1.x, this.player1.y + 30);
+        }
+        
+        // Update fire column sprite position to follow player2 (Blaze) at ground level
+        if (this.player2.fireColumnSprite && this.player2.fireColumnSprite.active) {
+            this.player2.fireColumnSprite.setPosition(this.player2.x, this.player2.y + 30);
+        }
+        
         // Ball safety check - prevent ball from getting trapped between players
         this.preventBallSqueezing();
     }
@@ -3759,179 +3817,90 @@ class GameScene extends Phaser.Scene {
         const direction = player.flipX ? -1 : 1;
         const playerKey = player === this.player1 ? 'player1' : 'player2';
         
-        // Create fire start effect
-        this.createBlazeStartEffect(player);
+        // Clean up any existing fire column sprite first
+        if (player.fireColumnSprite && player.fireColumnSprite.active) {
+            player.fireColumnSprite.destroy();
+        }
         
-        // Small hop during fire kick
-        player.setVelocityY(-200);
+        // Create fire column animation on Blaze at ground level
+        const fireColumnSprite = this.add.sprite(player.x, player.y + 30, 'fire_column_1');
+        fireColumnSprite.setScale(3.5); // Make it much bigger and more visible
+        fireColumnSprite.setDepth(5); // Above everything else
+        fireColumnSprite.setOrigin(0.5, 1); // Anchor at bottom center like players
+        
+        // Play the fire column animation and loop it
+        fireColumnSprite.play('fire_column_anim');
+        
+        // Loop the animation instead of destroying on complete
+        fireColumnSprite.on('animationcomplete', () => {
+            fireColumnSprite.play('fire_column_anim'); // Replay the animation
+        });
+        
+        // Store fire column reference on player for following
+        player.fireColumnSprite = fireColumnSprite;
+        
+        // Remove the fire column sprite after 4 seconds (same duration as fireball)
+        this.time.delayedCall(4000, () => {
+            if (fireColumnSprite.active) {
+                fireColumnSprite.destroy();
+            }
+            // Clear reference when destroyed
+            player.fireColumnSprite = null;
+        });
+        
+        // Brief orange tint on player
         player.setTint(0xff4500);
-        
-        // Create fire loop effect that follows player
-        this.createBlazeLoopEffect(player);
+        this.time.delayedCall(600, () => player.clearTint());
         
         // Fire kick affects the ball - make it super powerful
         const ballDistance = Phaser.Math.Distance.Between(player.x, player.y, this.ball.x, this.ball.y);
         if (ballDistance < 120) {
-            // Apply fire effect to ball
-            this.ball.setTint(0xff4500);
+            // Clean up any existing fireball sprite first
+            if (this.ball.fireballSprite && this.ball.fireballSprite.active) {
+                this.ball.fireballSprite.destroy();
+            }
+            
+            // Determine which player is kicking and position sprite accordingly
+            const isPlayer1 = player === this.player1;
+            const spriteOffsetX = isPlayer1 ? -25 : 25; // Left player: offset left, Right player: offset right
+            const spriteOffsetY = -15; // Move sprite up from the ball
+            
+            // Create animated fireball sprite effect on ball with offset
+            const fireballSprite = this.add.sprite(this.ball.x + spriteOffsetX, this.ball.y + spriteOffsetY, 'fireball_0');
+            fireballSprite.setScale(2.0); // Even bigger scale for better visibility
+            fireballSprite.setDepth(4); // Above ball but below UI
+            
+            // Flip sprite if needed for left player
+            if (isPlayer1) {
+                // Player 1 is on the left, flip the sprite horizontally
+                fireballSprite.setFlipX(true);
+            }
+            
+            fireballSprite.play('fireball_anim'); // Start the animation
+            
+            // Store fireball reference on ball for cleanup
+            this.ball.fireballSprite = fireballSprite;
             this.ball.fireKicked = true;
             
             // VERY powerful kick towards opponent's goal - straight horizontal line
             const ballDirection = player.x < 400 ? 1 : -1; // Determine which goal to aim for
             this.ball.setVelocity(ballDirection * 850, 0); // Maximum speed, perfectly horizontal
             
-            // Screen shake for powerful kick
-            this.cameras.main.shake(400, 0.04);
-            
             // Clear fire effect after 4 seconds
             this.time.delayedCall(4000, () => {
                 if (this.ball.active) {
-                    this.ball.clearTint();
+                    if (this.ball.fireballSprite && this.ball.fireballSprite.active) {
+                        this.ball.fireballSprite.destroy();
+                    }
                     this.ball.fireKicked = false;
                 }
             });
             
             console.log('🔥 Blaze fired a devastating horizontal fire kick!');
         }
-        
-        // Clear player tint and create end effect
-        this.time.delayedCall(600, () => {
-            player.clearTint();
-            this.createBlazeEndEffect(player);
-        });
     }
 
-    createBlazeStartEffect(player) {
-        // Create start fire effect - explosive burst
-        const startEffect = this.add.graphics();
-        startEffect.setDepth(5);
-        startEffect.x = player.x;
-        startEffect.y = player.y;
-        
-        // Create flame particles
-        const flames = [];
-        for (let i = 0; i < 8; i++) {
-            const flame = this.add.circle(player.x, player.y, 6, 0xff4500);
-            flame.setDepth(5);
-            flame.setAlpha(0.8);
-            
-            // Random spread pattern
-            const angle = (i * Math.PI * 2) / 8;
-            const radius = 20 + Math.random() * 15;
-            
-            // Animate flame burst
-            this.tweens.add({
-                targets: flame,
-                x: player.x + Math.cos(angle) * radius,
-                y: player.y + Math.sin(angle) * radius,
-                alpha: 0,
-                scaleX: 1.5,
-                scaleY: 1.5,
-                duration: 400,
-                ease: 'Power2',
-                onComplete: () => flame.destroy()
-            });
-            
-            flames.push(flame);
-        }
-        
-        // Central burst effect
-        const centerFlame = this.add.circle(player.x, player.y, 15, 0xff4500);
-        centerFlame.setDepth(5);
-        centerFlame.setAlpha(0.9);
-        
-        this.tweens.add({
-            targets: centerFlame,
-            scaleX: 2.0,
-            scaleY: 2.0,
-            alpha: 0,
-            duration: 300,
-            ease: 'Power2',
-            onComplete: () => centerFlame.destroy()
-        });
-        
-        // Cleanup start effect
-        this.time.delayedCall(500, () => {
-            if (startEffect.active) startEffect.destroy();
-        });
-    }
 
-    createBlazeLoopEffect(player) {
-        // Create loop fire effect that follows player
-        const loopFlames = [];
-        
-        // Create multiple flame particles that orbit around player
-        for (let i = 0; i < 6; i++) {
-            const flame = this.add.circle(player.x, player.y, 4, 0xff4500);
-            flame.setDepth(5);
-            flame.setAlpha(0.7);
-            
-            // Store reference to player for following
-            flame.blazePlayer = player;
-            flame.blazeAngle = (i * Math.PI * 2) / 6;
-            flame.blazeRadius = 25;
-            
-            loopFlames.push(flame);
-        }
-        
-        // Update loop flames to follow player with orbital motion
-        const loopTimer = this.time.addEvent({
-            delay: 32, // ~30 FPS
-            repeat: 24, // 0.8 seconds
-            callback: () => {
-                loopFlames.forEach((flame, index) => {
-                    if (flame.active && flame.blazePlayer) {
-                        // Orbital motion around player
-                        flame.blazeAngle += 0.2;
-                        const x = flame.blazePlayer.x + Math.cos(flame.blazeAngle) * flame.blazeRadius;
-                        const y = flame.blazePlayer.y + Math.sin(flame.blazeAngle) * flame.blazeRadius;
-                        
-                        flame.setPosition(x, y);
-                        
-                        // Flickering effect
-                        flame.setAlpha(0.5 + Math.random() * 0.3);
-                    }
-                });
-            }
-        });
-        
-        // Cleanup loop effect
-        this.time.delayedCall(800, () => {
-            loopFlames.forEach(flame => {
-                if (flame.active) flame.destroy();
-            });
-            loopTimer.remove();
-        });
-    }
-
-    createBlazeEndEffect(player) {
-        // Create end fire effect - smaller burst
-        const endFlames = [];
-        
-        for (let i = 0; i < 4; i++) {
-            const flame = this.add.circle(player.x, player.y, 4, 0xff4500);
-            flame.setDepth(5);
-            flame.setAlpha(0.6);
-            
-            // Random upward motion
-            const angle = -Math.PI/2 + (Math.random() - 0.5) * Math.PI/4;
-            const speed = 20 + Math.random() * 10;
-            
-            this.tweens.add({
-                targets: flame,
-                x: player.x + Math.cos(angle) * speed,
-                y: player.y + Math.sin(angle) * speed,
-                alpha: 0,
-                scaleX: 0.5,
-                scaleY: 0.5,
-                duration: 300,
-                ease: 'Power2',
-                onComplete: () => flame.destroy()
-            });
-            
-            endFlames.push(flame);
-        }
-    }
 
     executeIceBlast(player, opponent) {
         const direction = player.flipX ? -1 : 1;
