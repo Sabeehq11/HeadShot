@@ -2603,6 +2603,13 @@ class GameScene extends Phaser.Scene {
         for (let i = 1; i <= 14; i++) {
             this.load.image(`fire_column_${i}`, `assets/Sprites/Powers/Blaze/pack_effect_fire_column/fire_column_medium/fire_column_medium_${i}.png`);
         }
+        
+        // Load JellyHead slime sheet (3rd row for animation)
+        // Sprite sheet is 416x275, assuming 8 columns and 5 rows: 52x55 per frame
+        this.load.spritesheet('jellyhead_slime', 
+            'assets/Sprites/Powers/JellyHead/Slime-Sheet.png',
+            { frameWidth: 52, frameHeight: 55 } // 416/8 = 52, 275/5 = 55
+        );
     }
 
     calculatePowerCooldown(playerId) {
@@ -2878,6 +2885,15 @@ class GameScene extends Phaser.Scene {
             frames: fireColumnFrames,
             frameRate: 12, // 12 FPS for fire column animation
             repeat: 0 // Play once
+        });
+        
+        // Create JellyHead slime animation from 3rd row of sprite sheet
+        // Assuming the sprite sheet has frames arranged in rows, 3rd row starts at frame 16 (if 8 frames per row)
+        this.anims.create({
+            key: 'jellyhead_slime_anim',
+            frames: this.anims.generateFrameNumbers('jellyhead_slime', { start: 16, end: 23 }), // 3rd row: frames 16-23
+            frameRate: 8,
+            repeat: -1 // Loop indefinitely
         });
         
         // Start with idle animations
@@ -4230,24 +4246,17 @@ class GameScene extends Phaser.Scene {
         const direction = player.flipX ? -1 : 1;
         const opponent = player === this.player1 ? this.player2 : this.player1;
         
-        // Create purple jelly projectile
-        const projectile = this.add.circle(player.x, player.y - 20, 10, 0x9370db);
+        // Create jelly projectile using slime animation (smaller size)
+        const projectile = this.add.sprite(player.x + (direction * 30), player.y - 30, 'jellyhead_slime');
+        projectile.setScale(0.5); // Smaller when shot
+        projectile.play('jellyhead_slime_anim');
         this.physics.add.existing(projectile);
         
         // Set projectile velocity
         projectile.body.setVelocity(direction * 280, 0);
         projectile.body.setGravityY(-300);
-        
-        // Add jelly wobble effect
-        this.tweens.add({
-            targets: projectile,
-            scaleX: 1.2,
-            scaleY: 0.8,
-            duration: 300,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-        });
+        projectile.body.setCollideWorldBounds(false);
+        projectile.body.setSize(26, 28); // Collision size (half of frame size: 52/2, 55/2)
         
         // Handle collision with opponent
         this.physics.add.overlap(projectile, opponent, () => {
@@ -4275,6 +4284,37 @@ class GameScene extends Phaser.Scene {
             // Actually slow down the opponent
             opponentPower.slowed = true;
             opponentPower.slowedUntil = Date.now() + 3000; // 3 seconds
+            
+            // Add slime effect on opponent (bigger size)
+            const slimeEffect = this.add.sprite(opponent.x, opponent.y - 20, 'jellyhead_slime');
+            slimeEffect.setScale(1.2); // Bigger when on opponent
+            slimeEffect.play('jellyhead_slime_anim');
+            slimeEffect.setTint(0x9370db); // Purple tint
+            
+            // Make slime effect follow opponent
+            const followSlime = () => {
+                if (slimeEffect.active && opponent.active) {
+                    slimeEffect.x = opponent.x;
+                    slimeEffect.y = opponent.y - 20; // Keep at ground level (even higher position)
+                }
+            };
+            
+            // Update slime position every frame while opponent is slowed
+            const slimeTimer = this.time.addEvent({
+                delay: 16, // ~60 FPS
+                callback: followSlime,
+                repeat: 187 // 3 seconds worth of frames at 60 FPS
+            });
+            
+            // Clean up slime effect when slow ends
+            this.time.delayedCall(3000, () => {
+                if (slimeEffect.active) {
+                    slimeEffect.destroy();
+                }
+                if (slimeTimer.active) {
+                    slimeTimer.destroy();
+                }
+            });
             
             console.log('🟣 Jellyhead slowed opponent with jelly projectile');
             
