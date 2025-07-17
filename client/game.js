@@ -2943,14 +2943,25 @@ class GameScene extends Phaser.Scene {
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5, 1);
 
-        // Pause indicator - Arcade style
-        this.pauseIndicator = this.add.text(750, 580, 'ESC/P TO PAUSE', {
-            fontSize: '12px',
-            fontStyle: 'bold',
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 1
-        }).setOrigin(1, 1);
+        // Pause button (blue circle in top right) - Arcade style
+        this.pauseButton = this.add.circle(750, 50, 20, 0x0080ff, 0.9);
+        this.pauseButton.setStrokeStyle(3, 0x00ffff);
+        this.pauseButton.setInteractive();
+        this.pauseButton.on('pointerdown', () => this.togglePause());
+        
+        // Pause symbol (two vertical bars)
+        this.pauseSymbol1 = this.add.rectangle(745, 50, 4, 16, 0xffffff);
+        this.pauseSymbol2 = this.add.rectangle(755, 50, 4, 16, 0xffffff);
+        
+        // Add hover effect for pause button
+        this.pauseButton.on('pointerover', () => {
+            this.pauseButton.setFillStyle(0x0066cc, 0.9);
+            this.pauseButton.setStrokeStyle(3, 0x00ffff);
+        });
+        this.pauseButton.on('pointerout', () => {
+            this.pauseButton.setFillStyle(0x0080ff, 0.9);
+            this.pauseButton.setStrokeStyle(3, 0x00ffff);
+        });
     }
 
     createPowerStatusUI() {
@@ -4459,14 +4470,42 @@ class GameScene extends Phaser.Scene {
     pauseGame() {
         this.isPaused = true;
         this.physics.pause();
-        this.scene.pause();
+        
+        // Pause timers
+        if (this.matchTimer) {
+            this.matchTimer.paused = true;
+        }
+        if (this.chaosTimer) {
+            this.chaosTimer.paused = true;
+        }
+        if (this.powerTimer) {
+            this.powerTimer.paused = true;
+        }
+        if (this.ballSpeedTimer) {
+            this.ballSpeedTimer.paused = true;
+        }
+        
         this.showPauseMenu();
     }
 
     resumeGame() {
         this.isPaused = false;
         this.physics.resume();
-        this.scene.resume();
+        
+        // Resume timers
+        if (this.matchTimer) {
+            this.matchTimer.paused = false;
+        }
+        if (this.chaosTimer) {
+            this.chaosTimer.paused = false;
+        }
+        if (this.powerTimer) {
+            this.powerTimer.paused = false;
+        }
+        if (this.ballSpeedTimer) {
+            this.ballSpeedTimer.paused = false;
+        }
+        
         this.hidePauseMenu();
     }
 
@@ -4521,8 +4560,8 @@ class GameScene extends Phaser.Scene {
         this.quitBtn.setScrollFactor(0);
         this.quitBtn.on('pointerdown', () => this.quitToCharacterSelection());
         
-        this.quitText = this.add.text(400, 340, 'QUIT TO CHARACTER SELECT', {
-            fontSize: '16px',
+        this.quitText = this.add.text(400, 340, 'QUIT', {
+            fontSize: '20px',
             fontStyle: 'bold',
             fill: '#ff0000',
             stroke: '#000000',
@@ -4571,6 +4610,20 @@ class GameScene extends Phaser.Scene {
     }
 
     quitToCharacterSelection() {
+        // Clean up any paused timers
+        if (this.matchTimer) {
+            this.matchTimer.paused = false;
+        }
+        if (this.chaosTimer) {
+            this.chaosTimer.paused = false;
+        }
+        if (this.powerTimer) {
+            this.powerTimer.paused = false;
+        }
+        if (this.ballSpeedTimer) {
+            this.ballSpeedTimer.paused = false;
+        }
+        
         this.scene.stop();
         this.scene.start('CharacterSelectionScene');
     }
@@ -4955,14 +5008,25 @@ class FightScene extends Phaser.Scene {
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(1, 0);
 
-        // Pause indicator - Arcade style
-        this.pauseIndicator = this.add.text(750, 580, 'ESC/P TO PAUSE', {
-            fontSize: '12px',
-            fontStyle: 'bold',
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 1
-        }).setOrigin(1, 1);
+        // Pause button (blue circle in top right) - Arcade style
+        this.pauseButton = this.add.circle(750, 50, 20, 0x0080ff, 0.9);
+        this.pauseButton.setStrokeStyle(3, 0x00ffff);
+        this.pauseButton.setInteractive();
+        this.pauseButton.on('pointerdown', () => this.togglePause());
+        
+        // Pause symbol (two vertical bars)
+        this.pauseSymbol1 = this.add.rectangle(745, 50, 4, 16, 0xffffff);
+        this.pauseSymbol2 = this.add.rectangle(755, 50, 4, 16, 0xffffff);
+        
+        // Add hover effect for pause button
+        this.pauseButton.on('pointerover', () => {
+            this.pauseButton.setFillStyle(0x0066cc, 0.9);
+            this.pauseButton.setStrokeStyle(3, 0x00ffff);
+        });
+        this.pauseButton.on('pointerout', () => {
+            this.pauseButton.setFillStyle(0x0080ff, 0.9);
+            this.pauseButton.setStrokeStyle(3, 0x00ffff);
+        });
     }
 
     createBlastAnimations() {
@@ -5022,14 +5086,42 @@ class FightScene extends Phaser.Scene {
     pauseGame() {
         this.isPaused = true;
         this.physics.pause();
-        this.scene.pause();
+        
+        // Pause timers
+        if (this.matchTimer) {
+            this.matchTimer.paused = true;
+        }
+        if (this.chaosTimer) {
+            this.chaosTimer.paused = true;
+        }
+        if (this.powerTimer) {
+            this.powerTimer.paused = true;
+        }
+        if (this.ballSpeedTimer) {
+            this.ballSpeedTimer.paused = true;
+        }
+        
         this.showPauseMenu();
     }
 
     resumeGame() {
         this.isPaused = false;
         this.physics.resume();
-        this.scene.resume();
+        
+        // Resume timers
+        if (this.matchTimer) {
+            this.matchTimer.paused = false;
+        }
+        if (this.chaosTimer) {
+            this.chaosTimer.paused = false;
+        }
+        if (this.powerTimer) {
+            this.powerTimer.paused = false;
+        }
+        if (this.ballSpeedTimer) {
+            this.ballSpeedTimer.paused = false;
+        }
+        
         this.hidePauseMenu();
     }
 
@@ -5084,8 +5176,8 @@ class FightScene extends Phaser.Scene {
         this.quitBtn.setScrollFactor(0);
         this.quitBtn.on('pointerdown', () => this.quitToCharacterSelection());
         
-        this.quitText = this.add.text(400, 340, 'QUIT TO CHARACTER SELECT', {
-            fontSize: '16px',
+        this.quitText = this.add.text(400, 340, 'QUIT', {
+            fontSize: '20px',
             fontStyle: 'bold',
             fill: '#ff0000',
             stroke: '#000000',
@@ -5134,6 +5226,20 @@ class FightScene extends Phaser.Scene {
     }
 
     quitToCharacterSelection() {
+        // Clean up any paused timers
+        if (this.matchTimer) {
+            this.matchTimer.paused = false;
+        }
+        if (this.chaosTimer) {
+            this.chaosTimer.paused = false;
+        }
+        if (this.powerTimer) {
+            this.powerTimer.paused = false;
+        }
+        if (this.ballSpeedTimer) {
+            this.ballSpeedTimer.paused = false;
+        }
+        
         this.scene.stop();
         this.scene.start('CharacterSelectionScene');
     }
