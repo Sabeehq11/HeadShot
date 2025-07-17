@@ -682,6 +682,32 @@ class CharacterSelectionScene extends Phaser.Scene {
             }).setOrigin(0.5)
         };
 
+        // Player 1 Cancel button (initially hidden)
+        this.player1CancelBtn = this.add.rectangle(310, 510, 70, 24, 0x000000, 0.9);
+        this.player1CancelBtn.setStrokeStyle(2, 0xff0000);
+        this.player1CancelBtn.setInteractive();
+        this.player1CancelBtn.setVisible(false);
+        this.player1CancelBtn.on('pointerdown', () => this.cancelPlayer1Selection());
+        
+        this.player1CancelText = this.add.text(310, 510, 'CANCEL', {
+            fontSize: '10px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 1
+        }).setOrigin(0.5);
+        this.player1CancelText.setVisible(false);
+        
+        // Add hover effects for player 1 cancel button
+        this.player1CancelBtn.on('pointerover', () => {
+            this.player1CancelBtn.setFillStyle(0x330000, 0.9);
+            this.player1CancelText.setStyle({ fill: '#ffffff' });
+        });
+        this.player1CancelBtn.on('pointerout', () => {
+            this.player1CancelBtn.setFillStyle(0x000000, 0.9);
+            this.player1CancelText.setStyle({ fill: '#ff0000' });
+        });
+
         // Player 2 UI (Right side) - Arcade style (better positioning)
         this.player2UI = {
             panel: this.add.rectangle(600, 480, 320, 140, 0x000000, 0.9).setStrokeStyle(4, 0x0080ff),
@@ -722,6 +748,32 @@ class CharacterSelectionScene extends Phaser.Scene {
                 strokeThickness: 1
             }).setOrigin(0.5)
         };
+
+        // Player 2 Cancel button (initially hidden)
+        this.player2CancelBtn = this.add.rectangle(710, 510, 70, 24, 0x000000, 0.9);
+        this.player2CancelBtn.setStrokeStyle(2, 0xff0000);
+        this.player2CancelBtn.setInteractive();
+        this.player2CancelBtn.setVisible(false);
+        this.player2CancelBtn.on('pointerdown', () => this.cancelPlayer2Selection());
+        
+        this.player2CancelText = this.add.text(710, 510, 'CANCEL', {
+            fontSize: '10px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 1
+        }).setOrigin(0.5);
+        this.player2CancelText.setVisible(false);
+        
+        // Add hover effects for player 2 cancel button
+        this.player2CancelBtn.on('pointerover', () => {
+            this.player2CancelBtn.setFillStyle(0x330000, 0.9);
+            this.player2CancelText.setStyle({ fill: '#ffffff' });
+        });
+        this.player2CancelBtn.on('pointerout', () => {
+            this.player2CancelBtn.setFillStyle(0x000000, 0.9);
+            this.player2CancelText.setStyle({ fill: '#ff0000' });
+        });
     }
 
     setupControls() {
@@ -891,9 +943,13 @@ class CharacterSelectionScene extends Phaser.Scene {
         if (this.player1Confirmed) {
             this.player1UI.status.setText('✓ CONFIRMED');
             this.player1UI.status.setStyle({ fill: '#00ff00' });
+            this.player1CancelBtn.setVisible(true);
+            this.player1CancelText.setVisible(true);
         } else {
             this.player1UI.status.setText('PRESS W TO CONFIRM');
             this.player1UI.status.setStyle({ fill: '#00ffff' });
+            this.player1CancelBtn.setVisible(false);
+            this.player1CancelText.setVisible(false);
         }
 
         // Update Player 2 UI
@@ -903,9 +959,13 @@ class CharacterSelectionScene extends Phaser.Scene {
         if (this.player2Confirmed) {
             this.player2UI.status.setText('✓ CONFIRMED');
             this.player2UI.status.setStyle({ fill: '#0080ff' });
+            this.player2CancelBtn.setVisible(true);
+            this.player2CancelText.setVisible(true);
         } else {
             this.player2UI.status.setText('PRESS ↑ TO CONFIRM');
             this.player2UI.status.setStyle({ fill: '#00ffff' });
+            this.player2CancelBtn.setVisible(false);
+            this.player2CancelText.setVisible(false);
         }
     }
 
@@ -1736,11 +1796,23 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.checkBothPlayersReady();
     }
 
+    cancelPlayer1Selection() {
+        this.player1Confirmed = false;
+        selectedCharacters.player1 = null;
+        this.updateDisplay();
+    }
+
     confirmPlayer2Selection() {
         this.player2Confirmed = true;
         selectedCharacters.player2 = this.characterKeys[this.player2Selection];
         this.updateDisplay();
         this.checkBothPlayersReady();
+    }
+
+    cancelPlayer2Selection() {
+        this.player2Confirmed = false;
+        selectedCharacters.player2 = null;
+        this.updateDisplay();
     }
 
     checkBothPlayersReady() {
@@ -1792,6 +1864,31 @@ class GameModesScene extends Phaser.Scene {
 
         // Title underline (match Character Selection)
         this.add.rectangle(400, 60, 500, 3, 0x00ffff);
+
+        // Back button (top-left corner, matching Info button style)
+        this.backBtn = this.add.rectangle(85, 50, 100, 32, 0x000000, 0.9);
+        this.backBtn.setStrokeStyle(3, 0x00ffff);
+        this.backBtnText = this.add.text(85, 50, 'BACK', {
+            fontSize: '14px',
+            fontStyle: 'bold',
+            fill: '#00ffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        this.backBtn.setInteractive();
+        this.backBtn.on('pointerdown', () => this.goBackToCharacterSelection());
+        
+        // Add hover effects
+        this.backBtn.on('pointerover', () => {
+            this.backBtn.setFillStyle(0x003333, 0.9);
+            this.backBtn.setStrokeStyle(3, 0x00ffff);
+            this.backBtnText.setStyle({ fill: '#ffffff' });
+        });
+        this.backBtn.on('pointerout', () => {
+            this.backBtn.setFillStyle(0x000000, 0.9);
+            this.backBtn.setStrokeStyle(3, 0x00ffff);
+            this.backBtnText.setStyle({ fill: '#00ffff' });
+        });
 
         // Create mode toggle tabs
         this.createModeToggleTabs();
@@ -2007,6 +2104,10 @@ class GameModesScene extends Phaser.Scene {
         });
     }
 
+    goBackToCharacterSelection() {
+        this.scene.start('CharacterSelectionScene');
+    }
+
     continueToMapSelection() {
         // Store selected game mode and settings
         selectedGameMode = this.selectedMode;
@@ -2089,6 +2190,31 @@ class MapSelectScene extends Phaser.Scene {
 
         // Title underline (match Character Selection)
         this.add.rectangle(400, 60, 400, 3, 0x00ffff);
+
+        // Back button (top-left corner, matching Info button style)
+        this.backBtn = this.add.rectangle(85, 50, 100, 32, 0x000000, 0.9);
+        this.backBtn.setStrokeStyle(3, 0x00ffff);
+        this.backBtnText = this.add.text(85, 50, 'BACK', {
+            fontSize: '14px',
+            fontStyle: 'bold',
+            fill: '#00ffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        this.backBtn.setInteractive();
+        this.backBtn.on('pointerdown', () => this.goBackToGameModes());
+        
+        // Add hover effects
+        this.backBtn.on('pointerover', () => {
+            this.backBtn.setFillStyle(0x003333, 0.9);
+            this.backBtn.setStrokeStyle(3, 0x00ffff);
+            this.backBtnText.setStyle({ fill: '#ffffff' });
+        });
+        this.backBtn.on('pointerout', () => {
+            this.backBtn.setFillStyle(0x000000, 0.9);
+            this.backBtn.setStrokeStyle(3, 0x00ffff);
+            this.backBtnText.setStyle({ fill: '#00ffff' });
+        });
 
         // Instructions - arcade style (neon blue, smaller, centered)
         this.add.text(400, 95, 'CHOOSE YOUR BATTLEGROUND!', {
@@ -2331,6 +2457,10 @@ class MapSelectScene extends Phaser.Scene {
             this.startButtonBg.setStrokeStyle(4, 0xffff00);
             this.startButton.setStyle({ fill: '#ffff00' });
         });
+    }
+
+    goBackToGameModes() {
+        this.scene.start('GameModesScene');
     }
 
     startMatch() {
@@ -2675,6 +2805,23 @@ class GameScene extends Phaser.Scene {
         // Add power activation keys
         this.powerKeys = this.input.keyboard.addKeys('E,K');
         
+        // Add fight mode key (F key)
+        this.input.keyboard.on('keydown-F', () => {
+            this.switchToFightMode();
+        });
+
+        // Add pause keys (ESC and P)
+        this.input.keyboard.on('keydown-ESC', () => {
+            this.togglePause();
+        });
+        this.input.keyboard.on('keydown-P', () => {
+            this.togglePause();
+        });
+
+        // Initialize pause state
+        this.isPaused = false;
+        this.pauseMenuElements = [];
+        
         // Create UI
         this.createUI();
         
@@ -2785,6 +2932,25 @@ class GameScene extends Phaser.Scene {
 
         // Create power status displays
         this.createPowerStatusUI();
+
+        // Fight mode indicator - Arcade style
+        this.fightModeText = this.add.text(400, 570, 'PRESS F FOR FIGHT MODE', {
+            fontSize: '14px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5, 1);
+
+        // Pause indicator - Arcade style
+        this.pauseIndicator = this.add.text(750, 580, 'ESC/P TO PAUSE', {
+            fontSize: '12px',
+            fontStyle: 'bold',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 1
+        }).setOrigin(1, 1);
     }
 
     createPowerStatusUI() {
@@ -3212,7 +3378,7 @@ class GameScene extends Phaser.Scene {
     }
 
     update() {
-        if (this.gameOver) return;
+        if (this.gameOver || this.isPaused) return;
         
         // Update power system
         this.updatePowerSystem();
@@ -4280,6 +4446,148 @@ class GameScene extends Phaser.Scene {
         }
     }
 
+    togglePause() {
+        if (this.gameOver) return;
+        
+        if (this.isPaused) {
+            this.resumeGame();
+        } else {
+            this.pauseGame();
+        }
+    }
+
+    pauseGame() {
+        this.isPaused = true;
+        this.physics.pause();
+        this.scene.pause();
+        this.showPauseMenu();
+    }
+
+    resumeGame() {
+        this.isPaused = false;
+        this.physics.resume();
+        this.scene.resume();
+        this.hidePauseMenu();
+    }
+
+    showPauseMenu() {
+        // Create pause menu backdrop
+        this.pauseBackdrop = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
+        this.pauseBackdrop.setDepth(1000);
+        this.pauseBackdrop.setScrollFactor(0);
+        
+        // Create pause menu panel
+        this.pausePanel = this.add.rectangle(400, 300, 400, 300, 0x000000, 0.95);
+        this.pausePanel.setStrokeStyle(4, 0x00ffff);
+        this.pausePanel.setDepth(1001);
+        this.pausePanel.setScrollFactor(0);
+        
+        // Pause title
+        this.pauseTitle = this.add.text(400, 220, 'GAME PAUSED', {
+            fontSize: '32px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        this.pauseTitle.setDepth(1002);
+        this.pauseTitle.setScrollFactor(0);
+        
+        // Resume button
+        this.resumeBtn = this.add.rectangle(400, 280, 200, 45, 0x000000, 0.9);
+        this.resumeBtn.setStrokeStyle(3, 0x00ff00);
+        this.resumeBtn.setInteractive();
+        this.resumeBtn.setDepth(1002);
+        this.resumeBtn.setScrollFactor(0);
+        this.resumeBtn.on('pointerdown', () => this.resumeGame());
+        
+        this.resumeText = this.add.text(400, 280, 'RESUME', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#00ff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        this.resumeText.setDepth(1002);
+        this.resumeText.setScrollFactor(0);
+        
+        // Quit button
+        this.quitBtn = this.add.rectangle(400, 340, 200, 45, 0x000000, 0.9);
+        this.quitBtn.setStrokeStyle(3, 0xff0000);
+        this.quitBtn.setInteractive();
+        this.quitBtn.setDepth(1002);
+        this.quitBtn.setScrollFactor(0);
+        this.quitBtn.on('pointerdown', () => this.quitToCharacterSelection());
+        
+        this.quitText = this.add.text(400, 340, 'QUIT TO CHARACTER SELECT', {
+            fontSize: '16px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        this.quitText.setDepth(1002);
+        this.quitText.setScrollFactor(0);
+        
+        // Add hover effects
+        this.resumeBtn.on('pointerover', () => {
+            this.resumeBtn.setFillStyle(0x003300, 0.9);
+            this.resumeText.setStyle({ fill: '#ffffff' });
+        });
+        this.resumeBtn.on('pointerout', () => {
+            this.resumeBtn.setFillStyle(0x000000, 0.9);
+            this.resumeText.setStyle({ fill: '#00ff00' });
+        });
+        
+        this.quitBtn.on('pointerover', () => {
+            this.quitBtn.setFillStyle(0x330000, 0.9);
+            this.quitText.setStyle({ fill: '#ffffff' });
+        });
+        this.quitBtn.on('pointerout', () => {
+            this.quitBtn.setFillStyle(0x000000, 0.9);
+            this.quitText.setStyle({ fill: '#ff0000' });
+        });
+        
+        // Store elements for cleanup
+        this.pauseMenuElements = [
+            this.pauseBackdrop,
+            this.pausePanel,
+            this.pauseTitle,
+            this.resumeBtn,
+            this.resumeText,
+            this.quitBtn,
+            this.quitText
+        ];
+    }
+
+    hidePauseMenu() {
+        this.pauseMenuElements.forEach(element => {
+            if (element) element.destroy();
+        });
+        this.pauseMenuElements = [];
+    }
+
+    quitToCharacterSelection() {
+        this.scene.stop();
+        this.scene.start('CharacterSelectionScene');
+    }
+
+    switchToFightMode() {
+        // Create fight settings using the FULL original time setting (not remaining time)
+        const fightSettings = {
+            time: selectedMatchSettings.time, // Use full original time
+            heartLimit: selectedMatchSettings.goalLimit // Hearts match the original goal limit
+        };
+        
+        console.log(`🥊 Switching to Fight Mode with: ${fightSettings.time}s, ${fightSettings.heartLimit} hearts`);
+        
+        // Switch to fight scene with current settings
+        this.scene.start('FightScene', fightSettings);
+    }
+
     initializeSocket() {
         // Socket.io connection setup
         this.socket = io('http://localhost:3000');
@@ -4503,6 +4811,18 @@ class FightScene extends Phaser.Scene {
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
         this.blastKeys = this.input.keyboard.addKeys('E,K');
 
+        // Add pause keys (ESC and P)
+        this.input.keyboard.on('keydown-ESC', () => {
+            this.togglePause();
+        });
+        this.input.keyboard.on('keydown-P', () => {
+            this.togglePause();
+        });
+
+        // Initialize pause state
+        this.isPaused = false;
+        this.pauseMenuElements = [];
+
         // Create UI
         this.createFightUI();
         
@@ -4634,6 +4954,15 @@ class FightScene extends Phaser.Scene {
             strokeThickness: 2,
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(1, 0);
+
+        // Pause indicator - Arcade style
+        this.pauseIndicator = this.add.text(750, 580, 'ESC/P TO PAUSE', {
+            fontSize: '12px',
+            fontStyle: 'bold',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 1
+        }).setOrigin(1, 1);
     }
 
     createBlastAnimations() {
@@ -4680,6 +5009,135 @@ class FightScene extends Phaser.Scene {
         });
     }
 
+    togglePause() {
+        if (this.gameOver) return;
+        
+        if (this.isPaused) {
+            this.resumeGame();
+        } else {
+            this.pauseGame();
+        }
+    }
+
+    pauseGame() {
+        this.isPaused = true;
+        this.physics.pause();
+        this.scene.pause();
+        this.showPauseMenu();
+    }
+
+    resumeGame() {
+        this.isPaused = false;
+        this.physics.resume();
+        this.scene.resume();
+        this.hidePauseMenu();
+    }
+
+    showPauseMenu() {
+        // Create pause menu backdrop
+        this.pauseBackdrop = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
+        this.pauseBackdrop.setDepth(1000);
+        this.pauseBackdrop.setScrollFactor(0);
+        
+        // Create pause menu panel
+        this.pausePanel = this.add.rectangle(400, 300, 400, 300, 0x000000, 0.95);
+        this.pausePanel.setStrokeStyle(4, 0x00ffff);
+        this.pausePanel.setDepth(1001);
+        this.pausePanel.setScrollFactor(0);
+        
+        // Pause title
+        this.pauseTitle = this.add.text(400, 220, 'FIGHT PAUSED', {
+            fontSize: '32px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        this.pauseTitle.setDepth(1002);
+        this.pauseTitle.setScrollFactor(0);
+        
+        // Resume button
+        this.resumeBtn = this.add.rectangle(400, 280, 200, 45, 0x000000, 0.9);
+        this.resumeBtn.setStrokeStyle(3, 0x00ff00);
+        this.resumeBtn.setInteractive();
+        this.resumeBtn.setDepth(1002);
+        this.resumeBtn.setScrollFactor(0);
+        this.resumeBtn.on('pointerdown', () => this.resumeGame());
+        
+        this.resumeText = this.add.text(400, 280, 'RESUME', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#00ff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        this.resumeText.setDepth(1002);
+        this.resumeText.setScrollFactor(0);
+        
+        // Quit button
+        this.quitBtn = this.add.rectangle(400, 340, 200, 45, 0x000000, 0.9);
+        this.quitBtn.setStrokeStyle(3, 0xff0000);
+        this.quitBtn.setInteractive();
+        this.quitBtn.setDepth(1002);
+        this.quitBtn.setScrollFactor(0);
+        this.quitBtn.on('pointerdown', () => this.quitToCharacterSelection());
+        
+        this.quitText = this.add.text(400, 340, 'QUIT TO CHARACTER SELECT', {
+            fontSize: '16px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        this.quitText.setDepth(1002);
+        this.quitText.setScrollFactor(0);
+        
+        // Add hover effects
+        this.resumeBtn.on('pointerover', () => {
+            this.resumeBtn.setFillStyle(0x003300, 0.9);
+            this.resumeText.setStyle({ fill: '#ffffff' });
+        });
+        this.resumeBtn.on('pointerout', () => {
+            this.resumeBtn.setFillStyle(0x000000, 0.9);
+            this.resumeText.setStyle({ fill: '#00ff00' });
+        });
+        
+        this.quitBtn.on('pointerover', () => {
+            this.quitBtn.setFillStyle(0x330000, 0.9);
+            this.quitText.setStyle({ fill: '#ffffff' });
+        });
+        this.quitBtn.on('pointerout', () => {
+            this.quitBtn.setFillStyle(0x000000, 0.9);
+            this.quitText.setStyle({ fill: '#ff0000' });
+        });
+        
+        // Store elements for cleanup
+        this.pauseMenuElements = [
+            this.pauseBackdrop,
+            this.pausePanel,
+            this.pauseTitle,
+            this.resumeBtn,
+            this.resumeText,
+            this.quitBtn,
+            this.quitText
+        ];
+    }
+
+    hidePauseMenu() {
+        this.pauseMenuElements.forEach(element => {
+            if (element) element.destroy();
+        });
+        this.pauseMenuElements = [];
+    }
+
+    quitToCharacterSelection() {
+        this.scene.stop();
+        this.scene.start('CharacterSelectionScene');
+    }
+
     handlePlayerCollision(player1, player2) {
         // Simple knockback effect
         const pushForce = 100;
@@ -4693,7 +5151,7 @@ class FightScene extends Phaser.Scene {
     }
 
     update() {
-        if (this.gameOver) return;
+        if (this.gameOver || this.isPaused) return;
 
         // Update match timer
         this.updateMatchTimer();
