@@ -2043,7 +2043,7 @@ class MapSelectScene extends Phaser.Scene {
 
     startMatch() {
         // Show loading message - arcade style
-        this.add.text(400, 520, 'LOADING MATCH...', {
+        this.add.text(400, 550, 'LOADING MATCH...', {
             fontSize: '24px',
             fontStyle: 'bold',
             fill: '#ffff00',
@@ -2434,43 +2434,51 @@ class GameScene extends Phaser.Scene {
     }
 
     createUI() {
-        // Create score display
-        this.leftScoreText = this.add.text(100, 50, 'Player 1: 0', { 
+        // Create score display - Smaller for better hierarchy
+        this.leftScoreText = this.add.text(100, 50, 'PLAYER 1: 0', { 
             fontSize: '24px', 
-            fill: '#00ff00',
-            backgroundColor: '#000000',
-            padding: { x: 10, y: 5 }
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         });
         
-        this.rightScoreText = this.add.text(700, 50, 'Player 2: 0', { 
+        this.rightScoreText = this.add.text(700, 50, 'PLAYER 2: 0', { 
             fontSize: '24px', 
-            fill: '#0080ff',
-            backgroundColor: '#000000',
-            padding: { x: 10, y: 5 }
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(1, 0);
 
-        // Create timer display
-        this.timerText = this.add.text(400, 50, 'Time: 60', { 
-            fontSize: '24px', 
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 10, y: 5 }
+        // Create timer display - Bigger for prominence and better hierarchy
+        this.timerText = this.add.text(400, 50, 'TIME: 60', { 
+            fontSize: '42px', 
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5, 0);
 
-        // Create connection status display
-        this.connectionStatusText = this.add.text(400, 580, 'Socket: Connecting...', { 
-            fontSize: '12px', 
-            fill: '#ffff00',
-            backgroundColor: '#000000',
-            padding: { x: 5, y: 2 }
+        // Create connection status display - Arcade style
+        this.connectionStatusText = this.add.text(400, 580, 'SOCKET: CONNECTING...', { 
+            fontSize: '14px', 
+            fontStyle: 'bold',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
         }).setOrigin(0.5, 1);
 
-        // Create socket ID display
-        this.socketText = this.add.text(10, 580, 'Socket ID: Not connected', { 
-            fontSize: '12px', 
-            fill: '#888888',
-            backgroundColor: '#000000',
-            padding: { x: 5, y: 2 }
+        // Create socket ID display - Arcade style
+        this.socketText = this.add.text(10, 580, 'SOCKET ID: NOT CONNECTED', { 
+            fontSize: '14px', 
+            fontStyle: 'bold',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
         }).setOrigin(0, 1);
 
         // Create power status displays
@@ -2478,44 +2486,68 @@ class GameScene extends Phaser.Scene {
     }
 
     createPowerStatusUI() {
-        // Player 1 Power Status
-        this.player1PowerText = this.add.text(100, 100, 'Power: Ready', { 
-            fontSize: '14px', 
+        // Player 1 Power Status - Arcade style
+        this.player1PowerText = this.add.text(100, 100, 'POWER: READY', { 
+            fontSize: '16px', 
+            fontStyle: 'bold',
             fill: '#00ff00',
-            backgroundColor: '#000000',
-            padding: { x: 8, y: 4 }
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         });
 
-        // Player 2 Power Status
-        this.player2PowerText = this.add.text(700, 100, 'Power: Ready', { 
-            fontSize: '14px', 
+        // Player 2 Power Status - Arcade style
+        this.player2PowerText = this.add.text(700, 100, 'POWER: READY', { 
+            fontSize: '16px', 
+            fontStyle: 'bold',
             fill: '#0080ff',
-            backgroundColor: '#000000',
-            padding: { x: 8, y: 4 }
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(1, 0);
     }
 
     updatePowerStatusUI() {
         const currentTime = Date.now();
         
-        // Update Player 1 power status
+        // Update Player 1 power status - Arcade style
         if (this.powers.player1.ready) {
-            this.player1PowerText.setText('Power: Ready [E]');
-            this.player1PowerText.setStyle({ fill: '#00ff00' });
+            this.player1PowerText.setText('POWER: READY [E]');
+            this.player1PowerText.setStyle({ 
+                fill: '#00ff00',
+                stroke: '#000000',
+                strokeThickness: 2,
+                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+            });
         } else {
             const timeLeft = Math.max(0, this.powers.player1.cooldown - (currentTime - this.powers.player1.lastUsed));
-            this.player1PowerText.setText(`Power: ${(timeLeft/1000).toFixed(1)}s`);
-            this.player1PowerText.setStyle({ fill: '#ff0000' });
+            this.player1PowerText.setText(`POWER: ${(timeLeft/1000).toFixed(1)}S`);
+            this.player1PowerText.setStyle({ 
+                fill: '#ff0000',
+                stroke: '#000000',
+                strokeThickness: 2,
+                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+            });
         }
         
-        // Update Player 2 power status
+        // Update Player 2 power status - Arcade style
         if (this.powers.player2.ready) {
-            this.player2PowerText.setText('Power: Ready [K]');
-            this.player2PowerText.setStyle({ fill: '#0080ff' });
+            this.player2PowerText.setText('POWER: READY [K]');
+            this.player2PowerText.setStyle({ 
+                fill: '#0080ff',
+                stroke: '#000000',
+                strokeThickness: 2,
+                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+            });
         } else {
             const timeLeft = Math.max(0, this.powers.player2.cooldown - (currentTime - this.powers.player2.lastUsed));
-            this.player2PowerText.setText(`Power: ${(timeLeft/1000).toFixed(1)}s`);
-            this.player2PowerText.setStyle({ fill: '#ff0000' });
+            this.player2PowerText.setText(`POWER: ${(timeLeft/1000).toFixed(1)}S`);
+            this.player2PowerText.setStyle({ 
+                fill: '#ff0000',
+                stroke: '#000000',
+                strokeThickness: 2,
+                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+            });
         }
     }
 
@@ -2532,7 +2564,7 @@ class GameScene extends Phaser.Scene {
         if (this.gameOver) return;
         
         this.matchTime--;
-        this.timerText.setText(`Time: ${this.matchTime}`);
+        this.timerText.setText(`TIME: ${this.matchTime}`);
         
         if (this.matchTime <= 0) {
             this.handleTimeUp();
@@ -2560,11 +2592,11 @@ class GameScene extends Phaser.Scene {
         
         if (scorer === 'left') {
             this.leftScore++;
-            this.leftScoreText.setText(`Player 1: ${this.leftScore}`);
+            this.leftScoreText.setText(`PLAYER 1: ${this.leftScore}`);
             this.powers.player1.goals++;
         } else {
             this.rightScore++;
-            this.rightScoreText.setText(`Player 2: ${this.rightScore}`);
+            this.rightScoreText.setText(`PLAYER 2: ${this.rightScore}`);
             this.powers.player2.goals++;
         }
         
@@ -2616,74 +2648,130 @@ class GameScene extends Phaser.Scene {
         // Create overlay
         const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
         
-        // Winner announcement
-        const winnerText = winner === 'Draw' ? 'DRAW!' : `${winner} WINS!`;
-        const winnerColor = winner === 'Player 1' ? '#00ff00' : winner === 'Player 2' ? '#0080ff' : '#ffff00';
+        // Winner announcement - Match CHARACTER SELECTION styling (largest)
+        const winnerText = winner === 'Draw' ? 'DRAW!' : `${winner.toUpperCase()} WINS!`;
         
         this.add.text(400, 150, winnerText, {
-            fontSize: '48px',
-            fill: winnerColor,
-            backgroundColor: '#000000',
-            padding: { x: 20, y: 10 }
-        }).setOrigin(0.5);
-        
-        // Final score
-        this.add.text(400, 220, `Final Score: ${this.leftScore} - ${this.rightScore}`, {
-            fontSize: '24px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 16, y: 8 }
-        }).setOrigin(0.5);
-        
-        // XP gains
-        this.add.text(400, 280, 'XP GAINED:', {
-            fontSize: '20px',
+            fontSize: '56px',
+            fontStyle: 'bold',
             fill: '#ffff00',
-            backgroundColor: '#000000',
-            padding: { x: 12, y: 6 }
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
         
-        // Player 1 XP
+        // Final score - Match CHARACTER SELECTION styling (medium)
+        this.add.text(400, 220, `FINAL SCORE: ${this.leftScore} - ${this.rightScore}`, {
+            fontSize: '32px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        
+        // XP gains - Match CHARACTER SELECTION styling (medium)
+        this.add.text(400, 280, 'XP GAINED:', {
+            fontSize: '28px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        
+        // Player 1 XP - Arcade style
         const p1LevelText = p1Result.leveledUp ? ` (LEVEL UP! ${p1Result.oldLevel} → ${p1Result.newLevel})` : '';
-        this.add.text(400, 320, `Player 1: +${p1Result.newXP - p1Result.oldXP} XP${p1LevelText}`, {
-            fontSize: '16px',
+        this.add.text(400, 320, `PLAYER 1: +${p1Result.newXP - p1Result.oldXP} XP${p1LevelText}`, {
+            fontSize: '18px',
+            fontStyle: 'bold',
             fill: p1Result.leveledUp ? '#00ff00' : '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 10, y: 5 }
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
         
-        // Player 2 XP
+        // Player 2 XP - Arcade style
         const p2LevelText = p2Result.leveledUp ? ` (LEVEL UP! ${p2Result.oldLevel} → ${p2Result.newLevel})` : '';
-        this.add.text(400, 350, `Player 2: +${p2Result.newXP - p2Result.oldXP} XP${p2LevelText}`, {
-            fontSize: '16px',
+        this.add.text(400, 350, `PLAYER 2: +${p2Result.newXP - p2Result.oldXP} XP${p2LevelText}`, {
+            fontSize: '18px',
+            fontStyle: 'bold',
             fill: p2Result.leveledUp ? '#0080ff' : '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 10, y: 5 }
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
         
-        // Session stats
-        this.add.text(400, 400, `Session Stats: ${SessionState.player1Wins}-${SessionState.player2Wins} (${SessionState.totalRoundsPlayed} rounds)`, {
-            fontSize: '14px',
+        // Session stats - Arcade style
+        this.add.text(400, 400, `SESSION STATS: ${SessionState.player1Wins}-${SessionState.player2Wins} (${SessionState.totalRoundsPlayed} ROUNDS)`, {
+            fontSize: '16px',
+            fontStyle: 'bold',
             fill: '#cccccc',
-            backgroundColor: '#000000',
-            padding: { x: 8, y: 4 }
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 1, offsetY: 1, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
         
-        // Fight Now button
-        const fightBtn = this.add.text(300, 480, '🔥 Fight Now [F]', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            backgroundColor: '#cc3300',
-            padding: { x: 16, y: 8 }
+        // Fight Now button - Match MAP SELECTION "START MATCH" button styling
+        const fightBtnBg = this.add.rectangle(280, 480, 180, 40, 0x000000, 0.9);
+        fightBtnBg.setStrokeStyle(4, 0xffff00);
+        fightBtnBg.setInteractive();
+        
+        const fightBtn = this.add.text(280, 480, '🔥 FIGHT NOW [F]', {
+            fontSize: '17px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
         
-        // Continue button (moved slightly right)
-        const continueBtn = this.add.text(500, 480, 'Continue [SPACE]', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            backgroundColor: '#228b22',
-            padding: { x: 16, y: 8 }
+        // Continue button - Match MAP SELECTION "START MATCH" button styling
+        const continueBtnBg = this.add.rectangle(520, 480, 180, 40, 0x000000, 0.9);
+        continueBtnBg.setStrokeStyle(4, 0xffff00);
+        continueBtnBg.setInteractive();
+        
+        const continueBtn = this.add.text(520, 480, 'CONTINUE [SPACE]', {
+            fontSize: '17px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
+        
+        // Add hover effects for Fight Now button
+        fightBtnBg.on('pointerover', () => {
+            fightBtnBg.setFillStyle(0x333300, 0.9);
+            fightBtnBg.setStrokeStyle(4, 0xffff00);
+            fightBtn.setStyle({ fill: '#ffffff' });
+        });
+        fightBtnBg.on('pointerout', () => {
+            fightBtnBg.setFillStyle(0x000000, 0.9);
+            fightBtnBg.setStrokeStyle(4, 0xffff00);
+            fightBtn.setStyle({ fill: '#ffff00' });
+        });
+        
+        // Add hover effects for Continue button
+        continueBtnBg.on('pointerover', () => {
+            continueBtnBg.setFillStyle(0x333300, 0.9);
+            continueBtnBg.setStrokeStyle(4, 0xffff00);
+            continueBtn.setStyle({ fill: '#ffffff' });
+        });
+        continueBtnBg.on('pointerout', () => {
+            continueBtnBg.setFillStyle(0x000000, 0.9);
+            continueBtnBg.setStrokeStyle(4, 0xffff00);
+            continueBtn.setStyle({ fill: '#ffff00' });
+        });
+        
+        // Add click handlers to button backgrounds
+        fightBtnBg.on('pointerdown', () => {
+            this.scene.start('FightScene');
+        });
+        
+        continueBtnBg.on('pointerdown', () => {
+            this.scene.start('CharacterSelectionScene');
+        });
         
         // Add space key listener
         this.input.keyboard.once('keydown-SPACE', () => {
@@ -3489,13 +3577,13 @@ class GameScene extends Phaser.Scene {
 
     showEventBanner(eventType) {
         const eventNames = {
-            'zero_gravity': '🌀 ZERO GRAVITY!',
-            'flip_screen': '🔄 FLIP SCREEN!',
-            'speed_boost': '⚡ SPEED BOOST!',
-            'meteor_drop': '☄️ METEOR DROP!',
-            'ball_clone': '⚽ BALL CLONE!',
-            'big_head': '🧠 BIG HEAD MODE!',
-            'darkroom': '🌑 DARKROOM!'
+            'zero_gravity': 'ZERO GRAVITY!',
+            'flip_screen': 'FLIP SCREEN!',
+            'speed_boost': 'SPEED BOOST!',
+            'meteor_drop': 'METEOR DROP!',
+            'ball_clone': 'BALL CLONE!',
+            'big_head': 'BIG HEAD MODE!',
+            'darkroom': 'DARKROOM!'
         };
         
         const eventColors = {
@@ -3508,15 +3596,17 @@ class GameScene extends Phaser.Scene {
             'darkroom': '#696969'
         };
         
-        const bannerText = eventNames[eventType] || '🌪️ CHAOS EVENT!';
+        const bannerText = eventNames[eventType] || 'CHAOS EVENT!';
         const bannerColor = eventColors[eventType] || '#ff0000';
         
-        // Create banner
+        // Create banner - Match CHARACTER SELECTION styling
         this.chaosManager.eventBanner = this.add.text(400, 200, bannerText, {
-            fontSize: '32px',
+            fontSize: '40px',
+            fontStyle: 'bold',
             fill: bannerColor,
-            backgroundColor: '#000000',
-            padding: { x: 20, y: 10 }
+            stroke: '#ffff00',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
         
         // Animate banner entrance
@@ -4125,12 +4215,14 @@ class FightScene extends Phaser.Scene {
     }
 
     createFightUI() {
-        // Title
+        // Title - Match CHARACTER SELECTION styling
         this.add.text(400, 30, '⚔️ FIGHT MODE ⚔️', {
-            fontSize: '24px',
-            fill: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 20, y: 10 }
+            fontSize: '36px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
         // Player 1 HP Hearts
@@ -4151,34 +4243,42 @@ class FightScene extends Phaser.Scene {
             this.player2Hearts.push(heart);
         }
 
-        // Player names
-        this.add.text(50, 110, `Player 1: ${CHARACTERS[selectedCharacters.player1].name}`, {
-            fontSize: '16px',
+        // Player names - Arcade style
+        this.add.text(50, 110, `PLAYER 1: ${CHARACTERS[selectedCharacters.player1].name.toUpperCase()}`, {
+            fontSize: '18px',
+            fontStyle: 'bold',
             fill: '#00ff00',
-            backgroundColor: '#000000',
-            padding: { x: 8, y: 4 }
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         });
 
-        this.add.text(750, 110, `Player 2: ${CHARACTERS[selectedCharacters.player2].name}`, {
-            fontSize: '16px',
+        this.add.text(750, 110, `PLAYER 2: ${CHARACTERS[selectedCharacters.player2].name.toUpperCase()}`, {
+            fontSize: '18px',
+            fontStyle: 'bold',
             fill: '#0080ff',
-            backgroundColor: '#000000',
-            padding: { x: 8, y: 4 }
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(1, 0);
 
-        // Blast cooldown displays
-        this.player1BlastText = this.add.text(50, 140, 'Blast: Ready [E]', {
-            fontSize: '14px',
+        // Blast cooldown displays - Arcade style
+        this.player1BlastText = this.add.text(50, 140, 'BLAST: READY [E]', {
+            fontSize: '16px',
+            fontStyle: 'bold',
             fill: '#00ff00',
-            backgroundColor: '#000000',
-            padding: { x: 8, y: 4 }
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         });
 
-        this.player2BlastText = this.add.text(750, 140, 'Blast: Ready [K]', {
-            fontSize: '14px',
+        this.player2BlastText = this.add.text(750, 140, 'BLAST: READY [K]', {
+            fontSize: '16px',
+            fontStyle: 'bold',
             fill: '#0080ff',
-            backgroundColor: '#000000',
-            padding: { x: 8, y: 4 }
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(1, 0);
     }
 
@@ -4305,29 +4405,49 @@ class FightScene extends Phaser.Scene {
     updateBlastCooldowns() {
         const currentTime = Date.now();
 
-        // Update Player 1 blast cooldown
+        // Update Player 1 blast cooldown - Arcade style
         if (!this.player1BlastReady) {
             const timeLeft = Math.max(0, this.blastCooldown - (currentTime - this.player1LastBlast));
             if (timeLeft <= 0) {
                 this.player1BlastReady = true;
-                this.player1BlastText.setText('Blast: Ready [E]');
-                this.player1BlastText.setStyle({ fill: '#00ff00' });
+                this.player1BlastText.setText('BLAST: READY [E]');
+                this.player1BlastText.setStyle({ 
+                    fill: '#00ff00',
+                    stroke: '#000000',
+                    strokeThickness: 2,
+                    shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+                });
             } else {
-                this.player1BlastText.setText(`Blast: ${(timeLeft/1000).toFixed(1)}s`);
-                this.player1BlastText.setStyle({ fill: '#ff0000' });
+                this.player1BlastText.setText(`BLAST: ${(timeLeft/1000).toFixed(1)}S`);
+                this.player1BlastText.setStyle({ 
+                    fill: '#ff0000',
+                    stroke: '#000000',
+                    strokeThickness: 2,
+                    shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+                });
             }
         }
 
-        // Update Player 2 blast cooldown
+        // Update Player 2 blast cooldown - Arcade style
         if (!this.player2BlastReady) {
             const timeLeft = Math.max(0, this.blastCooldown - (currentTime - this.player2LastBlast));
             if (timeLeft <= 0) {
                 this.player2BlastReady = true;
-                this.player2BlastText.setText('Blast: Ready [K]');
-                this.player2BlastText.setStyle({ fill: '#0080ff' });
+                this.player2BlastText.setText('BLAST: READY [K]');
+                this.player2BlastText.setStyle({ 
+                    fill: '#0080ff',
+                    stroke: '#000000',
+                    strokeThickness: 2,
+                    shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+                });
             } else {
-                this.player2BlastText.setText(`Blast: ${(timeLeft/1000).toFixed(1)}s`);
-                this.player2BlastText.setStyle({ fill: '#ff0000' });
+                this.player2BlastText.setText(`BLAST: ${(timeLeft/1000).toFixed(1)}S`);
+                this.player2BlastText.setStyle({ 
+                    fill: '#ff0000',
+                    stroke: '#000000',
+                    strokeThickness: 2,
+                    shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+                });
             }
         }
     }
@@ -4555,29 +4675,76 @@ class FightScene extends Phaser.Scene {
         // Create overlay
         const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
         
-        // Winner announcement
-        this.add.text(400, 200, `${winner} Wins the Fight!`, {
+        // Winner announcement - Match CHARACTER SELECTION styling
+        this.add.text(400, 200, `${winner.toUpperCase()} WINS THE FIGHT!`, {
             fontSize: '48px',
-            fill: winner === 'Player 1' ? '#00ff00' : '#0080ff',
-            backgroundColor: '#000000',
-            padding: { x: 20, y: 10 }
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Restart fight button
-        const restartBtn = this.add.text(300, 350, 'Restart Fight [R]', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            backgroundColor: '#228b22',
-            padding: { x: 16, y: 8 }
+        // Restart fight button - Match MAP SELECTION "START MATCH" button styling
+        const restartBtnBg = this.add.rectangle(280, 350, 220, 45, 0x000000, 0.9);
+        restartBtnBg.setStrokeStyle(4, 0xffff00);
+        restartBtnBg.setInteractive();
+        
+        const restartBtn = this.add.text(280, 350, 'RESTART FIGHT [R]', {
+            fontSize: '17px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Character select button
-        const selectBtn = this.add.text(500, 350, 'Character Select [C]', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            backgroundColor: '#4444aa',
-            padding: { x: 16, y: 8 }
+        // Character select button - Match MAP SELECTION "START MATCH" button styling
+        const selectBtnBg = this.add.rectangle(520, 350, 220, 45, 0x000000, 0.9);
+        selectBtnBg.setStrokeStyle(4, 0xffff00);
+        selectBtnBg.setInteractive();
+        
+        const selectBtn = this.add.text(520, 350, 'CHARACTER SELECT [C]', {
+            fontSize: '17px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
+        
+        // Add hover effects for Restart button
+        restartBtnBg.on('pointerover', () => {
+            restartBtnBg.setFillStyle(0x333300, 0.9);
+            restartBtnBg.setStrokeStyle(4, 0xffff00);
+            restartBtn.setStyle({ fill: '#ffffff' });
+        });
+        restartBtnBg.on('pointerout', () => {
+            restartBtnBg.setFillStyle(0x000000, 0.9);
+            restartBtnBg.setStrokeStyle(4, 0xffff00);
+            restartBtn.setStyle({ fill: '#ffff00' });
+        });
+        
+        // Add hover effects for Select button
+        selectBtnBg.on('pointerover', () => {
+            selectBtnBg.setFillStyle(0x333300, 0.9);
+            selectBtnBg.setStrokeStyle(4, 0xffff00);
+            selectBtn.setStyle({ fill: '#ffffff' });
+        });
+        selectBtnBg.on('pointerout', () => {
+            selectBtnBg.setFillStyle(0x000000, 0.9);
+            selectBtnBg.setStrokeStyle(4, 0xffff00);
+            selectBtn.setStyle({ fill: '#ffff00' });
+        });
+        
+        // Add click handlers to button backgrounds
+        restartBtnBg.on('pointerdown', () => {
+            this.scene.restart();
+        });
+        
+        selectBtnBg.on('pointerdown', () => {
+            this.scene.start('CharacterSelectionScene');
+        });
 
         // Add key listeners
         this.input.keyboard.once('keydown-R', () => {
