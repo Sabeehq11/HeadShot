@@ -3315,6 +3315,22 @@ class GameScene extends Phaser.Scene {
         return finalCooldown;
     }
 
+    restorePlayerSkinTint(playerSprite, playerId) {
+        // Get the selected character and equipped skin for this player
+        const selectedCharacter = playerId === 'player1' ? selectedCharacters.player1 : selectedCharacters.player2;
+        const progress = PLAYER_PROGRESS.loadPlayerProgress(playerId);
+        const equippedSkin = progress.equippedSkins[selectedCharacter] || 'base';
+        
+        // Clear any existing tint first
+        playerSprite.clearTint();
+        
+        // Apply the equipped skin tint if it's not base
+        if (equippedSkin !== 'base') {
+            const skinColor = CharacterSpriteHelper.getSkinRarityColor(equippedSkin);
+            playerSprite.setTint(skinColor);
+        }
+    }
+
     getInitialCharges(playerId) {
         // Get the selected character for this player
         const selectedCharacter = playerId === 'player1' ? selectedCharacters.player1 : selectedCharacters.player2;
@@ -4199,7 +4215,10 @@ class GameScene extends Phaser.Scene {
                 
                 // Visual feedback for successful deflection
                 player.setTint(0x00ff00);
-                this.time.delayedCall(300, () => player.clearTint());
+                this.time.delayedCall(300, () => {
+                    const playerId = player === this.player1 ? 'player1' : 'player2';
+                    this.restorePlayerSkinTint(player, playerId);
+                });
                 
                 // Clear fire effect since it was deflected
                 if (ball.fireballSprite && ball.fireballSprite.active) {
@@ -4225,7 +4244,10 @@ class GameScene extends Phaser.Scene {
                 player.setTint(0xff4500);
                 
                 // Clear player tint
-                this.time.delayedCall(500, () => player.clearTint());
+                this.time.delayedCall(500, () => {
+                    const playerId = player === this.player1 ? 'player1' : 'player2';
+                    this.restorePlayerSkinTint(player, playerId);
+                });
                 
                 // Ball continues with slightly reduced speed but same direction
                 const ballVel = ball.body.velocity;
@@ -4461,7 +4483,7 @@ class GameScene extends Phaser.Scene {
         // Update Player 1 slowed state
         if (this.powers.player1.slowed && currentTime >= this.powers.player1.slowedUntil) {
             this.powers.player1.slowed = false;
-            this.player1.clearTint();
+            this.restorePlayerSkinTint(this.player1, 'player1');
             console.log('🟣 Player 1 slowed effect ended');
         }
         
@@ -4477,7 +4499,7 @@ class GameScene extends Phaser.Scene {
         // Update Player 2 slowed state
         if (this.powers.player2.slowed && currentTime >= this.powers.player2.slowedUntil) {
             this.powers.player2.slowed = false;
-            this.player2.clearTint();
+            this.restorePlayerSkinTint(this.player2, 'player2');
             console.log('🟣 Player 2 slowed effect ended');
         }
     }
@@ -4591,7 +4613,10 @@ class GameScene extends Phaser.Scene {
         
         // Brief orange tint on player
         player.setTint(0xff4500);
-        this.time.delayedCall(600, () => player.clearTint());
+        this.time.delayedCall(600, () => {
+            const playerId = player === this.player1 ? 'player1' : 'player2';
+            this.restorePlayerSkinTint(player, playerId);
+        });
         
         // Fire kick affects the ball - make it super powerful
         const ballDistance = Phaser.Math.Distance.Between(player.x, player.y, this.ball.x, this.ball.y);
@@ -4748,7 +4773,8 @@ class GameScene extends Phaser.Scene {
                 
                 this.time.delayedCall(2000, () => {
                     opponentPower.frozen = false;
-                    opponent.clearTint();
+                    const opponentId = opponent === this.player1 ? 'player1' : 'player2';
+                    this.restorePlayerSkinTint(opponent, opponentId);
                 });
                 
                 projectile.destroy();
@@ -4800,7 +4826,8 @@ class GameScene extends Phaser.Scene {
         // Clear freeze and ice cocoon after 2 seconds
         this.time.delayedCall(2000, () => {
             opponentPower.frozen = false;
-            opponent.clearTint();
+            const opponentId = opponent === this.player1 ? 'player1' : 'player2';
+            this.restorePlayerSkinTint(opponent, opponentId);
             
             // Fade out and destroy ice cocoon
             if (iceCocoon && iceCocoon.active) {
@@ -4891,7 +4918,8 @@ class GameScene extends Phaser.Scene {
         
         // Clear tint after dash
         this.time.delayedCall(600, () => {
-            player.clearTint();
+            const playerId = player === this.player1 ? 'player1' : 'player2';
+            this.restorePlayerSkinTint(player, playerId);
         });
     }
     
@@ -4981,7 +5009,10 @@ class GameScene extends Phaser.Scene {
                 this.cameras.main.shake(300, 0.03);
                 
                 // Clear opponent tint
-                this.time.delayedCall(500, () => opponent.clearTint());
+                this.time.delayedCall(500, () => {
+                    const opponentId = opponent === this.player1 ? 'player1' : 'player2';
+                    this.restorePlayerSkinTint(opponent, opponentId);
+                });
                 
                 console.log('⚡ Volt hit opponent - knockback applied!');
             }
@@ -5098,7 +5129,10 @@ class GameScene extends Phaser.Scene {
         
         // Brief purple tint on Jellyhead
         player.setTint(0x9370db);
-        this.time.delayedCall(300, () => player.clearTint());
+        this.time.delayedCall(300, () => {
+            const playerId = player === this.player1 ? 'player1' : 'player2';
+            this.restorePlayerSkinTint(player, playerId);
+        });
     }
 
     executeGroundPound(player, opponent) {
@@ -5170,7 +5204,8 @@ class GameScene extends Phaser.Scene {
         this.time.delayedCall(5000, () => {
             this.tweens.killTweensOf(player);
             player.setAlpha(1);
-            player.clearTint();
+            const playerId = player === this.player1 ? 'player1' : 'player2';
+            this.restorePlayerSkinTint(player, playerId);
             
             // Extra cleanup for burst sprite if it still exists
             if (player.burstSprite && player.burstSprite.active) {
@@ -5241,7 +5276,8 @@ class GameScene extends Phaser.Scene {
             ease: 'Power2',
             onComplete: () => {
                 player.setRotation(0);
-                player.clearTint();
+                const playerId = player === this.player1 ? 'player1' : 'player2';
+                this.restorePlayerSkinTint(player, playerId);
                 if (energySprite.active) energySprite.destroy();
                 energyTimer.remove();
             }
@@ -5272,7 +5308,10 @@ class GameScene extends Phaser.Scene {
                     const spinDirection = opponent.x > player.x ? 1 : -1;
                     opponent.setVelocity(spinDirection * 300, -150);
                     opponent.setTint(0x87ceeb);
-                    this.time.delayedCall(300, () => opponent.clearTint());
+                    this.time.delayedCall(300, () => {
+                        const opponentId = opponent === this.player1 ? 'player1' : 'player2';
+                        this.restorePlayerSkinTint(opponent, opponentId);
+                    });
                 }
             }
             
@@ -5535,7 +5574,7 @@ class GameScene extends Phaser.Scene {
             // Clear stun
             this.time.delayedCall(1000, () => {
                 this.powers.player1.frozen = false;
-                player.clearTint();
+                this.restorePlayerSkinTint(player, 'player1');
             });
             
             meteor.destroy();
@@ -5556,7 +5595,7 @@ class GameScene extends Phaser.Scene {
             // Clear stun
             this.time.delayedCall(1000, () => {
                 this.powers.player2.frozen = false;
-                player.clearTint();
+                this.restorePlayerSkinTint(player, 'player2');
             });
             
             meteor.destroy();
@@ -6193,6 +6232,22 @@ class FightScene extends Phaser.Scene {
             player.setOrigin(0.5, 1);
             player.body.setSize(16, 16);
             player.body.setOffset(0, 0);
+        }
+    }
+
+    restorePlayerSkinTint(playerSprite, playerId) {
+        // Get the selected character and equipped skin for this player
+        const selectedCharacter = playerId === 'player1' ? selectedCharacters.player1 : selectedCharacters.player2;
+        const progress = PLAYER_PROGRESS.loadPlayerProgress(playerId);
+        const equippedSkin = progress.equippedSkins[selectedCharacter] || 'base';
+        
+        // Clear any existing tint first
+        playerSprite.clearTint();
+        
+        // Apply the equipped skin tint if it's not base
+        if (equippedSkin !== 'base') {
+            const skinColor = CharacterSpriteHelper.getSkinRarityColor(equippedSkin);
+            playerSprite.setTint(skinColor);
         }
     }
 
@@ -6884,18 +6939,9 @@ class FightScene extends Phaser.Scene {
         this.cameras.main.shake(200, 0.02);
         
         this.time.delayedCall(300, () => {
-            // Restore original tint
-            const opponentKey = isOpponentPlayer1 ? selectedCharacters.player1 : selectedCharacters.player2;
-            const equippedSkin = PLAYER_PROGRESS.getEquippedSkin(
-                isOpponentPlayer1 ? 'player1' : 'player2', 
-                opponentKey
-            );
-            
-            if (equippedSkin !== 'base') {
-                opponent.setTint(CharacterSpriteHelper.getSkinRarityColor(equippedSkin));
-            } else {
-                opponent.clearTint();
-            }
+            // Restore original tint using centralized function
+            const opponentId = isOpponentPlayer1 ? 'player1' : 'player2';
+            this.restorePlayerSkinTint(opponent, opponentId);
         });
 
         // Check for fight end
