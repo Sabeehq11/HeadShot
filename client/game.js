@@ -60,6 +60,8 @@ const SoundManager = {
     goalScoreAudio: null,
     fightIntroAudio: null,
     victoryAudio: null,
+    bruhAudio: null,
+    backgroundMusicAudio: null,
     lastKickballPlay: 0,
     characterPowerAudio: {
         blaze: null,
@@ -81,6 +83,8 @@ const SoundManager = {
                 this.goalScoreAudio = new Audio('assets/SFX/pluck_002.wav');
                 this.fightIntroAudio = new Audio('assets/SFX/fightdeep.wav');
                 this.victoryAudio = new Audio('assets/SFX/Victory.wav');
+                this.bruhAudio = new Audio('assets/SFX/Bruh.wav');
+                this.backgroundMusicAudio = new Audio('assets/SFX/ES_K.O. - Lupus Nocte.wav');
                 
                 // Initialize character-specific power sounds
                 this.characterPowerAudio.blaze = new Audio('assets/SFX/Blaze/Blazesound.wav');
@@ -97,6 +101,9 @@ const SoundManager = {
                 this.goalScoreAudio.volume = 0.8;
                 this.fightIntroAudio.volume = 0.9;
                 this.victoryAudio.volume = 0.8;
+                this.bruhAudio.volume = 0.7;
+                this.backgroundMusicAudio.volume = 0.25; // Low volume for background music
+                this.backgroundMusicAudio.loop = true; // Enable looping
                 
                 // Set character power volumes
                 Object.values(this.characterPowerAudio).forEach(audio => {
@@ -134,6 +141,22 @@ const SoundManager = {
                 
                 this.victoryAudio.addEventListener('error', (e) => {
                     console.warn('🔇 Victory HTML5 Audio error:', e);
+                });
+                
+                this.bruhAudio.addEventListener('canplaythrough', () => {
+                    console.log('✅ Bruh HTML5 Audio ready');
+                });
+                
+                this.bruhAudio.addEventListener('error', (e) => {
+                    console.warn('🔇 Bruh HTML5 Audio error:', e);
+                });
+                
+                this.backgroundMusicAudio.addEventListener('canplaythrough', () => {
+                    console.log('✅ Background music HTML5 Audio ready');
+                });
+                
+                this.backgroundMusicAudio.addEventListener('error', (e) => {
+                    console.warn('🔇 Background music HTML5 Audio error:', e);
                 });
                 
                 // Resume audio context if it's suspended
@@ -369,6 +392,94 @@ const SoundManager = {
         }
     },
     
+    // Play bruh sound for fight mode player hits
+    playBruhSound(scene) {
+        // Try Phaser sound first - this is the most reliable method
+        if (scene && scene.sound && scene.sound.get('bruh')) {
+            try {
+                scene.sound.play('bruh', { volume: 0.7 });
+                console.log('🔊 Playing bruh sound via Phaser');
+                return;
+            } catch (error) {
+                console.warn('🔇 Phaser bruh sound failed:', error);
+            }
+        }
+        
+        // Simplified HTML5 Audio fallback - only try if properly loaded
+        if (this.bruhAudio && this.bruhAudio.readyState >= 3) {
+            try {
+                this.bruhAudio.currentTime = 0;
+                this.bruhAudio.play().catch(error => {
+                    // Silent fail - don't spam console
+                });
+            } catch (error) {
+                // Silent fail - don't spam console
+            }
+        }
+    },
+    
+    // Start background music (call once at game start)
+    startBackgroundMusic(scene) {
+        // Try Phaser sound first - this is the most reliable method
+        if (scene && scene.sound && scene.sound.get('background_music')) {
+            try {
+                // Stop any existing background music first
+                if (scene.sound.get('background_music') && scene.sound.get('background_music').isPlaying) {
+                    return; // Already playing, don't restart
+                }
+                scene.sound.play('background_music', { 
+                    volume: 0.25, 
+                    loop: true 
+                });
+                console.log('🎵 Background music started via Phaser');
+                return;
+            } catch (error) {
+                console.warn('🔇 Phaser background music failed:', error);
+            }
+        }
+        
+        // HTML5 Audio fallback
+        if (this.backgroundMusicAudio) {
+            try {
+                // Check if already playing
+                if (!this.backgroundMusicAudio.paused) {
+                    return; // Already playing
+                }
+                
+                this.backgroundMusicAudio.currentTime = 0;
+                this.backgroundMusicAudio.play().then(() => {
+                    console.log('🎵 Background music started via HTML5 Audio');
+                }).catch(error => {
+                    console.warn('🔇 HTML5 background music failed:', error);
+                });
+            } catch (error) {
+                console.warn('🔇 Background music initialization failed:', error);
+            }
+        }
+    },
+    
+    // Stop background music (if needed)
+    stopBackgroundMusic(scene) {
+        // Stop Phaser sound
+        if (scene && scene.sound && scene.sound.get('background_music')) {
+            try {
+                scene.sound.get('background_music').stop();
+            } catch (error) {
+                console.warn('🔇 Error stopping Phaser background music:', error);
+            }
+        }
+        
+        // Stop HTML5 Audio
+        if (this.backgroundMusicAudio && !this.backgroundMusicAudio.paused) {
+            try {
+                this.backgroundMusicAudio.pause();
+                this.backgroundMusicAudio.currentTime = 0;
+            } catch (error) {
+                console.warn('🔇 Error stopping HTML5 background music:', error);
+            }
+        }
+    },
+    
     // Preload sounds in any scene
     preloadSounds(scene) {
         if (scene && scene.load) {
@@ -398,6 +509,12 @@ const SoundManager = {
             // Load victory sound for win scenarios
             scene.load.audio('victory', 'assets/SFX/Victory.wav');
             
+            // Load bruh sound for fight mode player hits
+            scene.load.audio('bruh', 'assets/SFX/Bruh.wav');
+            
+            // Load background music for continuous play
+            scene.load.audio('background_music', 'assets/SFX/ES_K.O. - Lupus Nocte.wav');
+            
             // Add load event listeners for debugging
             scene.load.on('filecomplete-audio-buttonClick', () => {
                 console.log('✅ Back button sound loaded successfully');
@@ -421,6 +538,14 @@ const SoundManager = {
             
             scene.load.on('filecomplete-audio-victory', () => {
                 console.log('✅ Victory sound loaded successfully');
+            });
+            
+            scene.load.on('filecomplete-audio-bruh', () => {
+                console.log('✅ Bruh sound loaded successfully');
+            });
+            
+            scene.load.on('filecomplete-audio-background_music', () => {
+                console.log('✅ Background music loaded successfully');
             });
             
             // Character power sound load listeners (consolidated)
@@ -658,6 +783,10 @@ class HomeScene extends Phaser.Scene {
     }
 
     create() {
+        // Initialize audio and start background music
+        SoundManager.initializeAudio(this);
+        SoundManager.startBackgroundMusic(this);
+        
         // Arcade-style gradient background (match Character Selection)
         this.add.rectangle(400, 300, 800, 600, 0x000000);
         this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
@@ -7512,6 +7641,9 @@ class FightScene extends Phaser.Scene {
             this.player2HP--;
             this.updateHeartsDisplay();
         }
+
+        // Play bruh sound when player gets hit
+        SoundManager.playBruhSound(this);
 
         // Apply knockback
         const knockbackForce = attackerIsPlayer1 ? 300 : -300;
