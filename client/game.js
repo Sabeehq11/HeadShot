@@ -2642,6 +2642,12 @@ class GameScene extends Phaser.Scene {
             'assets/Sprites/Powers/WhirlWind/EnergyFreePack/No_compressed/128/Energy_3_128-sheet.png',
             { frameWidth: 128, frameHeight: 128 }
         );
+        
+        // Load Brick burst sprite sheet for immunity animation
+        this.load.spritesheet('brick_burst', 
+            'assets/Sprites/Powers/Brick/BurstFreePack/128/Burst_1_128.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
     }
 
     calculatePowerCooldown(playerId) {
@@ -2978,6 +2984,19 @@ class GameScene extends Phaser.Scene {
             frameRate: 10,
             repeat: -1 // Loop indefinitely
         });
+        
+        // Create Brick burst animation for immunity effect
+        try {
+            this.anims.create({
+                key: 'brick_burst_anim',
+                frames: this.anims.generateFrameNumbers('brick_burst', { start: 0, end: 19 }),
+                frameRate: 20,
+                repeat: 0 // Play once
+            });
+            console.log('✅ Brick burst animation created successfully');
+        } catch (error) {
+            console.error('❌ Failed to create brick burst animation:', error.message);
+        }
         
         // Start with idle animations
         this.player1.play('player1_idle_anim');
@@ -4470,6 +4489,48 @@ class GameScene extends Phaser.Scene {
         // Visual effect - golden tint for immunity
         player.setTint(0xffd700); // Gold color
         
+        // Create burst animation around Brick when immunity activates
+        const burstSprite = this.add.sprite(player.x, player.y - 40, 'brick_burst');
+        burstSprite.setScale(2.0); // Bigger scale for better visibility
+        burstSprite.setDepth(5); // Above players but below UI
+        burstSprite.play('brick_burst_anim');
+        
+        // Store burst sprite reference on player for tracking
+        player.burstSprite = burstSprite;
+        
+        // Create a timer to update burst sprite position to follow Brick
+        const followTimer = this.time.addEvent({
+            delay: 16, // ~60 FPS
+            callback: () => {
+                if (burstSprite.active && player.active) {
+                    burstSprite.x = player.x;
+                    burstSprite.y = player.y - 40; // Keep it raised above Brick
+                }
+            },
+            loop: true
+        });
+        
+        // After animation completes, keep the burst sprite visible at the last frame
+        burstSprite.on('animationcomplete', () => {
+            // Keep the sprite visible at the last frame
+            burstSprite.setFrame(19); // Stay on the last frame of the animation
+        });
+        
+        // Clean up when immunity ends
+        this.time.delayedCall(5000, () => {
+            if (burstSprite.active) {
+                burstSprite.destroy();
+            }
+            if (followTimer.active) {
+                followTimer.destroy();
+            }
+            if (player.burstSprite) {
+                player.burstSprite = null;
+            }
+        });
+        
+        console.log('🛡️ Brick immunity activated with following burst animation!');
+        
         // Immunity flash effect
         this.tweens.add({
             targets: player,
@@ -4487,6 +4548,12 @@ class GameScene extends Phaser.Scene {
             this.tweens.killTweensOf(player);
             player.setAlpha(1);
             player.clearTint();
+            
+            // Extra cleanup for burst sprite if it still exists
+            if (player.burstSprite && player.burstSprite.active) {
+                player.burstSprite.destroy();
+                player.burstSprite = null;
+            }
         });
     }
 
