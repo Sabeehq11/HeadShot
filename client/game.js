@@ -10,14 +10,14 @@ const CHARACTERS = {
     frostbite: {
         name: 'Frostbite',
         power: 'Ice Freeze',
-        description: 'Freezes opponent in ice cocoon',
+        description: 'Soccer: Snowball projectile freezes opponent in ice cocoon. Fight: Standard ice blast',
         color: 0x00bfff,
         sprite: { category: 'tinyHeroes', id: 'pinkMonster' }
     },
     volt: {
         name: 'Volt',
         power: 'Lightning Dash',
-        description: 'Dashes forward with lightning trail',
+        description: 'Dashes forward knocking enemies up and boosting ball speed',
         color: 0xffff00,
         sprite: { category: 'tinyHeroes', id: 'owletMonster' }
     },
@@ -95,12 +95,6 @@ const XP_SYSTEM = {
             unlockedSkins.push(this.SKIN_TYPES[i]);
         }
         return unlockedSkins;
-    },
-
-    // Check if a specific skin is unlocked
-    isSkinUnlocked(xp, skinType) {
-        const unlockedSkins = this.getUnlockedSkins(xp);
-        return unlockedSkins.includes(skinType);
     }
 };
 
@@ -220,24 +214,24 @@ let SessionState = {
     totalRoundsPlayed: 0
 };
 
-// Home Screen Scene (HeadshotScene)
-class HeadshotScene extends Phaser.Scene {
+// Home Scene
+class HomeScene extends Phaser.Scene {
     constructor() {
-        super({ key: 'HeadshotScene' });
+        super({ key: 'HomeScene' });
     }
 
     create() {
-        // Arcade-style gradient background (match other scenes)
+        // Arcade-style gradient background (match Character Selection)
         this.add.rectangle(400, 300, 800, 600, 0x000000);
-        this.add.rectangle(400, 300, 800, 600, 0x000000);
+        this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
         
-        // Arcade border frame (match other scenes)
+        // Arcade border frame (match Character Selection)
         this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
         this.add.rectangle(400, 300, 770, 570, 0x000000, 0).setStrokeStyle(2, 0xff00ff);
 
-        // Arcade-style title - bigger and more bold
-        this.add.text(400, 140, 'HEADSHOT', {
-            fontSize: '48px',
+        // Arcade-style title "HEADSHOT" (much bigger font)
+        this.add.text(400, 80, 'HEADSHOT', {
+            fontSize: '64px',
             fontStyle: 'bold',
             fill: '#ffff00',
             stroke: '#ff0000',
@@ -245,78 +239,111 @@ class HeadshotScene extends Phaser.Scene {
             shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Subtitle - "HOME" in smaller font with same styling
-        this.add.text(400, 185, 'HOME', {
-            fontSize: '24px',
+        // Subtitle "HOME" (bigger font and positioned higher up under headshot)
+        this.add.text(400, 140, 'HOME', {
+            fontSize: '36px',
             fontStyle: 'bold',
             fill: '#ffff00',
             stroke: '#ff0000',
-            strokeThickness: 2,
+            strokeThickness: 3,
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Solo Mode button (blue) - same styling as Start Match button
-        this.soloModeBg = this.add.rectangle(400, 280, 320, 60, 0x000000, 0.9);
-        this.soloModeBg.setStrokeStyle(4, 0x0080ff);
-        this.soloModeBg.setInteractive();
+        // Create buttons with proper spacing - matching START MATCH button styling but with purple borders
+        const buttonSpacing = 80;
+        const startY = 250;
+
+        // Local Multiplayer Button
+        this.localMultiplayerBg = this.add.rectangle(400, startY, 320, 60, 0x000000, 0.9);
+        this.localMultiplayerBg.setStrokeStyle(4, 0xff00ff); // Vibrant purple border
+        this.localMultiplayerBg.setInteractive();
         
-        this.soloModeText = this.add.text(400, 280, 'SOLO MODE', {
+        this.localMultiplayerBtn = this.add.text(400, startY, 'LOCAL MULTIPLAYER', {
             fontSize: '20px',
             fontStyle: 'bold',
-            fill: '#0080ff',
+            fill: '#ff00ff', // Purple text to match border
             stroke: '#000000',
             strokeThickness: 2,
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Solo Mode button interactions
-        this.soloModeBg.on('pointerdown', () => {
-            // Take player to Solo Character Selection
-            this.scene.start('SoloCharacterSelectionScene');
-        });
-
-        this.soloModeBg.on('pointerover', () => {
-            this.soloModeBg.setFillStyle(0x001133, 0.9);
-            this.soloModeBg.setStrokeStyle(4, 0x0080ff);
-            this.soloModeText.setStyle({ fill: '#ffffff' });
-        });
-
-        this.soloModeBg.on('pointerout', () => {
-            this.soloModeBg.setFillStyle(0x000000, 0.9);
-            this.soloModeBg.setStrokeStyle(4, 0x0080ff);
-            this.soloModeText.setStyle({ fill: '#0080ff' });
-        });
-
-        // Local Multiplayer button (green) - same styling as Start Match button
-        this.multiplayerBg = this.add.rectangle(400, 370, 320, 60, 0x000000, 0.9);
-        this.multiplayerBg.setStrokeStyle(4, 0x00ff00);
-        this.multiplayerBg.setInteractive();
+        // Tutorial Button
+        this.tutorialBg = this.add.rectangle(400, startY + buttonSpacing, 320, 60, 0x000000, 0.9);
+        this.tutorialBg.setStrokeStyle(4, 0xff00ff); // Vibrant purple border
+        this.tutorialBg.setInteractive();
         
-        this.multiplayerText = this.add.text(400, 370, 'LOCAL MULTIPLAYER', {
+        this.tutorialBtn = this.add.text(400, startY + buttonSpacing, 'TUTORIAL', {
             fontSize: '20px',
             fontStyle: 'bold',
-            fill: '#00ff00',
+            fill: '#ff00ff', // Purple text to match border
             stroke: '#000000',
             strokeThickness: 2,
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Local Multiplayer button interactions
-        this.multiplayerBg.on('pointerdown', () => {
-            // Take player to existing game setup (Character Selection)
+        // Character Info Button
+        this.characterInfoBg = this.add.rectangle(400, startY + (buttonSpacing * 2), 320, 60, 0x000000, 0.9);
+        this.characterInfoBg.setStrokeStyle(4, 0xff00ff); // Vibrant purple border
+        this.characterInfoBg.setInteractive();
+        
+        this.characterInfoBtn = this.add.text(400, startY + (buttonSpacing * 2), 'CHARACTER INFO', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#ff00ff', // Purple text to match border
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
+        // Add click handlers
+        this.localMultiplayerBg.on('pointerdown', () => {
             this.scene.start('CharacterSelectionScene');
         });
 
-        this.multiplayerBg.on('pointerover', () => {
-            this.multiplayerBg.setFillStyle(0x001100, 0.9);
-            this.multiplayerBg.setStrokeStyle(4, 0x00ff00);
-            this.multiplayerText.setStyle({ fill: '#ffffff' });
+        this.tutorialBg.on('pointerdown', () => {
+            // TODO: Add tutorial functionality
+            console.log('Tutorial clicked - functionality to be implemented');
         });
 
-        this.multiplayerBg.on('pointerout', () => {
-            this.multiplayerBg.setFillStyle(0x000000, 0.9);
-            this.multiplayerBg.setStrokeStyle(4, 0x00ff00);
-            this.multiplayerText.setStyle({ fill: '#00ff00' });
+        this.characterInfoBg.on('pointerdown', () => {
+            // TODO: Add character info functionality
+            console.log('Character Info clicked - functionality to be implemented');
+        });
+
+        // Add hover effects for Local Multiplayer button
+        this.localMultiplayerBg.on('pointerover', () => {
+            this.localMultiplayerBg.setFillStyle(0x330033, 0.9); // Purple tint
+            this.localMultiplayerBg.setStrokeStyle(4, 0xff00ff);
+            this.localMultiplayerBtn.setStyle({ fill: '#ffffff' });
+        });
+        this.localMultiplayerBg.on('pointerout', () => {
+            this.localMultiplayerBg.setFillStyle(0x000000, 0.9);
+            this.localMultiplayerBg.setStrokeStyle(4, 0xff00ff);
+            this.localMultiplayerBtn.setStyle({ fill: '#ff00ff' });
+        });
+
+        // Add hover effects for Tutorial button
+        this.tutorialBg.on('pointerover', () => {
+            this.tutorialBg.setFillStyle(0x330033, 0.9); // Purple tint
+            this.tutorialBg.setStrokeStyle(4, 0xff00ff);
+            this.tutorialBtn.setStyle({ fill: '#ffffff' });
+        });
+        this.tutorialBg.on('pointerout', () => {
+            this.tutorialBg.setFillStyle(0x000000, 0.9);
+            this.tutorialBg.setStrokeStyle(4, 0xff00ff);
+            this.tutorialBtn.setStyle({ fill: '#ff00ff' });
+        });
+
+        // Add hover effects for Character Info button
+        this.characterInfoBg.on('pointerover', () => {
+            this.characterInfoBg.setFillStyle(0x330033, 0.9); // Purple tint
+            this.characterInfoBg.setStrokeStyle(4, 0xff00ff);
+            this.characterInfoBtn.setStyle({ fill: '#ffffff' });
+        });
+        this.characterInfoBg.on('pointerout', () => {
+            this.characterInfoBg.setFillStyle(0x000000, 0.9);
+            this.characterInfoBg.setStrokeStyle(4, 0xff00ff);
+            this.characterInfoBtn.setStyle({ fill: '#ff00ff' });
         });
     }
 }
@@ -474,7 +501,7 @@ class CharacterSelectionScene extends Phaser.Scene {
         
         // Arcade-style gradient background
         this.add.rectangle(400, 300, 800, 600, 0x000000);
-        this.add.rectangle(400, 300, 800, 600, 0x000000);
+        this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
         
         // Arcade border frame
         this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
@@ -497,7 +524,7 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.add.rectangle(400, 350, 6, 450, 0x00ffff);
         this.add.rectangle(400, 350, 2, 450, 0xffffff);
 
-        // Back button (left side of screen) - arcade style (smaller size)
+        // Back button (top-left corner where Info button was) - arcade style
         this.backBtn = this.add.rectangle(85, 50, 100, 32, 0x000000, 0.9);
         this.backBtn.setStrokeStyle(3, 0x00ffff);
         this.backBtnText = this.add.text(85, 50, 'BACK', {
@@ -508,9 +535,9 @@ class CharacterSelectionScene extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5);
         this.backBtn.setInteractive();
-        this.backBtn.on('pointerdown', () => this.goBackToHomeScreen());
+        this.backBtn.on('pointerdown', () => this.scene.start('HomeScene'));
         
-        // Add hover effects
+        // Add hover effects for Back button
         this.backBtn.on('pointerover', () => {
             this.backBtn.setFillStyle(0x003333, 0.9);
             this.backBtn.setStrokeStyle(3, 0x00ffff);
@@ -522,7 +549,7 @@ class CharacterSelectionScene extends Phaser.Scene {
             this.backBtnText.setStyle({ fill: '#00ffff' });
         });
 
-        // Info button (top-right corner) - arcade style (same size as Back button)
+        // Info button (top-right corner - opposite side) - arcade style with purple colors
         this.infoBtn = this.add.rectangle(715, 50, 100, 32, 0x000000, 0.9);
         this.infoBtn.setStrokeStyle(3, 0xff00ff);
         this.infoBtnText = this.add.text(715, 50, 'INFO', {
@@ -535,7 +562,7 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.infoBtn.setInteractive();
         this.infoBtn.on('pointerdown', () => this.openInfoPanel());
         
-        // Add hover effects
+        // Add hover effects for Info button
         this.infoBtn.on('pointerover', () => {
             this.infoBtn.setFillStyle(0x330033, 0.9);
             this.infoBtn.setStrokeStyle(3, 0xff00ff);
@@ -1949,8 +1976,8 @@ class CharacterSelectionScene extends Phaser.Scene {
 
     checkBothPlayersReady() {
         if (this.player1Confirmed && this.player2Confirmed) {
-                    // Show "Starting match..." message - arcade style (better positioning)
-        this.add.text(400, 570, 'LOADING...', {
+            // Show "Starting match..." message - arcade style (better positioning)
+            this.add.text(400, 570, 'STARTING MATCH...', {
                 fontSize: '28px',
                 fontStyle: 'bold',
                 fill: '#ffff00',
@@ -1965,1205 +1992,6 @@ class CharacterSelectionScene extends Phaser.Scene {
             });
         }
     }
-
-    goBackToHomeScreen() {
-        // Go back to the HeadshotScene (Home Screen)
-        this.scene.start('HeadshotScene');
-    }
-}
-
-// Solo Character Selection Scene
-class SoloCharacterSelectionScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'SoloCharacterSelectionScene' });
-        this.characterKeys = Object.keys(CHARACTERS);
-        this.playerSelection = 0;
-        this.playerConfirmed = false;
-        this.playerUI = null;
-        this.charactersDisplay = [];
-        this.playerGrid = [];
-        this.lockerOpen = false;
-        this.lockerElements = [];
-        this.lockerCharElements = [];
-        
-        // Info Panel state
-        this.infoPanelOpen = false;
-        this.infoCurrentTab = 'tutorial';
-        this.infoPanelElements = [];
-        
-        // Add fallback functions if CharacterSpriteHelper is missing functions
-        if (!CharacterSpriteHelper.getSkinDisplayName) {
-            CharacterSpriteHelper.getSkinDisplayName = function(skinType) {
-                const names = {
-                    'base': 'Base',
-                    'bronze': 'Bronze',
-                    'silver': 'Silver',
-                    'gold': 'Gold',
-                    'shadow': 'Shadow'
-                };
-                return names[skinType] || skinType;
-            };
-        }
-        
-        if (!CharacterSpriteHelper.getAllSkinTypes) {
-            CharacterSpriteHelper.getAllSkinTypes = function() {
-                return ['base', 'bronze', 'silver', 'gold', 'shadow'];
-            };
-        }
-        
-        if (!CharacterSpriteHelper.getSkinRarityColor) {
-            CharacterSpriteHelper.getSkinRarityColor = function(skinType) {
-                const colors = {
-                    'base': 0xffffff,    // white
-                    'bronze': 0xcd7f32,  // bronze
-                    'silver': 0xc0c0c0,  // silver
-                    'gold': 0xffd700,    // gold
-                    'shadow': 0x800080   // purple
-                };
-                return colors[skinType] || 0xffffff;
-            };
-        }
-        
-        this.infoContentElements = [];
-    }
-
-    init() {
-        // Reset scene state when entering from another scene
-        this.characterKeys = Object.keys(CHARACTERS);
-        this.playerSelection = 0;
-        this.playerConfirmed = false;
-        this.playerUI = null;
-        this.charactersDisplay = [];
-        this.playerGrid = [];
-        this.lockerOpen = false;
-        this.lockerElements = [];
-        this.lockerCharElements = [];
-        this.infoPanelOpen = false;
-        this.infoCurrentTab = 'tutorial';
-        this.infoPanelElements = [];
-        this.infoContentElements = [];
-    }
-
-    preload() {
-        // Load all character sprites for previews
-        this.characterKeys.forEach(key => {
-            const character = CHARACTERS[key];
-            const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
-            
-            if (spriteConfig) {
-                if (spriteConfig.type === 'sprite_sheet') {
-                    this.load.spritesheet(`${key}_preview`, 
-                        spriteConfig.basePath + spriteConfig.animations.idle.file, 
-                        { frameWidth: 32, frameHeight: 32 }
-                    );
-                } else {
-                    const idleAnim = spriteConfig.animations.idle;
-                    const framePath = spriteConfig.basePath + idleAnim.file;
-                    this.load.image(`${key}_preview`, framePath);
-                }
-            } else {
-                console.error(`No sprite config found for character: ${key}`);
-            }
-        });
-    }
-
-    create() {
-        // Arcade-style gradient background
-        this.add.rectangle(400, 300, 800, 600, 0x000000);
-        this.add.rectangle(400, 300, 800, 600, 0x000000);
-        
-        // Arcade border frame
-        this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
-        this.add.rectangle(400, 300, 770, 570, 0x000000, 0).setStrokeStyle(2, 0xff00ff);
-
-        // Arcade-style title
-        this.add.text(400, 40, 'SELECT CHARACTER', {
-            fontSize: '36px',
-            fontStyle: 'bold',
-            fill: '#ffff00',
-            stroke: '#ff0000',
-            strokeThickness: 3,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-
-        // Title underline
-        this.add.rectangle(400, 60, 400, 3, 0x00ffff);
-
-        // Back button (left side)
-        this.backBtn = this.add.rectangle(85, 50, 100, 32, 0x000000, 0.9);
-        this.backBtn.setStrokeStyle(3, 0x00ffff);
-        this.backBtnText = this.add.text(85, 50, 'BACK', {
-            fontSize: '14px',
-            fontStyle: 'bold',
-            fill: '#00ffff',
-            stroke: '#000000',
-            strokeThickness: 2
-        }).setOrigin(0.5);
-        this.backBtn.setInteractive();
-        this.backBtn.on('pointerdown', () => this.goBackToHomeScreen());
-        
-        // Back button hover effects
-        this.backBtn.on('pointerover', () => {
-            this.backBtn.setFillStyle(0x003333, 0.9);
-            this.backBtn.setStrokeStyle(3, 0x00ffff);
-            this.backBtnText.setStyle({ fill: '#ffffff' });
-        });
-        this.backBtn.on('pointerout', () => {
-            this.backBtn.setFillStyle(0x000000, 0.9);
-            this.backBtn.setStrokeStyle(3, 0x00ffff);
-            this.backBtnText.setStyle({ fill: '#00ffff' });
-        });
-
-        // Info button (top-right corner)
-        this.infoBtn = this.add.rectangle(715, 50, 100, 32, 0x000000, 0.9);
-        this.infoBtn.setStrokeStyle(3, 0xff00ff);
-        this.infoBtnText = this.add.text(715, 50, 'INFO', {
-            fontSize: '14px',
-            fontStyle: 'bold',
-            fill: '#ff00ff',
-            stroke: '#000000',
-            strokeThickness: 2
-        }).setOrigin(0.5);
-        this.infoBtn.setInteractive();
-        this.infoBtn.on('pointerdown', () => this.openInfoPanel());
-        
-        // Info button hover effects
-        this.infoBtn.on('pointerover', () => {
-            this.infoBtn.setFillStyle(0x330033, 0.9);
-            this.infoBtn.setStrokeStyle(3, 0xff00ff);
-            this.infoBtnText.setStyle({ fill: '#ffffff' });
-        });
-        this.infoBtn.on('pointerout', () => {
-            this.infoBtn.setFillStyle(0x000000, 0.9);
-            this.infoBtn.setStrokeStyle(3, 0xff00ff);
-            this.infoBtnText.setStyle({ fill: '#ff00ff' });
-        });
-
-        // Player section (centered)
-        this.add.rectangle(400, 100, 320, 50, 0x000000, 0.8);
-        this.add.rectangle(400, 100, 320, 50, 0x001100, 0).setStrokeStyle(4, 0x00ff00);
-        this.add.text(400, 100, 'PLAYER', {
-            fontSize: '28px',
-            fontStyle: 'bold',
-            fill: '#00ff00',
-            stroke: '#000000',
-            strokeThickness: 3,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-
-        // Player Locker button (centered)
-        this.playerLockerBtn = this.add.rectangle(400, 145, 80, 28, 0x000000, 0.8);
-        this.playerLockerBtn.setStrokeStyle(3, 0x00ff00);
-        this.playerLockerText = this.add.text(400, 145, 'LOCKER', {
-            fontSize: '12px',
-            fontStyle: 'bold',
-            fill: '#00ff00',
-            stroke: '#000000',
-            strokeThickness: 2
-        }).setOrigin(0.5);
-        this.playerLockerBtn.setInteractive();
-        this.playerLockerBtn.on('pointerdown', () => this.openLocker('player1'));
-        
-        // Locker button hover effects
-        this.playerLockerBtn.on('pointerover', () => {
-            this.playerLockerBtn.setFillStyle(0x001100, 0.9);
-            this.playerLockerBtn.setStrokeStyle(3, 0x00ff00);
-            this.playerLockerText.setStyle({ fill: '#ffffff' });
-        });
-        this.playerLockerBtn.on('pointerout', () => {
-            this.playerLockerBtn.setFillStyle(0x000000, 0.8);
-            this.playerLockerBtn.setStrokeStyle(3, 0x00ff00);
-            this.playerLockerText.setStyle({ fill: '#00ff00' });
-        });
-
-        // Create character grid
-        this.createCharacterDisplay();
-
-        // Create player UI panel
-        this.createPlayerUI();
-
-        // Setup keyboard controls
-        this.setupControls();
-
-        // Update display
-        this.updateDisplay();
-    }
-
-    createCharacterDisplay() {
-        this.charactersDisplay = [];
-        this.playerGrid = [];
-
-        // Grid settings (centered)
-        const gridCols = 3;
-        const gridRows = 2;
-        const cellWidth = 110;
-        const cellHeight = 120;
-        
-        // Centered grid positioning
-        const startX = 400 - (gridCols * cellWidth) / 2 + cellWidth / 2;
-        const startY = 200;
-
-        this.characterKeys.forEach((key, index) => {
-            const character = CHARACTERS[key];
-            const row = Math.floor(index / gridCols);
-            const col = index % gridCols;
-            
-            // Get equipped skin for preview
-            const equippedSkin = PLAYER_PROGRESS.getEquippedSkin('player1', key);
-            
-            // Character preview
-            const x = startX + (col * cellWidth);
-            const y = startY + (row * cellHeight);
-            
-            const sprite = this.createCharacterPreview(x, y, key, equippedSkin);
-            const name = this.add.text(x, y + 50, character.name, {
-                fontSize: '16px',
-                fontStyle: 'bold',
-                fill: '#FFD700',
-                stroke: '#000000',
-                strokeThickness: 2
-            }).setOrigin(0.5);
-
-            this.playerGrid.push({
-                sprite: sprite,
-                name: name,
-                character: key,
-                index: index
-            });
-        });
-    }
-
-    createCharacterPreview(x, y, characterKey, skinType) {
-        const character = CHARACTERS[characterKey];
-        let sprite;
-        
-        if (this.textures.exists(`${characterKey}_preview`)) {
-            const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
-            
-            if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
-                sprite = this.add.image(x, y, `${characterKey}_preview`);
-                sprite.setScale(1.8)
-                      .setOrigin(0.5)
-                      .setFrame(0);
-            } else {
-                sprite = this.add.image(x, y, `${characterKey}_preview`);
-                sprite.setScale(2.5)
-                      .setOrigin(0.5);
-            }
-        } else {
-            console.error(`Sprite not found for character: ${characterKey}`);
-            sprite = this.add.rectangle(x, y, 32, 32, character.color);
-            sprite.setScale(2);
-            
-            this.add.text(x, y, characterKey.charAt(0).toUpperCase(), {
-                fontSize: '16px',
-                fill: '#ffffff'
-            }).setOrigin(0.5);
-        }
-
-        // Apply skin tint if not base skin
-        if (skinType !== 'base') {
-            const skinColor = CharacterSpriteHelper.getSkinRarityColor(skinType);
-            sprite.setTint(skinColor);
-        }
-
-        return sprite;
-    }
-
-    createPlayerUI() {
-        // Player UI (centered)
-        this.playerUI = {
-            panel: this.add.rectangle(400, 480, 320, 140, 0x000000, 0.9).setStrokeStyle(4, 0x00ff00),
-            title: this.add.text(400, 425, 'CHARACTER SELECTION', {
-                fontSize: '18px',
-                fontStyle: 'bold',
-                fill: '#00ff00',
-                stroke: '#000000',
-                strokeThickness: 3,
-                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-            }).setOrigin(0.5),
-            character: this.add.text(400, 455, '', {
-                fontSize: '22px',
-                fontStyle: 'bold',
-                fill: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 2
-            }).setOrigin(0.5),
-            power: this.add.text(400, 485, '', {
-                fontSize: '16px',
-                fontStyle: 'bold',
-                fill: '#ffff00',
-                stroke: '#000000',
-                strokeThickness: 2
-            }).setOrigin(0.5),
-            status: this.add.text(400, 510, 'PRESS W TO CONFIRM', {
-                fontSize: '14px',
-                fontStyle: 'bold',
-                fill: '#00ffff',
-                stroke: '#000000',
-                strokeThickness: 2
-            }).setOrigin(0.5),
-            controls: this.add.text(400, 530, 'A/D • W TO SELECT', {
-                fontSize: '12px',
-                fontStyle: 'bold',
-                fill: '#CCCCCC',
-                stroke: '#000000',
-                strokeThickness: 1
-            }).setOrigin(0.5)
-        };
-    }
-
-    setupControls() {
-        // WASD controls
-        this.wasd = this.input.keyboard.addKeys('W,S,A,D');
-        
-        // Handle input
-        this.input.keyboard.on('keydown', (event) => {
-            if (this.lockerOpen || this.infoPanelOpen) return;
-            
-            switch(event.code) {
-                case 'KeyA':
-                    if (!this.playerConfirmed) {
-                        this.playerSelection = (this.playerSelection - 1 + this.characterKeys.length) % this.characterKeys.length;
-                        this.updateDisplay();
-                    }
-                    break;
-                case 'KeyD':
-                    if (!this.playerConfirmed) {
-                        this.playerSelection = (this.playerSelection + 1) % this.characterKeys.length;
-                        this.updateDisplay();
-                    }
-                    break;
-                case 'KeyW':
-                    if (!this.playerConfirmed) {
-                        this.confirmPlayerSelection();
-                    }
-                    break;
-                case 'KeyS':
-                    if (this.playerConfirmed) {
-                        this.cancelPlayerSelection();
-                    }
-                    break;
-            }
-        });
-    }
-
-    updateDisplay() {
-        // Reset all characters
-        this.playerGrid.forEach((display, index) => {
-            if (!display || !display.sprite) return;
-            
-            display.sprite.clearTint();
-            
-            // Get equipped skin and apply tint
-            const characterKey = this.characterKeys[index];
-            const equippedSkin = PLAYER_PROGRESS.getEquippedSkin('player1', characterKey);
-            
-            if (equippedSkin !== 'base') {
-                const skinColor = CharacterSpriteHelper.getSkinRarityColor(equippedSkin);
-                display.sprite.setTint(skinColor);
-            }
-            
-            // Set normal scale
-            const character = CHARACTERS[characterKey];
-            const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
-            
-            if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
-                display.sprite.setScale(1.8);
-            } else {
-                display.sprite.setScale(2.5);
-            }
-        });
-
-        // Highlight current selection
-        if (!this.playerConfirmed && 
-            this.playerSelection >= 0 && 
-            this.playerSelection < this.playerGrid.length) {
-            
-            const display = this.playerGrid[this.playerSelection];
-            const characterKey = this.characterKeys[this.playerSelection];
-            const character = CHARACTERS[characterKey];
-            
-            if (character && display.sprite) {
-                const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
-                
-                // Add green selection overlay
-                display.sprite.setTint(0x00ff00);
-                
-                // Increase scale for selection
-                if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
-                    display.sprite.setScale(2.2);
-                } else {
-                    display.sprite.setScale(3.0);
-                }
-            }
-        }
-
-        // Update Player UI
-        const character = CHARACTERS[this.characterKeys[this.playerSelection]];
-        this.playerUI.character.setText(character.name.toUpperCase());
-        this.playerUI.power.setText(character.power.toUpperCase());
-        if (this.playerConfirmed) {
-            this.playerUI.status.setText('✓ CONFIRMED');
-            this.playerUI.status.setStyle({ fill: '#00ff00' });
-        } else {
-            this.playerUI.status.setText('PRESS W TO CONFIRM');
-            this.playerUI.status.setStyle({ fill: '#00ffff' });
-        }
-    }
-
-    confirmPlayerSelection() {
-        this.playerConfirmed = true;
-        selectedCharacters.player1 = this.characterKeys[this.playerSelection];
-        selectedCharacters.player2 = null; // Clear player 2 for solo mode
-        this.updateDisplay();
-        this.proceedToMapSelection();
-    }
-
-    cancelPlayerSelection() {
-        this.playerConfirmed = false;
-        selectedCharacters.player1 = null;
-        this.updateDisplay();
-    }
-
-    proceedToMapSelection() {
-        // Show "Proceeding..." message
-        this.add.text(400, 570, 'LOADING...', {
-            fontSize: '28px',
-            fontStyle: 'bold',
-            fill: '#ffff00',
-            stroke: '#ff0000',
-            strokeThickness: 3,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-
-        // Wait a moment then go to solo game mode selection
-        this.time.delayedCall(1500, () => {
-            this.scene.start('SoloGameModeScene');
-        });
-    }
-
-    // Use the same locker and info panel methods as the multiplayer version
-    openLocker(playerId) {
-        // Implementation copied from CharacterSelectionScene
-        // (Same locker functionality)
-        if (this.infoPanelOpen) return;
-        if (this.lockerOpen) return;
-        
-        this.lockerOpen = true;
-        
-        // Create modal backdrop
-        this.lockerBackdrop = this.add.rectangle(400, 300, 800, 600, 0x000000, 0);
-        this.lockerBackdrop.setInteractive();
-        this.lockerBackdrop.on('pointerdown', () => this.closeLocker());
-        
-        // Create modal panel
-        this.lockerPanel = this.add.rectangle(400, 300, 700, 550, 0x000000, 0);
-        this.lockerPanel.setStrokeStyle(4, 0x00ff00);
-        this.lockerPanel.setInteractive();
-        this.lockerPanel.setAlpha(0);
-        this.lockerPanel.setScale(0.8);
-        
-        // Animate backdrop and panel
-        this.tweens.add({
-            targets: this.lockerBackdrop,
-            alpha: 0.95,
-            duration: 300,
-            ease: 'Power2'
-        });
-        
-        this.tweens.add({
-            targets: this.lockerPanel,
-            alpha: 1.0,
-            scaleX: 1.0,
-            scaleY: 1.0,
-            duration: 300,
-            ease: 'Back.easeOut'
-        });
-        
-        // Title
-        const progress = PLAYER_PROGRESS.loadPlayerProgress('player1');
-        const level = XP_SYSTEM.calculateLevel(progress.xp);
-        this.lockerTitle = this.add.text(400, 80, 'PLAYER LOCKER', {
-            fontSize: '32px',
-            fontStyle: 'bold',
-            fill: '#00ff00',
-            stroke: '#000000',
-            strokeThickness: 4,
-            shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-        
-        // XP and Level info
-        this.lockerXPInfo = this.add.text(400, 110, `LEVEL ${level} • ${progress.xp} XP`, {
-            fontSize: '18px',
-            fontStyle: 'bold',
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 2
-        }).setOrigin(0.5);
-        
-        // Create locker content
-        this.createLockerContent('player1');
-        
-        // Close button
-        const whirlwindColumnX = 400 - (600/2) + (100/2) + (5 * 100);
-        this.lockerCloseBtn = this.add.rectangle(whirlwindColumnX, 55, 75, 35, 0x000000, 0.9);
-        this.lockerCloseBtn.setStrokeStyle(3, 0xff0000);
-        this.lockerCloseBtn.setInteractive();
-        this.lockerCloseBtn.on('pointerdown', () => this.closeLocker());
-        this.lockerCloseText = this.add.text(whirlwindColumnX, 55, 'CLOSE', {
-            fontSize: '14px',
-            fontStyle: 'bold',
-            fill: '#ff0000',
-            stroke: '#000000',
-            strokeThickness: 2
-        }).setOrigin(0.5);
-        
-        // Store elements
-        this.lockerElements = [
-            this.lockerBackdrop,
-            this.lockerPanel,
-            this.lockerTitle,
-            this.lockerXPInfo,
-            this.lockerCloseBtn,
-            this.lockerCloseText
-        ];
-    }
-
-    createLockerContent(playerId) {
-        const progress = PLAYER_PROGRESS.loadPlayerProgress(playerId);
-        const unlockedSkins = XP_SYSTEM.getUnlockedSkins(progress.xp);
-        
-        this.lockerCharElements = [];
-        
-        // Add large dark background for entire locker content area - arcade style (increased height)
-        const contentBackground = this.add.rectangle(400, 290, 650, 450, 0x000000, 0.98);
-        contentBackground.setStrokeStyle(3, 0x444444);
-        this.lockerCharElements.push(contentBackground);
-        
-        // Calculate responsive layout
-        const totalWidth = 600; // Available width for all columns
-        const columnWidth = totalWidth / this.characterKeys.length;
-        const startX = 400 - (totalWidth / 2) + (columnWidth / 2);
-        const startY = 130; // Moved down slightly for better title spacing
-        const verticalPadding = 25; // Increased for better spacing between rows
-        
-        // Define skin order: base first, then others
-        const skinOrder = ['base', 'bronze', 'silver', 'gold', 'shadow'];
-        
-        this.characterKeys.forEach((charKey, charIndex) => {
-            const character = CHARACTERS[charKey];
-            const columnX = startX + (charIndex * columnWidth);
-            
-            // Character title at top of column
-            const charTitle = this.add.text(columnX, startY, character.name.toUpperCase(), {
-                fontSize: '14px',
-                fontStyle: 'bold',
-                fill: '#ffff00',
-                stroke: '#000000',
-                strokeThickness: 2,
-                shadow: { offsetX: 1, offsetY: 1, color: '#000000', blur: 0, stroke: true, fill: true }
-            }).setOrigin(0.5);
-            this.lockerCharElements.push(charTitle);
-            
-            // Create skin rows for this character
-            skinOrder.forEach((skinType, skinIndex) => {
-                const skinY = startY + verticalPadding + (skinIndex * 68); // More space between rows
-                const isUnlocked = XP_SYSTEM.isSkinUnlocked(progress.xp, skinType);
-                const isEquipped = progress.equippedSkins[charKey] === skinType;
-                
-                // Create skin container with responsive sizing
-                const skinContainer = this.add.rectangle(columnX, skinY, columnWidth - 10, 65, 0x1a1a1a, 0.95);
-                skinContainer.setStrokeStyle(2, isEquipped ? 0x00ff00 : 0x333333);
-                if (isEquipped) {
-                    skinContainer.setFillStyle(0x002200, 0.95);
-                }
-                this.lockerCharElements.push(skinContainer);
-                
-                // Character skin sprite (left side of container)
-                const spriteX = columnX - (columnWidth / 2) + 25;
-                const skinSprite = this.createSkinPreview(spriteX, skinY, charKey, skinType, isUnlocked, isEquipped);
-                this.lockerCharElements.push(skinSprite);
-                
-                // Skin label (centered in container with shorter text)
-                const labelX = columnX + 5;
-                
-                // Get shorter skin name to fit in container
-                let displayName = CharacterSpriteHelper.getSkinDisplayName(skinType).toUpperCase();
-                if (displayName === 'BRONZE') displayName = 'BRONZ';
-                if (displayName === 'SILVER') displayName = 'SILVR';
-                if (displayName === 'SHADOW') displayName = 'SHDW';
-                // GOLD and BASE are already short enough
-                
-                const skinLabel = this.add.text(columnX, skinY - 12, displayName, {
-                    fontSize: '11px',
-                    fontStyle: 'bold',
-                    fill: isUnlocked ? '#ffffff' : '#666666',
-                    stroke: '#000000',
-                    strokeThickness: 1
-                }).setOrigin(0.5);
-                this.lockerCharElements.push(skinLabel);
-                
-                // Status/equip text
-                let statusText = 'LOCKED';
-                let statusColor = '#cccccc';
-                
-                if (isEquipped) {
-                    statusText = 'EQUIPPED';
-                    statusColor = '#00ff00';
-                } else if (isUnlocked) {
-                    statusText = 'EQUIP';
-                    statusColor = '#ffffff';
-                } else {
-                    const requiredXP = XP_SYSTEM.XP_THRESHOLDS[Object.keys(XP_SYSTEM.SKIN_TYPES).find(k => XP_SYSTEM.SKIN_TYPES[k] === skinType) - 1];
-                    statusText = `${requiredXP} XP`;
-                    statusColor = '#ff6666';
-                }
-                
-                const statusLabel = this.add.text(columnX, skinY + 15, statusText, {
-                    fontSize: '8px',
-                    fontStyle: 'bold',
-                    fill: statusColor,
-                    stroke: '#000000',
-                    strokeThickness: 1
-                }).setOrigin(0.5);
-                this.lockerCharElements.push(statusLabel);
-                
-                // Add click handler for unlocked skins
-                if (isUnlocked) {
-                    skinContainer.setInteractive();
-                    skinContainer.on('pointerdown', () => {
-                        this.equipSkin(playerId, charKey, skinType);
-                    });
-                    
-                    // Add hover effect
-                    skinContainer.on('pointerover', () => {
-                        skinContainer.setFillStyle(0x252525, 0.95);
-                    });
-                    skinContainer.on('pointerout', () => {
-                        skinContainer.setFillStyle(isEquipped ? 0x002200 : 0x1a1a1a, 0.95);
-                    });
-                }
-            });
-        });
-    }
-
-    createSkinPreview(x, y, charKey, skinType, isUnlocked, isEquipped) {
-        const character = CHARACTERS[charKey];
-        const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
-        
-        let preview;
-        
-        if (this.textures.exists(`${charKey}_preview`)) {
-            if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
-                preview = this.add.image(x, y, `${charKey}_preview`);
-                preview.setScale(0.9).setOrigin(0.5).setFrame(0);
-            } else {
-                preview = this.add.image(x, y, `${charKey}_preview`);
-                preview.setScale(1.1).setOrigin(0.5);
-            }
-        } else {
-            preview = this.add.rectangle(x, y, 20, 20, character.color, 0.8);
-        }
-        
-        // Apply skin effects
-        if (isUnlocked) {
-            if (skinType !== 'base') {
-                const skinColor = CharacterSpriteHelper.getSkinRarityColor(skinType);
-                preview.setTint(skinColor);
-            }
-            preview.setAlpha(1.0);
-        } else {
-            preview.setTint(0x333333);
-            preview.setAlpha(0.4);
-        }
-        
-        if (isEquipped) {
-            this.tweens.add({
-                targets: preview,
-                alpha: { from: 1, to: 0.7 },
-                duration: 1500,
-                yoyo: true,
-                repeat: -1,
-                ease: 'Sine.easeInOut'
-            });
-        }
-        
-        return preview;
-    }
-
-    equipSkin(playerId, charKey, skinType) {
-        const success = PLAYER_PROGRESS.equipSkin(playerId, charKey, skinType);
-        
-        if (success) {
-            console.log(`${playerId} equipped ${skinType} skin for ${charKey}`);
-            
-            // Update local progress
-            player1Progress = PLAYER_PROGRESS.loadPlayerProgress('player1');
-            
-            // Close and reopen locker to refresh display
-            this.closeLocker();
-            this.openLocker(playerId);
-            
-            // Update the character selection display
-            this.updateDisplay();
-        }
-    }
-
-    closeLocker() {
-        this.lockerOpen = false;
-        
-        // Clean up elements
-        this.lockerElements.forEach(element => {
-            if (element) element.destroy();
-        });
-        this.lockerElements = [];
-        
-        this.lockerCharElements.forEach(element => {
-            if (element) element.destroy();
-        });
-        this.lockerCharElements = [];
-        
-        // Clean up individual elements
-        if (this.lockerBackdrop) this.lockerBackdrop.destroy();
-        if (this.lockerPanel) this.lockerPanel.destroy();
-        if (this.lockerTitle) this.lockerTitle.destroy();
-        if (this.lockerXPInfo) this.lockerXPInfo.destroy();
-        if (this.lockerCloseBtn) this.lockerCloseBtn.destroy();
-        if (this.lockerCloseText) this.lockerCloseText.destroy();
-    }
-
-    // Info panel methods (same as multiplayer version)
-    openInfoPanel() {
-        // Same implementation as CharacterSelectionScene
-        if (this.infoPanelOpen || this.lockerOpen) return;
-        
-        this.infoPanelOpen = true;
-        this.infoCurrentTab = 'tutorial';
-        
-        // Get screen dimensions
-        const screenWidth = this.cameras.main.width;
-        const screenHeight = this.cameras.main.height;
-        
-        // Calculate modal size
-        const modalWidth = Math.min(700, screenWidth * 0.85);
-        const modalHeight = Math.min(500, screenHeight * 0.85);
-        const centerX = screenWidth / 2;
-        const centerY = screenHeight / 2;
-        
-        // Create backdrop
-        this.infoBackdrop = this.add.rectangle(centerX, centerY, screenWidth, screenHeight, 0x000000, 0.8);
-        this.infoBackdrop.setInteractive();
-        this.infoBackdrop.on('pointerdown', () => this.closeInfoPanel());
-        
-        // Create main panel
-        this.infoPanel = this.add.rectangle(centerX, centerY, modalWidth, modalHeight, 0x000000, 0.95);
-        this.infoPanel.setStrokeStyle(4, 0xff00ff);
-        this.infoPanel.setInteractive();
-        
-        // Calculate positions
-        const modalTop = centerY - modalHeight / 2;
-        const modalRight = centerX + modalWidth / 2;
-        
-        // Title
-        this.infoPanelTitle = this.add.text(centerX, modalTop + 40, 'GAME INFO', {
-            fontSize: Math.min(36, modalWidth / 20) + 'px',
-            fontStyle: 'bold',
-            fill: '#ff00ff',
-            stroke: '#000000',
-            strokeThickness: 4,
-            shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-        
-        // Tab buttons
-        const tabWidth = Math.min(140, modalWidth / 5);
-        const tabY = modalTop + 80;
-        const tabSpacing = modalWidth / 4;
-        
-        this.tutorialTab = this.add.rectangle(centerX - tabSpacing / 2, tabY, tabWidth, 40, 0x000000, 0.9);
-        this.tutorialTab.setStrokeStyle(3, 0xff00ff);
-        this.tutorialTabText = this.add.text(centerX - tabSpacing / 2, tabY, 'TUTORIAL', {
-            fontSize: Math.min(18, modalWidth / 40) + 'px',
-            fontStyle: 'bold',
-            fill: '#ff00ff',
-            stroke: '#000000',
-            strokeThickness: 2
-        }).setOrigin(0.5);
-        this.tutorialTab.setInteractive();
-        this.tutorialTab.on('pointerdown', () => this.switchInfoTab('tutorial'));
-        
-        this.charactersTab = this.add.rectangle(centerX + tabSpacing / 2, tabY, tabWidth, 40, 0x000000, 0.9);
-        this.charactersTab.setStrokeStyle(3, 0x666666);
-        this.charactersTabText = this.add.text(centerX + tabSpacing / 2, tabY, 'CHARACTERS', {
-            fontSize: Math.min(18, modalWidth / 40) + 'px',
-            fontStyle: 'bold',
-            fill: '#aaaaaa',
-            stroke: '#000000',
-            strokeThickness: 2
-        }).setOrigin(0.5);
-        this.charactersTab.setInteractive();
-        this.charactersTab.on('pointerdown', () => this.switchInfoTab('characters'));
-        
-        // Close button
-        this.infoCloseBtn = this.add.rectangle(modalRight - 50, modalTop + 40, 80, 40, 0x000000, 0.9);
-        this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
-        this.infoCloseBtn.setInteractive();
-        this.infoCloseBtn.on('pointerdown', () => this.closeInfoPanel());
-        this.infoCloseText = this.add.text(modalRight - 50, modalTop + 40, 'CLOSE', {
-            fontSize: '16px',
-            fontStyle: 'bold',
-            fill: '#ff0000',
-            stroke: '#000000',
-            strokeThickness: 2
-        }).setOrigin(0.5);
-        
-        // Store modal dimensions
-        this.modalDimensions = {
-            width: modalWidth,
-            height: modalHeight,
-            centerX: centerX,
-            centerY: centerY,
-            top: modalTop,
-            contentTop: modalTop + 120,
-            contentHeight: modalHeight - 140
-        };
-        
-        // Store panel elements
-        this.infoPanelElements = [
-            this.infoBackdrop,
-            this.infoPanel,
-            this.infoPanelTitle,
-            this.tutorialTab,
-            this.tutorialTabText,
-            this.charactersTab,
-            this.charactersTabText,
-            this.infoCloseBtn,
-            this.infoCloseText
-        ];
-        
-        // Create initial content
-        this.updateInfoContent();
-    }
-
-    closeInfoPanel() {
-        if (!this.infoPanelOpen) return;
-        
-        this.infoPanelOpen = false;
-        
-        // Destroy all panel elements
-        this.infoPanelElements.forEach(element => {
-            if (element) element.destroy();
-        });
-        this.infoPanelElements = [];
-        
-        // Destroy content elements
-        if (this.infoContentElements) {
-            this.infoContentElements.forEach(element => {
-                if (element) element.destroy();
-            });
-            this.infoContentElements = [];
-        }
-        
-        // Clear modal dimensions
-        this.modalDimensions = null;
-    }
-
-    switchInfoTab(tab) {
-        if (this.infoCurrentTab === tab) return;
-        
-        this.infoCurrentTab = tab;
-        
-        // Update tab appearance
-        if (tab === 'tutorial') {
-            this.tutorialTab.setFillStyle(0x000000, 0.9);
-            this.tutorialTab.setStrokeStyle(3, 0xff00ff);
-            this.tutorialTabText.setStyle({ fill: '#ff00ff' });
-            this.charactersTab.setFillStyle(0x000000, 0.9);
-            this.charactersTab.setStrokeStyle(3, 0x666666);
-            this.charactersTabText.setStyle({ fill: '#aaaaaa' });
-        } else {
-            this.tutorialTab.setFillStyle(0x000000, 0.9);
-            this.tutorialTab.setStrokeStyle(3, 0x666666);
-            this.tutorialTabText.setStyle({ fill: '#aaaaaa' });
-            this.charactersTab.setFillStyle(0x000000, 0.9);
-            this.charactersTab.setStrokeStyle(3, 0xff00ff);
-            this.charactersTabText.setStyle({ fill: '#ff00ff' });
-        }
-        
-        // Update content
-        this.updateInfoContent();
-    }
-
-    updateInfoContent() {
-        // Clear existing content
-        if (this.infoContentElements) {
-            this.infoContentElements.forEach(element => {
-                if (element) element.destroy();
-            });
-        }
-        this.infoContentElements = [];
-        
-        if (this.infoCurrentTab === 'tutorial') {
-            this.createTutorialContent();
-        } else {
-            this.createCharactersContent();
-        }
-    }
-
-    createTutorialContent() {
-        const modal = this.modalDimensions;
-        
-        // Calculate content area with generous padding
-        const contentWidth = modal.width - 60;
-        const contentHeight = modal.contentHeight;
-        const contentCenterX = modal.centerX;
-        const contentTop = modal.contentTop;
-        
-        // Create content background
-        const contentBg = this.add.rectangle(contentCenterX, contentTop + contentHeight / 2, contentWidth, contentHeight, 0x0f0f0f, 0.95);
-        contentBg.setStrokeStyle(2, 0x444444);
-        this.infoContentElements.push(contentBg);
-        
-        // Calculate 2x2 grid layout with proper spacing
-        const gridGap = 20; // 20px gap between boxes
-        const gridPadding = 20; // 20px padding from edges
-        
-        // Calculate box dimensions to fit 2x2 grid with gaps
-        const availableWidth = contentWidth - (gridPadding * 2) - gridGap;
-        const availableHeight = contentHeight - (gridPadding * 2) - gridGap;
-        
-        const boxWidth = availableWidth / 2;
-        const boxHeight = availableHeight / 2;
-        
-        // Calculate grid positions
-        const leftX = contentCenterX - (availableWidth / 2) + (boxWidth / 2);
-        const rightX = contentCenterX + (availableWidth / 2) - (boxWidth / 2);
-        const topY = contentTop + gridPadding + (boxHeight / 2);
-        const bottomY = contentTop + gridPadding + boxHeight + gridGap + (boxHeight / 2);
-        
-        // Section data for 2x2 grid (Solo Mode content)
-        const sections = [
-            {
-                title: 'CONTROLS',
-                text: '• WASD to move and jump\n• E to use power\n• R to restart, C to return to character selection',
-                x: leftX,
-                y: topY
-            },
-            {
-                title: 'OBJECTIVE',
-                text: '• Score goals or win in Fight Mode\n• Use powers after they charge (15s or 2 goals)\n• First to 3 goals or highest score in 60s wins',
-                x: rightX,
-                y: topY
-            },
-            {
-                title: 'XP + PROGRESSION',
-                text: '• Win matches to earn XP\n• XP unlocks new skins with visual upgrades\n• Some skins provide faster cooldowns\n• Progress saved via browser localStorage',
-                x: leftX,
-                y: bottomY
-            },
-            {
-                title: 'FIGHT MODE',
-                text: '• Optional bonus round after matches\n• Blast powers knock back opponents\n• First to deplete HP wins\n• Press F after matches to start',
-                x: rightX,
-                y: bottomY
-            }
-        ];
-        
-        // Create each section in the 2x2 grid
-        sections.forEach(section => {
-            // Section background panel (slightly lighter than modal background)
-            const sectionPanel = this.add.rectangle(section.x, section.y, boxWidth - 10, boxHeight - 10, 0x1a1a1a, 0.9);
-            sectionPanel.setStrokeStyle(2, 0x333333);
-            this.infoContentElements.push(sectionPanel);
-            
-            // Section title (bold yellow, centered at top)
-            const sectionTitle = this.add.text(section.x, section.y - (boxHeight / 2) + 25, section.title, {
-                fontSize: '14px',
-                fontStyle: 'bold',
-                fill: '#ffff00',
-                stroke: '#000000',
-                strokeThickness: 2
-            }).setOrigin(0.5);
-            this.infoContentElements.push(sectionTitle);
-            
-            // Section text (white bullet points with padding)
-            const sectionText = this.add.text(section.x, section.y + 10, section.text, {
-                fontSize: '11px',
-                fontStyle: 'bold',
-                fill: '#ffffff',
-                lineSpacing: 4,
-                align: 'left',
-                wordWrap: { width: boxWidth - 30, useAdvancedWrap: true }
-            }).setOrigin(0.5);
-            this.infoContentElements.push(sectionText);
-        });
-    }
-
-    createCharactersContent() {
-        const modal = this.modalDimensions;
-        
-        // Calculate content area with padding
-        const contentWidth = modal.width - 60;
-        const contentHeight = modal.contentHeight;
-        const contentCenterX = modal.centerX;
-        const contentTop = modal.contentTop;
-        
-        // Create content background
-        const contentBg = this.add.rectangle(contentCenterX, contentTop + contentHeight / 2, contentWidth, contentHeight, 0x0f0f0f, 0.95);
-        contentBg.setStrokeStyle(2, 0x444444);
-        this.infoContentElements.push(contentBg);
-        
-        // Calculate 3x2 grid layout with proper spacing
-        const gridCols = 3;
-        const gridRows = 2;
-        const gridGap = 15; // Gap between boxes
-        const gridPadding = 20; // Padding from edges
-        
-        // Calculate box dimensions for 3x2 grid
-        const availableWidth = contentWidth - (gridPadding * 2) - (gridGap * (gridCols - 1));
-        const availableHeight = contentHeight - (gridPadding * 2) - (gridGap * (gridRows - 1));
-        
-        const boxWidth = availableWidth / gridCols;
-        const boxHeight = availableHeight / gridRows;
-        
-        // Calculate starting position for grid
-        const startX = contentCenterX - (availableWidth / 2) + (boxWidth / 2);
-        const startY = contentTop + gridPadding + (boxHeight / 2);
-        
-        // Character data with updated descriptions
-        const characterData = [
-            {
-                key: 'blaze',
-                name: 'BLAZE',
-                power: 'Fire Kick',
-                description: 'Devastating horizontal fire ball that knocks back undefended enemies'
-            },
-            {
-                key: 'frostbite',
-                name: 'FROSTBITE',
-                power: 'Ice Freeze',
-                description: 'Freezes opponent in ice cocoon'
-            },
-            {
-                key: 'volt',
-                name: 'VOLT',
-                power: 'Lightning Dash',
-                description: 'Dashes forward with lightning trail'
-            },
-            {
-                key: 'jellyhead',
-                name: 'JELLYHEAD',
-                power: 'Jelly Slow',
-                description: 'Shoots purple jelly that slows opponents to 30% speed'
-            },
-            {
-                key: 'brick',
-                name: 'BRICK',
-                power: 'Immunity',
-                description: 'Immune to all attacks for 5 seconds'
-            },
-            {
-                key: 'whirlwind',
-                name: 'WHIRLWIND',
-                power: 'Air Spin',
-                description: 'Controls air currents to redirect the ball'
-            }
-        ];
-        
-        // Create each character box in 3x2 grid
-        characterData.forEach((charData, index) => {
-            const row = Math.floor(index / gridCols);
-            const col = index % gridCols;
-            
-            const charX = startX + (col * (boxWidth + gridGap));
-            const charY = startY + (row * (boxHeight + gridGap));
-            
-            // Character panel background
-            const charPanel = this.add.rectangle(charX, charY, boxWidth - 5, boxHeight - 5, 0x1a1a1a, 0.9);
-            charPanel.setStrokeStyle(2, 0x333333);
-            charPanel.setInteractive();
-            this.infoContentElements.push(charPanel);
-            
-            // Add hover effect for polish
-            charPanel.on('pointerover', () => {
-                charPanel.setFillStyle(0x252525, 0.9);
-            });
-            charPanel.on('pointerout', () => {
-                charPanel.setFillStyle(0x1a1a1a, 0.9);
-            });
-            
-            // Large character sprite in top center
-            const mainSpriteX = charX;
-            const mainSpriteY = charY - (boxHeight / 4);
-            
-            let charSprite;
-            if (this.textures.exists(`${charData.key}_preview`)) {
-                charSprite = this.add.image(mainSpriteX, mainSpriteY, `${charData.key}_preview`);
-                const character = CHARACTERS[charData.key];
-                const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
-                
-                // Increase size of all character sprites
-                let scale;
-                if (charData.key === 'brick' || charData.key === 'jellyhead' || charData.key === 'whirlwind') {
-                    scale = spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation) ? 3.2 : 3.5;
-                } else {
-                    scale = spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation) ? 2.5 : 2.8;
-                }
-                
-                if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
-                    charSprite.setScale(scale).setOrigin(0.5).setFrame(0);
-                } else {
-                    charSprite.setScale(scale).setOrigin(0.5);
-                }
-            } else {
-                const character = CHARACTERS[charData.key];
-                charSprite = this.add.rectangle(mainSpriteX, mainSpriteY, 32, 32, character.color);
-                charSprite.setScale(2.2);
-            }
-            this.infoContentElements.push(charSprite);
-            
-            // Text section at bottom - calculate positions from bottom up
-            const bottomY = charY + (boxHeight / 2) - 10;
-            
-            // Description (white text, wrapped) - at bottom
-            const descWidth = boxWidth - 20;
-            const description = this.add.text(charX, bottomY, charData.description, {
-                fontSize: Math.min(12, boxWidth / 22) + 'px',
-                fontStyle: 'normal',
-                fill: '#ffffff',
-                wordWrap: { width: descWidth, useAdvancedWrap: true },
-                lineSpacing: 2,
-                align: 'center'
-            }).setOrigin(0.5, 1);
-            this.infoContentElements.push(description);
-            
-            // Power name (bold yellow) - above description
-            const powerY = description.y - description.displayHeight - 5;
-            const powerName = this.add.text(charX, powerY, charData.power, {
-                fontSize: Math.min(11, boxWidth / 22) + 'px',
-                fontStyle: 'bold',
-                fill: '#ffff00',
-                stroke: '#000000',
-                strokeThickness: 1
-            }).setOrigin(0.5, 1);
-            this.infoContentElements.push(powerName);
-            
-            // Character name (bold white) - above power name
-            const nameY = powerName.y - powerName.displayHeight - 3;
-            const charName = this.add.text(charX, nameY, charData.name, {
-                fontSize: Math.min(12, boxWidth / 20) + 'px',
-                fontStyle: 'bold',
-                fill: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 2
-            }).setOrigin(0.5, 1);
-            this.infoContentElements.push(charName);
-        });
-    }
-
-    goBackToHomeScreen() {
-        this.scene.start('HeadshotScene');
-    }
 }
 
 // Game Modes Scene
@@ -3177,7 +2005,7 @@ class GameModesScene extends Phaser.Scene {
     create() {
         // Arcade-style gradient background (match Character Selection)
         this.add.rectangle(400, 300, 800, 600, 0x000000);
-        this.add.rectangle(400, 300, 800, 600, 0x000000);
+        this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
         
         // Arcade border frame (match Character Selection)
         this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
@@ -3387,15 +2215,15 @@ class GameModesScene extends Phaser.Scene {
     }
 
     createContinueButton() {
-        // Create continue button (match solo mode styling - initially inactive)
+        // Create continue button (match MAP SELECTION "START MATCH" button styling)
         this.continueButtonBg = this.add.rectangle(400, 500, 320, 60, 0x000000, 0.9);
-        this.continueButtonBg.setStrokeStyle(4, 0x00ff00); // Green when always active (local multiplayer doesn't need difficulty)
+        this.continueButtonBg.setStrokeStyle(4, 0xffff00);
         this.continueButtonBg.setInteractive();
         
         this.continueButton = this.add.text(400, 500, 'CONTINUE', {
             fontSize: '20px',
             fontStyle: 'bold',
-            fill: '#00ff00', // Green when always active
+            fill: '#ffff00',
             stroke: '#000000',
             strokeThickness: 2,
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
@@ -3406,15 +2234,15 @@ class GameModesScene extends Phaser.Scene {
         });
 
         this.continueButtonBg.on('pointerover', () => {
-            this.continueButtonBg.setFillStyle(0x003300, 0.9);
-            this.continueButtonBg.setStrokeStyle(4, 0x00ff00);
+            this.continueButtonBg.setFillStyle(0x333300, 0.9);
+            this.continueButtonBg.setStrokeStyle(4, 0xffff00);
             this.continueButton.setStyle({ fill: '#ffffff' });
         });
 
         this.continueButtonBg.on('pointerout', () => {
             this.continueButtonBg.setFillStyle(0x000000, 0.9);
-            this.continueButtonBg.setStrokeStyle(4, 0x00ff00);
-            this.continueButton.setStyle({ fill: '#00ff00' });
+            this.continueButtonBg.setStrokeStyle(4, 0xffff00);
+            this.continueButton.setStyle({ fill: '#ffff00' });
         });
     }
 
@@ -3479,432 +2307,6 @@ class GameModesScene extends Phaser.Scene {
     }
 }
 
-// Solo Game Modes Scene
-class SoloGameModeScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'SoloGameModeScene' });
-        this.selectedMode = 'soccer'; // Default to soccer mode
-        this.selectedConfig = 0; // Default to first config option
-        this.selectedDifficulty = null; // No difficulty selected by default
-    }
-
-    create() {
-        // Arcade-style gradient background (match Character Selection)
-        this.add.rectangle(400, 300, 800, 600, 0x000000);
-        this.add.rectangle(400, 300, 800, 600, 0x000000);
-        
-        // Arcade border frame (match Character Selection)
-        this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
-        this.add.rectangle(400, 300, 770, 570, 0x000000, 0).setStrokeStyle(2, 0xff00ff);
-
-        // Arcade-style title (match CHARACTER SELECTION styling)
-        this.add.text(400, 40, 'SELECT GAME MODE', {
-            fontSize: '36px',
-            fontStyle: 'bold',
-            fill: '#ffff00',
-            stroke: '#ff0000',
-            strokeThickness: 3,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-
-        // Title underline (match Character Selection)
-        this.add.rectangle(400, 60, 500, 3, 0x00ffff);
-
-        // Back button (top-left corner, matching Info button style)
-        this.backBtn = this.add.rectangle(85, 50, 100, 32, 0x000000, 0.9);
-        this.backBtn.setStrokeStyle(3, 0x00ffff);
-        this.backBtnText = this.add.text(85, 50, 'BACK', {
-            fontSize: '14px',
-            fontStyle: 'bold',
-            fill: '#00ffff',
-            stroke: '#000000',
-            strokeThickness: 2
-        }).setOrigin(0.5);
-        this.backBtn.setInteractive();
-        this.backBtn.on('pointerdown', () => this.goBackToSoloCharacterSelection());
-        
-        // Add hover effects
-        this.backBtn.on('pointerover', () => {
-            this.backBtn.setFillStyle(0x003333, 0.9);
-            this.backBtn.setStrokeStyle(3, 0x00ffff);
-            this.backBtnText.setStyle({ fill: '#ffffff' });
-        });
-        this.backBtn.on('pointerout', () => {
-            this.backBtn.setFillStyle(0x000000, 0.9);
-            this.backBtn.setStrokeStyle(3, 0x00ffff);
-            this.backBtnText.setStyle({ fill: '#00ffff' });
-        });
-
-        // Create mode toggle tabs
-        this.createModeToggleTabs();
-
-        // Create difficulty selection buttons
-        this.createDifficultyButtons();
-
-        // Create match configuration options
-        this.createMatchOptions();
-
-        // Create start match button
-        this.createStartMatchButton();
-
-        // Setup keyboard controls
-        this.setupControls();
-    }
-
-    createDifficultyButtons() {
-        // Difficulty section title - purple like info button
-        this.add.text(400, 175, 'DIFFICULTY', {
-            fontSize: '24px',
-            fontStyle: 'bold',
-            fill: '#ff00ff',
-            stroke: '#000000',
-            strokeThickness: 2,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-
-        // Create difficulty buttons horizontally
-        const difficulties = [
-            { key: 'easy', label: 'EASY', x: 250 },
-            { key: 'medium', label: 'MEDIUM', x: 400 },
-            { key: 'hard', label: 'HARD', x: 550 }
-        ];
-
-        this.difficultyButtons = {};
-
-        difficulties.forEach(diff => {
-            // Button background - purple like info button
-            const buttonBg = this.add.rectangle(diff.x, 210, 120, 40, 0x000000, 0.9);
-            buttonBg.setStrokeStyle(3, 0xff00ff); // Purple border
-            buttonBg.setInteractive();
-
-            // Button text - purple like info button
-            const buttonText = this.add.text(diff.x, 210, diff.label, {
-                fontSize: '16px',
-                fontStyle: 'bold',
-                fill: '#ff00ff',
-                stroke: '#000000',
-                strokeThickness: 2
-            }).setOrigin(0.5);
-
-            // Add click handler
-            buttonBg.on('pointerdown', () => this.selectDifficulty(diff.key));
-
-            // Add hover effects
-            buttonBg.on('pointerover', () => {
-                if (this.selectedDifficulty !== diff.key) {
-                    buttonBg.setFillStyle(0x330033, 0.9);
-                    buttonText.setStyle({ fill: '#ffffff' });
-                }
-            });
-            buttonBg.on('pointerout', () => {
-                if (this.selectedDifficulty !== diff.key) {
-                    buttonBg.setFillStyle(0x000000, 0.9);
-                    buttonText.setStyle({ fill: '#ff00ff' });
-                }
-            });
-
-            this.difficultyButtons[diff.key] = { bg: buttonBg, text: buttonText };
-        });
-    }
-
-    createModeToggleTabs() {
-        // Soccer Mode Tab
-        this.soccerTabBg = this.add.rectangle(250, 110, 200, 50, 0x000000, 0.9);
-        this.soccerTabBg.setStrokeStyle(4, 0x00ff00);
-        this.soccerTabBg.setInteractive();
-        
-        this.soccerTabText = this.add.text(250, 110, 'SOCCER MODE', {
-            fontSize: '20px',
-            fontStyle: 'bold',
-            fill: '#00ff00',
-            stroke: '#000000',
-            strokeThickness: 2,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-
-        // Fight Mode Tab
-        this.fightTabBg = this.add.rectangle(550, 110, 200, 50, 0x000000, 0.9);
-        this.fightTabBg.setStrokeStyle(4, 0x666666);
-        this.fightTabBg.setInteractive();
-        
-        this.fightTabText = this.add.text(550, 110, 'FIGHT MODE', {
-            fontSize: '20px',
-            fontStyle: 'bold',
-            fill: '#666666',
-            stroke: '#000000',
-            strokeThickness: 2,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-
-        // Add click handlers
-        this.soccerTabBg.on('pointerdown', () => this.selectMode('soccer'));
-        this.fightTabBg.on('pointerdown', () => this.selectMode('fight'));
-
-        // Add hover effects
-        this.soccerTabBg.on('pointerover', () => {
-            if (this.selectedMode !== 'soccer') {
-                this.soccerTabBg.setFillStyle(0x001100, 0.9);
-            }
-        });
-        this.soccerTabBg.on('pointerout', () => {
-            if (this.selectedMode !== 'soccer') {
-                this.soccerTabBg.setFillStyle(0x000000, 0.9);
-            }
-        });
-
-        this.fightTabBg.on('pointerover', () => {
-            if (this.selectedMode !== 'fight') {
-                this.fightTabBg.setFillStyle(0x330000, 0.9);
-            }
-        });
-        this.fightTabBg.on('pointerout', () => {
-            if (this.selectedMode !== 'fight') {
-                this.fightTabBg.setFillStyle(0x000000, 0.9);
-            }
-        });
-    }
-
-    createMatchOptions() {
-        // Create containers for options (initially empty)
-        this.optionElements = [];
-        this.updateMatchOptions();
-    }
-
-    updateMatchOptions() {
-        // Clear existing options
-        this.optionElements.forEach(element => element.destroy());
-        this.optionElements = [];
-
-        const configs = this.selectedMode === 'soccer' ? 
-            [
-                { time: 60, limit: 3, text: '60 SECONDS • 3 GOALS' },
-                { time: 90, limit: 5, text: '90 SECONDS • 5 GOALS' },
-                { time: 120, limit: 7, text: '2 MINUTES • 7 GOALS' }
-            ] : 
-            [
-                { time: 60, limit: 3, text: '60 SECONDS • 3 HEARTS' },
-                { time: 90, limit: 5, text: '90 SECONDS • 5 HEARTS' },
-                { time: 120, limit: 7, text: '2 MINUTES • 7 HEARTS' }
-            ];
-
-        configs.forEach((config, index) => {
-            const y = 320 + (index * 70);
-            const isSelected = index === this.selectedConfig;
-            
-            // Option background
-            const optionBg = this.add.rectangle(400, y, 400, 50, 0x000000, 0.9);
-            optionBg.setStrokeStyle(4, isSelected ? 0x00ff00 : 0xffff00);
-            optionBg.setInteractive();
-            
-            // Option text
-            const optionText = this.add.text(400, y, config.text, {
-                fontSize: '18px',
-                fontStyle: 'bold',
-                fill: isSelected ? '#00ff00' : '#ffff00',
-                stroke: '#000000',
-                strokeThickness: 2,
-                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-            }).setOrigin(0.5);
-
-            // Add click handler
-            optionBg.on('pointerdown', () => this.selectConfig(index));
-
-            // Add hover effects
-            optionBg.on('pointerover', () => {
-                if (index !== this.selectedConfig) {
-                    optionBg.setFillStyle(0x333300, 0.9);
-                    optionText.setStyle({ fill: '#ffffff' });
-                }
-            });
-            optionBg.on('pointerout', () => {
-                if (index !== this.selectedConfig) {
-                    optionBg.setFillStyle(0x000000, 0.9);
-                    optionText.setStyle({ fill: '#ffff00' });
-                }
-            });
-
-            this.optionElements.push(optionBg, optionText);
-        });
-    }
-
-    selectDifficulty(difficulty) {
-        this.selectedDifficulty = difficulty;
-
-        // Update button styling
-        Object.keys(this.difficultyButtons).forEach(key => {
-            const button = this.difficultyButtons[key];
-            if (key === difficulty) {
-                // Selected styling - brighter purple
-                button.bg.setStrokeStyle(3, 0xff66ff);
-                button.bg.setFillStyle(0x330033, 0.9);
-                button.text.setStyle({ fill: '#ffffff' });
-            } else {
-                // Unselected styling - normal purple
-                button.bg.setStrokeStyle(3, 0xff00ff);
-                button.bg.setFillStyle(0x000000, 0.9);
-                button.text.setStyle({ fill: '#ff00ff' });
-            }
-        });
-
-        // Update start button availability
-        this.updateStartButton();
-    }
-
-    selectMode(mode) {
-        this.selectedMode = mode;
-        this.selectedConfig = 0; // Reset to first config when switching modes
-
-        // Update tab styling
-        if (mode === 'soccer') {
-            this.soccerTabBg.setStrokeStyle(4, 0x00ff00);
-            this.soccerTabBg.setFillStyle(0x001100, 0.9);
-            this.soccerTabText.setStyle({ fill: '#00ff00' });
-            
-            this.fightTabBg.setStrokeStyle(4, 0x666666);
-            this.fightTabBg.setFillStyle(0x000000, 0.9);
-            this.fightTabText.setStyle({ fill: '#666666' });
-        } else {
-            this.fightTabBg.setStrokeStyle(4, 0xff0000);
-            this.fightTabBg.setFillStyle(0x330000, 0.9);
-            this.fightTabText.setStyle({ fill: '#ff0000' });
-            
-            this.soccerTabBg.setStrokeStyle(4, 0x666666);
-            this.soccerTabBg.setFillStyle(0x000000, 0.9);
-            this.soccerTabText.setStyle({ fill: '#666666' });
-        }
-
-        // Update match options
-        this.updateMatchOptions();
-    }
-
-    selectConfig(index) {
-        this.selectedConfig = index;
-        this.updateMatchOptions();
-    }
-
-    createStartMatchButton() {
-        // Create start match button (match MAP SELECTION "START MATCH" button styling)
-        this.startMatchButtonBg = this.add.rectangle(400, 540, 320, 60, 0x000000, 0.9);
-        this.startMatchButtonBg.setStrokeStyle(4, 0x666666); // Initially inactive
-        this.startMatchButtonBg.setInteractive();
-        
-        this.startMatchButton = this.add.text(400, 540, 'CONTINUE', {
-            fontSize: '20px',
-            fontStyle: 'bold',
-            fill: '#666666', // Initially inactive
-            stroke: '#000000',
-            strokeThickness: 2,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-
-        this.startMatchButtonBg.on('pointerdown', () => {
-            if (this.selectedDifficulty) {
-                this.continueToMapSelection();
-            }
-        });
-
-        this.startMatchButtonBg.on('pointerover', () => {
-            if (this.selectedDifficulty) {
-                this.startMatchButtonBg.setFillStyle(0x003300, 0.9);
-                this.startMatchButtonBg.setStrokeStyle(4, 0x00ff00);
-                this.startMatchButton.setStyle({ fill: '#ffffff' });
-            }
-        });
-
-        this.startMatchButtonBg.on('pointerout', () => {
-            if (this.selectedDifficulty) {
-                this.startMatchButtonBg.setFillStyle(0x000000, 0.9);
-                this.startMatchButtonBg.setStrokeStyle(4, 0x00ff00);
-                this.startMatchButton.setStyle({ fill: '#00ff00' });
-            }
-        });
-    }
-
-    updateStartButton() {
-        if (this.selectedDifficulty) {
-            // Active state
-            this.startMatchButtonBg.setStrokeStyle(4, 0x00ff00);
-            this.startMatchButton.setStyle({ fill: '#00ff00' });
-        } else {
-            // Inactive state
-            this.startMatchButtonBg.setStrokeStyle(4, 0x666666);
-            this.startMatchButton.setStyle({ fill: '#666666' });
-        }
-    }
-
-    setupControls() {
-        // Space key to continue (only if difficulty is selected)
-        this.input.keyboard.on('keydown-SPACE', () => {
-            if (this.selectedDifficulty) {
-                this.continueToMapSelection();
-            }
-        });
-
-        // Number keys to select config
-        this.input.keyboard.on('keydown-ONE', () => this.selectConfig(0));
-        this.input.keyboard.on('keydown-TWO', () => this.selectConfig(1));
-        this.input.keyboard.on('keydown-THREE', () => this.selectConfig(2));
-
-        // Tab key to switch modes
-        this.input.keyboard.on('keydown-TAB', () => {
-            this.selectMode(this.selectedMode === 'soccer' ? 'fight' : 'soccer');
-        });
-
-        // Difficulty selection keys
-        this.input.keyboard.on('keydown-E', () => this.selectDifficulty('easy'));
-        this.input.keyboard.on('keydown-M', () => this.selectDifficulty('medium'));
-        this.input.keyboard.on('keydown-H', () => this.selectDifficulty('hard'));
-    }
-
-    goBackToSoloCharacterSelection() {
-        this.scene.start('SoloCharacterSelectionScene');
-    }
-
-    continueToMapSelection() {
-        if (!this.selectedDifficulty) {
-            return; // Don't continue if no difficulty is selected
-        }
-
-        // Store selected game mode and settings
-        selectedGameMode = this.selectedMode;
-        
-        const configs = this.selectedMode === 'soccer' ? 
-            [
-                { time: 60, goalLimit: 3, heartLimit: 3 },
-                { time: 90, goalLimit: 5, heartLimit: 5 },
-                { time: 120, goalLimit: 7, heartLimit: 7 }
-            ] : 
-            [
-                { time: 60, goalLimit: 3, heartLimit: 3 },
-                { time: 90, goalLimit: 5, heartLimit: 5 },
-                { time: 120, goalLimit: 7, heartLimit: 7 }
-            ];
-
-        const selectedConfigData = configs[this.selectedConfig];
-        selectedMatchSettings = {
-            time: selectedConfigData.time,
-            goalLimit: selectedConfigData.goalLimit,
-            heartLimit: selectedConfigData.heartLimit,
-            difficulty: this.selectedDifficulty // Store selected difficulty
-        };
-
-        // Show loading message
-        this.add.text(400, 570, 'LOADING...', {
-            fontSize: '24px',
-            fontStyle: 'bold',
-            fill: '#ffff00',
-            stroke: '#ff0000',
-            strokeThickness: 3,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
-
-        // Wait a moment then go to map selection
-        this.time.delayedCall(1000, () => {
-            this.scene.start('MapSelectScene');
-        });
-    }
-}
-
 // Map Selection Scene
 class MapSelectScene extends Phaser.Scene {
     constructor() {
@@ -3929,7 +2331,7 @@ class MapSelectScene extends Phaser.Scene {
         
         // Arcade-style gradient background (match Character Selection)
         this.add.rectangle(400, 300, 800, 600, 0x000000);
-        this.add.rectangle(400, 300, 800, 600, 0x000000);
+        this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
         
         // Arcade border frame (match Character Selection)
         this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
@@ -4217,19 +2619,12 @@ class MapSelectScene extends Phaser.Scene {
     }
 
     goBackToGameModes() {
-        // Check if we're in solo mode (only player1 is set) or local multiplayer (both players are set)
-        if (selectedCharacters.player1 && !selectedCharacters.player2) {
-            // Solo mode - go back to SoloGameModeScene
-            this.scene.start('SoloGameModeScene');
-        } else {
-            // Local multiplayer - go back to GameModesScene
-            this.scene.start('GameModesScene');
-        }
+        this.scene.start('GameModesScene');
     }
 
     startMatch() {
         // Show loading message - arcade style
-        this.add.text(400, 550, 'LOADING...', {
+        this.add.text(400, 550, 'LOADING MATCH...', {
             fontSize: '24px',
             fontStyle: 'bold',
             fill: '#ffff00',
@@ -8171,7 +6566,7 @@ const config = {
             debug: false
         }
     },
-            scene: [HeadshotScene, CharacterSelectionScene, SoloCharacterSelectionScene, GameModesScene, SoloGameModeScene, MapSelectScene, GameScene, FightScene]
+    scene: [HomeScene, CharacterSelectionScene, GameModesScene, MapSelectScene, GameScene, FightScene]
 };
 
 // Initialize the game
