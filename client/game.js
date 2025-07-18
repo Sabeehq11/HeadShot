@@ -218,6 +218,39 @@ let SessionState = {
 class HomeScene extends Phaser.Scene {
     constructor() {
         super({ key: 'HomeScene' });
+        
+        // Info Panel state
+        this.infoPanelOpen = false;
+        this.infoCurrentTab = 'tutorial'; // 'tutorial' or 'characters'
+        this.infoPanelElements = [];
+        this.infoContentElements = [];
+        this.singleTabMode = false;
+    }
+
+    preload() {
+        // Load all character sprites for previews (same as CharacterSelectionScene)
+        const characterKeys = Object.keys(CHARACTERS);
+        characterKeys.forEach(key => {
+            const character = CHARACTERS[key];
+            const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+            
+            if (spriteConfig) {
+                if (spriteConfig.type === 'sprite_sheet') {
+                    // Load idle animation for Tiny Heroes
+                    this.load.spritesheet(`${key}_preview`, 
+                        spriteConfig.basePath + spriteConfig.animations.idle.file, 
+                        { frameWidth: 32, frameHeight: 32 }
+                    );
+                } else {
+                    // Load single frame for Mini Pixel Pack characters
+                    const idleAnim = spriteConfig.animations.idle;
+                    const framePath = spriteConfig.basePath + idleAnim.file;
+                    this.load.image(`${key}_preview`, framePath);
+                }
+            } else {
+                console.error(`No sprite config found for character: ${key}`);
+            }
+        });
     }
 
     create() {
@@ -301,13 +334,11 @@ class HomeScene extends Phaser.Scene {
         });
 
         this.tutorialBg.on('pointerdown', () => {
-            // TODO: Add tutorial functionality
-            console.log('Tutorial clicked - functionality to be implemented');
+            this.openTutorialPanel();
         });
 
         this.characterInfoBg.on('pointerdown', () => {
-            // TODO: Add character info functionality
-            console.log('Character Info clicked - functionality to be implemented');
+            this.openCharacterInfoPanel();
         });
 
         // Add hover effects for Local Multiplayer button
@@ -344,6 +375,439 @@ class HomeScene extends Phaser.Scene {
             this.characterInfoBg.setFillStyle(0x000000, 0.9);
             this.characterInfoBg.setStrokeStyle(4, 0xff00ff);
             this.characterInfoBtn.setStyle({ fill: '#ff00ff' });
+        });
+    }
+
+    // Info Panel Methods
+    openTutorialPanel() {
+        this.openInfoPanel('tutorial', true);
+    }
+
+    openCharacterInfoPanel() {
+        this.openInfoPanel('characters', true);
+    }
+
+    openInfoPanel(startTab = 'tutorial', singleTabMode = true) {
+        if (this.infoPanelOpen) return;
+        
+        this.infoPanelOpen = true;
+        this.infoCurrentTab = startTab;
+        this.singleTabMode = singleTabMode;
+        
+        // Get screen dimensions for responsive layout
+        const screenWidth = this.cameras.main.width;
+        const screenHeight = this.cameras.main.height;
+        
+        // Calculate responsive modal size (80% of screen, max 700x500)
+        const modalWidth = Math.min(700, screenWidth * 0.85);
+        const modalHeight = Math.min(500, screenHeight * 0.85);
+        const centerX = screenWidth / 2;
+        const centerY = screenHeight / 2;
+        
+        // Create backdrop
+        this.infoBackdrop = this.add.rectangle(centerX, centerY, screenWidth, screenHeight, 0x000000, 0.8);
+        this.infoBackdrop.setInteractive();
+        this.infoBackdrop.on('pointerdown', () => this.closeInfoPanel());
+        
+        // Create main panel - responsive and centered
+        this.infoPanel = this.add.rectangle(centerX, centerY, modalWidth, modalHeight, 0x000000, 0.95);
+        this.infoPanel.setStrokeStyle(4, 0xff00ff);
+        this.infoPanel.setInteractive();
+        
+        // Calculate positions relative to modal
+        const modalTop = centerY - modalHeight / 2;
+        const modalLeft = centerX - modalWidth / 2;
+        const modalRight = centerX + modalWidth / 2;
+        
+        // Title - responsive positioning (change based on single tab mode)
+        const titleText = singleTabMode ? 
+            (startTab === 'tutorial' ? 'TUTORIAL' : 'CHARACTER INFO') : 
+            'GAME INFO';
+        this.infoPanelTitle = this.add.text(centerX, modalTop + 40, titleText, {
+            fontSize: Math.min(36, modalWidth / 20) + 'px',
+            fontStyle: 'bold',
+            fill: '#ff00ff',
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        
+        // Only create tab buttons if not in single tab mode
+        if (!singleTabMode) {
+            // Tab buttons - responsive positioning and sizing
+            const tabWidth = Math.min(140, modalWidth / 5);
+            const tabY = modalTop + 80;
+            const tabSpacing = modalWidth / 4;
+            
+            this.tutorialTab = this.add.rectangle(centerX - tabSpacing / 2, tabY, tabWidth, 40, 0x000000, 0.9);
+            this.tutorialTab.setStrokeStyle(3, startTab === 'tutorial' ? 0xff00ff : 0x666666);
+            this.tutorialTabText = this.add.text(centerX - tabSpacing / 2, tabY, 'TUTORIAL', {
+                fontSize: Math.min(18, modalWidth / 40) + 'px',
+                fontStyle: 'bold',
+                fill: startTab === 'tutorial' ? '#ff00ff' : '#aaaaaa',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5);
+            this.tutorialTab.setInteractive();
+            this.tutorialTab.on('pointerdown', () => this.switchInfoTab('tutorial'));
+            
+            this.charactersTab = this.add.rectangle(centerX + tabSpacing / 2, tabY, tabWidth, 40, 0x000000, 0.9);
+            this.charactersTab.setStrokeStyle(3, startTab === 'characters' ? 0xff00ff : 0x666666);
+            this.charactersTabText = this.add.text(centerX + tabSpacing / 2, tabY, 'CHARACTERS', {
+                fontSize: Math.min(18, modalWidth / 40) + 'px',
+                fontStyle: 'bold',
+                fill: startTab === 'characters' ? '#ff00ff' : '#aaaaaa',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5);
+            this.charactersTab.setInteractive();
+            this.charactersTab.on('pointerdown', () => this.switchInfoTab('characters'));
+        }
+        
+        // Close button - responsive positioning
+        this.infoCloseBtn = this.add.rectangle(modalRight - 50, modalTop + 40, 80, 40, 0x000000, 0.9);
+        this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
+        this.infoCloseBtn.setInteractive();
+        this.infoCloseBtn.on('pointerdown', () => this.closeInfoPanel());
+        this.infoCloseText = this.add.text(modalRight - 50, modalTop + 40, 'CLOSE', {
+            fontSize: '16px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        
+        // Add hover effects
+        this.infoCloseBtn.on('pointerover', () => {
+            this.infoCloseBtn.setFillStyle(0x330000, 0.9);
+            this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
+            this.infoCloseText.setStyle({ fill: '#ffffff' });
+        });
+        this.infoCloseBtn.on('pointerout', () => {
+            this.infoCloseBtn.setFillStyle(0x000000, 0.9);
+            this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
+            this.infoCloseText.setStyle({ fill: '#ff0000' });
+        });
+        
+        // Store modal dimensions for content creation
+        this.modalDimensions = {
+            width: modalWidth,
+            height: modalHeight,
+            centerX: centerX,
+            centerY: centerY,
+            top: modalTop,
+            left: modalLeft,
+            right: modalRight,
+            contentTop: singleTabMode ? modalTop + 80 : modalTop + 120,
+            contentHeight: singleTabMode ? modalHeight - 100 : modalHeight - 140
+        };
+        
+        // Store panel elements
+        this.infoPanelElements = [
+            this.infoBackdrop,
+            this.infoPanel,
+            this.infoPanelTitle,
+            this.infoCloseBtn,
+            this.infoCloseText
+        ];
+        
+        // Add tab elements only if not in single tab mode
+        if (!singleTabMode) {
+            this.infoPanelElements.push(
+                this.tutorialTab,
+                this.tutorialTabText,
+                this.charactersTab,
+                this.charactersTabText
+            );
+        }
+        
+        // Create initial content
+        this.updateInfoContent();
+    }
+    
+    closeInfoPanel() {
+        if (!this.infoPanelOpen) return;
+        
+        this.infoPanelOpen = false;
+        
+        // Destroy all panel elements
+        this.infoPanelElements.forEach(element => {
+            if (element) element.destroy();
+        });
+        this.infoPanelElements = [];
+        
+        // Destroy content elements
+        if (this.infoContentElements) {
+            this.infoContentElements.forEach(element => {
+                if (element) element.destroy();
+            });
+            this.infoContentElements = [];
+        }
+        
+        // Clear modal dimensions
+        this.modalDimensions = null;
+    }
+    
+    switchInfoTab(tab) {
+        if (this.infoCurrentTab === tab) return;
+        
+        this.infoCurrentTab = tab;
+        
+        // Update tab appearance - responsive arcade style
+        if (tab === 'tutorial') {
+            this.tutorialTab.setFillStyle(0x000000, 0.9);
+            this.tutorialTab.setStrokeStyle(3, 0xff00ff);
+            this.tutorialTabText.setStyle({ fill: '#ff00ff' });
+            this.charactersTab.setFillStyle(0x000000, 0.9);
+            this.charactersTab.setStrokeStyle(3, 0x666666);
+            this.charactersTabText.setStyle({ fill: '#aaaaaa' });
+        } else {
+            this.tutorialTab.setFillStyle(0x000000, 0.9);
+            this.tutorialTab.setStrokeStyle(3, 0x666666);
+            this.tutorialTabText.setStyle({ fill: '#aaaaaa' });
+            this.charactersTab.setFillStyle(0x000000, 0.9);
+            this.charactersTab.setStrokeStyle(3, 0xff00ff);
+            this.charactersTabText.setStyle({ fill: '#ff00ff' });
+        }
+        
+        // Update content
+        this.updateInfoContent();
+    }
+    
+    updateInfoContent() {
+        // Clear existing content
+        if (this.infoContentElements) {
+            this.infoContentElements.forEach(element => {
+                if (element) element.destroy();
+            });
+        }
+        this.infoContentElements = [];
+        
+        if (this.infoCurrentTab === 'tutorial') {
+            this.createTutorialContent();
+        } else {
+            this.createCharactersContent();
+        }
+    }
+    
+    createTutorialContent() {
+        const modal = this.modalDimensions;
+        
+        // Calculate content area with generous padding
+        const contentWidth = modal.width - 60;
+        const contentHeight = modal.contentHeight;
+        const contentCenterX = modal.centerX;
+        const contentTop = modal.contentTop;
+        
+        // Create content background
+        const contentBg = this.add.rectangle(contentCenterX, contentTop + contentHeight / 2, contentWidth, contentHeight, 0x0f0f0f, 0.95);
+        contentBg.setStrokeStyle(2, 0x444444);
+        this.infoContentElements.push(contentBg);
+        
+        // Calculate 2x2 grid layout with proper spacing
+        const gridGap = 20; // 20px gap between boxes
+        const gridPadding = 20; // 20px padding from edges
+        
+        // Calculate box dimensions to fit 2x2 grid with gaps
+        const availableWidth = contentWidth - (gridPadding * 2) - gridGap;
+        const availableHeight = contentHeight - (gridPadding * 2) - gridGap;
+        
+        const boxWidth = availableWidth / 2;
+        const boxHeight = availableHeight / 2;
+        
+        // Calculate grid positions
+        const leftX = contentCenterX - (availableWidth / 2) + (boxWidth / 2);
+        const rightX = contentCenterX + (availableWidth / 2) - (boxWidth / 2);
+        const topY = contentTop + gridPadding + (boxHeight / 2);
+        const bottomY = contentTop + gridPadding + boxHeight + gridGap + (boxHeight / 2);
+        
+        // Define tutorial sections
+        const sections = [
+            {
+                title: 'BASIC CONTROLS',
+                x: leftX,
+                y: topY,
+                text: '• Player 1: A/D to move, W to jump/confirm\n• Player 2: ← → to move, ↑ to jump/confirm\n• ESC to pause during matches\n• Both players can use SPACE to pause'
+            },
+            {
+                title: 'GAME MODES',
+                x: rightX,
+                y: topY,
+                text: '• SOCCER: Score goals to win\n• FIGHT: Reduce opponent\'s hearts to 0\n• Choose time limit and win condition\n• Best of series format available'
+            },
+            {
+                title: 'SPECIAL POWERS',
+                x: leftX,
+                y: bottomY,
+                text: '• Each character has unique abilities\n• Powers recharge over time\n• Use them strategically to gain advantage\n• Shadow skins get 2 power charges!'
+            },
+            {
+                title: 'PROGRESSION',
+                x: rightX,
+                y: bottomY,
+                text: '• Earn XP by playing matches\n• Level up to unlock new character skins\n• Equip skins in the LOCKER\n• Bronze, Silver, Gold, Shadow rarities'
+            }
+        ];
+        
+        // Create each section in the 2x2 grid
+        sections.forEach(section => {
+            // Section background panel (slightly lighter than modal background)
+            const sectionPanel = this.add.rectangle(section.x, section.y, boxWidth - 10, boxHeight - 10, 0x1a1a1a, 0.9);
+            sectionPanel.setStrokeStyle(2, 0x333333);
+            this.infoContentElements.push(sectionPanel);
+            
+            // Section title (bold yellow, centered at top)
+            const sectionTitle = this.add.text(section.x, section.y - (boxHeight / 2) + 25, section.title, {
+                fontSize: '14px',
+                fontStyle: 'bold',
+                fill: '#ffff00',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5);
+            this.infoContentElements.push(sectionTitle);
+            
+            // Section text (white bullet points with padding)
+            const sectionText = this.add.text(section.x, section.y + 10, section.text, {
+                fontSize: '11px',
+                fontStyle: 'bold',
+                fill: '#ffffff',
+                lineSpacing: 4,
+                align: 'left',
+                wordWrap: { width: boxWidth - 30, useAdvancedWrap: true }
+            }).setOrigin(0.5);
+            this.infoContentElements.push(sectionText);
+        });
+    }
+    
+    createCharactersContent() {
+        const modal = this.modalDimensions;
+        
+        // Calculate content area with padding
+        const contentWidth = modal.width - 60;
+        const contentHeight = modal.contentHeight;
+        const contentCenterX = modal.centerX;
+        const contentTop = modal.contentTop;
+        
+        // Create content background
+        const contentBg = this.add.rectangle(contentCenterX, contentTop + contentHeight / 2, contentWidth, contentHeight, 0x0f0f0f, 0.95);
+        contentBg.setStrokeStyle(2, 0x444444);
+        this.infoContentElements.push(contentBg);
+        
+        // Calculate 3x2 grid layout with proper spacing
+        const gridCols = 3;
+        const gridRows = 2;
+        const gridGap = 15; // Gap between boxes
+        const gridPadding = 20; // Padding from edges
+        
+        // Calculate box dimensions for 3x2 grid
+        const availableWidth = contentWidth - (gridPadding * 2) - (gridGap * (gridCols - 1));
+        const availableHeight = contentHeight - (gridPadding * 2) - (gridGap * (gridRows - 1));
+        
+        const boxWidth = availableWidth / gridCols;
+        const boxHeight = availableHeight / gridRows;
+        
+        // Calculate starting position for grid
+        const startX = contentCenterX - (availableWidth / 2) + (boxWidth / 2);
+        const startY = contentTop + gridPadding + (boxHeight / 2);
+        
+        // Character data
+        const characterData = [
+            { key: 'volt', name: 'Volt', power: 'Lightning Dash', description: 'Dashes forward with lightning speed and electrical damage' },
+            { key: 'blaze', name: 'Blaze', power: 'Fire Kick', description: 'Shoots devastating horizontal fire balls that knock back enemies' },
+            { key: 'frostbite', name: 'Frostbite', power: 'Ice Shard', description: 'Launches freezing projectiles that slow opponents' },
+            { key: 'brick', name: 'Brick', power: 'Shield Wall', description: 'Creates protective barriers and becomes immune to attacks' },
+            { key: 'jellyhead', name: 'Jellyhead', power: 'Jelly Shot', description: 'Fires purple projectiles that slow enemies to 30% speed' },
+            { key: 'whirlwind', name: 'Whirlwind', power: 'Tornado Spin', description: 'Spins rapidly creating damaging wind effects' }
+        ];
+        
+        // Create each character box in 3x2 grid
+        characterData.forEach((charData, index) => {
+            const row = Math.floor(index / gridCols);
+            const col = index % gridCols;
+            
+            const charX = startX + (col * (boxWidth + gridGap));
+            const charY = startY + (row * (boxHeight + gridGap));
+            
+            // Character panel background
+            const charPanel = this.add.rectangle(charX, charY, boxWidth - 5, boxHeight - 5, 0x1a1a1a, 0.9);
+            charPanel.setStrokeStyle(2, 0x333333);
+            charPanel.setInteractive();
+            this.infoContentElements.push(charPanel);
+            
+            // Add hover effect for polish
+            charPanel.on('pointerover', () => {
+                charPanel.setFillStyle(0x252525, 0.9);
+            });
+            charPanel.on('pointerout', () => {
+                charPanel.setFillStyle(0x1a1a1a, 0.9);
+            });
+            
+            // Large character sprite in top center
+            const mainSpriteX = charX;
+            const mainSpriteY = charY - (boxHeight / 4);
+            
+            let charSprite;
+            if (this.textures.exists(`${charData.key}_preview`)) {
+                charSprite = this.add.image(mainSpriteX, mainSpriteY, `${charData.key}_preview`);
+                const character = CHARACTERS[charData.key];
+                const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+                
+                // Increase size of all character sprites
+                let scale;
+                if (charData.key === 'brick' || charData.key === 'jellyhead' || charData.key === 'whirlwind') {
+                    scale = spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation) ? 3.2 : 3.5;
+                } else {
+                    scale = spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation) ? 2.5 : 2.8;
+                }
+                
+                if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
+                    charSprite.setScale(scale).setOrigin(0.5).setFrame(0);
+                } else {
+                    charSprite.setScale(scale).setOrigin(0.5);
+                }
+            } else {
+                const character = CHARACTERS[charData.key];
+                charSprite = this.add.rectangle(mainSpriteX, mainSpriteY, 32, 32, character.color);
+                charSprite.setScale(2.2);
+            }
+            this.infoContentElements.push(charSprite);
+            
+            // Text section at bottom - calculate positions from bottom up
+            const bottomY = charY + (boxHeight / 2) - 10;
+            
+            // Description (white text, wrapped) - at bottom
+            const descWidth = boxWidth - 20;
+            const description = this.add.text(charX, bottomY, charData.description, {
+                fontSize: Math.min(12, boxWidth / 22) + 'px',
+                fontStyle: 'normal',
+                fill: '#ffffff',
+                wordWrap: { width: descWidth, useAdvancedWrap: true },
+                lineSpacing: 2,
+                align: 'center'
+            }).setOrigin(0.5, 1);
+            this.infoContentElements.push(description);
+            
+            // Power name (bold yellow) - above description
+            const powerY = description.y - description.displayHeight - 5;
+            const powerName = this.add.text(charX, powerY, charData.power, {
+                fontSize: Math.min(11, boxWidth / 22) + 'px',
+                fontStyle: 'bold',
+                fill: '#ffff00',
+                stroke: '#000000',
+                strokeThickness: 1
+            }).setOrigin(0.5, 1);
+            this.infoContentElements.push(powerName);
+            
+            // Character name (bold white) - above power name
+            const nameY = powerName.y - powerName.displayHeight - 3;
+            const charName = this.add.text(charX, nameY, charData.name, {
+                fontSize: Math.min(12, boxWidth / 20) + 'px',
+                fontStyle: 'bold',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5, 1);
+            this.infoContentElements.push(charName);
         });
     }
 }
