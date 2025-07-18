@@ -44,6 +44,221 @@ const CHARACTERS = {
     }
 };
 
+// Sound System - Global utility for managing arcade-style sound effects
+const SoundManager = {
+    // Sound debounce system to prevent overlapping sounds
+    lastButtonClick: 0,
+    lastForwardButton: 0,
+    lastPowerUse: 0,
+    debounceTime: 100, // 100ms cooldown as requested
+    audioInitialized: false,
+    
+    // HTML5 Audio fallback
+    buttonClickAudio: null,
+    forwardButtonAudio: null,
+    characterPowerAudio: {
+        blaze: null,
+        brick: null,
+        frostbite: null,
+        jellyhead: null,
+        volt: null,
+        whirlwind: null
+    },
+    
+    // Initialize audio context (call on first user interaction)
+    initializeAudio(scene) {
+        if (!this.audioInitialized) {
+            try {
+                // Initialize HTML5 Audio as fallback (WAV works on all browsers)
+                this.buttonClickAudio = new Audio('assets/SFX/back_002.wav');
+                this.forwardButtonAudio = new Audio('assets/SFX/select_001.wav');
+                
+                // Initialize character-specific power sounds
+                this.characterPowerAudio.blaze = new Audio('assets/SFX/Blaze/Blazesound.wav');
+                this.characterPowerAudio.brick = new Audio('assets/SFX/Brick/Bricksound.wav');
+                this.characterPowerAudio.frostbite = new Audio('assets/SFX/Frostbite/Frostbitesound.wav');
+                this.characterPowerAudio.jellyhead = new Audio('assets/SFX/Jellyhead/Jellysound.wav');
+                this.characterPowerAudio.volt = new Audio('assets/SFX/Volt/Voltsound.wav');
+                this.characterPowerAudio.whirlwind = new Audio('assets/SFX/Whirlwind/Whirlwind.wav');
+                
+                // Set volume
+                this.buttonClickAudio.volume = 0.5;
+                this.forwardButtonAudio.volume = 0.5;
+                
+                // Set character power volumes
+                Object.values(this.characterPowerAudio).forEach(audio => {
+                    if (audio) audio.volume = 0.7;
+                });
+                
+                // Resume audio context if it's suspended
+                if (scene && scene.sound && scene.sound.context && scene.sound.context.state === 'suspended') {
+                    scene.sound.context.resume();
+                }
+                
+                this.audioInitialized = true;
+                console.log('🔊 Audio initialized successfully');
+            } catch (error) {
+                console.warn('🔇 Audio initialization failed:', error);
+            }
+        }
+    },
+    
+    // Play button click sound with debounce (for back/cancel/close buttons)
+    playButtonClick(scene) {
+        this.initializeAudio(scene); // Try to initialize audio
+        
+        const now = Date.now();
+        if (now - this.lastButtonClick < this.debounceTime) {
+            return; // Skip if too soon
+        }
+        this.lastButtonClick = now;
+        
+        // Try Phaser sound first, then HTML5 Audio fallback
+        if (scene && scene.sound && scene.sound.get('buttonClick')) {
+            try {
+                scene.sound.play('buttonClick', { volume: 0.5 });
+                console.log('🔊 Playing button click sound via Phaser');
+                return;
+            } catch (error) {
+                console.warn('🔇 Phaser button click sound failed:', error);
+            }
+        }
+        
+        // Fallback to HTML5 Audio
+        if (this.buttonClickAudio) {
+            try {
+                this.buttonClickAudio.currentTime = 0; // Reset to beginning
+                this.buttonClickAudio.play();
+                console.log('🔊 Playing button click sound via HTML5 Audio');
+            } catch (error) {
+                console.warn('🔇 HTML5 button click sound failed:', error);
+            }
+        }
+    },
+    
+    // Play forward button sound with debounce (for continue/select/start buttons)
+    playForwardButton(scene) {
+        this.initializeAudio(scene); // Try to initialize audio
+        
+        const now = Date.now();
+        if (now - this.lastForwardButton < this.debounceTime) {
+            return; // Skip if too soon
+        }
+        this.lastForwardButton = now;
+        
+        // Try Phaser sound first, then HTML5 Audio fallback
+        if (scene && scene.sound && scene.sound.get('forwardButton')) {
+            try {
+                scene.sound.play('forwardButton', { volume: 0.5 });
+                console.log('🔊 Playing forward button sound via Phaser');
+                return;
+            } catch (error) {
+                console.warn('🔇 Phaser forward button sound failed:', error);
+            }
+        }
+        
+        // Fallback to HTML5 Audio
+        if (this.forwardButtonAudio) {
+            try {
+                this.forwardButtonAudio.currentTime = 0; // Reset to beginning
+                this.forwardButtonAudio.play();
+                console.log('🔊 Playing forward button sound via HTML5 Audio');
+            } catch (error) {
+                console.warn('🔇 HTML5 forward button sound failed:', error);
+            }
+        }
+    },
+    
+    // Play character-specific power sound with debounce
+    playCharacterPower(scene, characterName) {
+        this.initializeAudio(scene); // Try to initialize audio
+        
+        const now = Date.now();
+        if (now - this.lastPowerUse < this.debounceTime) {
+            return; // Skip if too soon
+        }
+        this.lastPowerUse = now;
+        
+        // Convert character name to lowercase for consistency
+        const charKey = characterName.toLowerCase();
+        
+        // Try Phaser sound first, then HTML5 Audio fallback
+        if (scene && scene.sound && scene.sound.get(`power_${charKey}`)) {
+            try {
+                scene.sound.play(`power_${charKey}`, { volume: 0.7 });
+                console.log(`🔊 Playing ${characterName} power sound via Phaser`);
+                return;
+            } catch (error) {
+                console.warn(`🔇 Phaser ${characterName} power sound failed:`, error);
+            }
+        }
+        
+        // Fallback to HTML5 Audio
+        if (this.characterPowerAudio[charKey]) {
+            try {
+                this.characterPowerAudio[charKey].currentTime = 0; // Reset to beginning
+                this.characterPowerAudio[charKey].play();
+                console.log(`🔊 Playing ${characterName} power sound via HTML5 Audio`);
+            } catch (error) {
+                console.warn(`🔇 HTML5 ${characterName} power sound failed:`, error);
+            }
+        }
+    },
+    
+    // Backward compatibility for old power usage function
+    playPowerUse(scene, characterName = 'Blaze') {
+        console.warn('⚠️ playPowerUse is deprecated, use playCharacterPower instead');
+        this.playCharacterPower(scene, characterName);
+    },
+    
+    // Preload sounds in any scene
+    preloadSounds(scene) {
+        if (scene && scene.load) {
+            console.log('🔊 Loading sound files...');
+            
+            // Load with WAV format for universal compatibility
+            scene.load.audio('buttonClick', 'assets/SFX/back_002.wav');
+            scene.load.audio('forwardButton', 'assets/SFX/select_001.wav');
+            
+            // Load character-specific power sounds
+            scene.load.audio('power_blaze', 'assets/SFX/Blaze/Blazesound.wav');
+            scene.load.audio('power_brick', 'assets/SFX/Brick/Bricksound.wav');
+            scene.load.audio('power_frostbite', 'assets/SFX/Frostbite/Frostbitesound.wav');
+            scene.load.audio('power_jellyhead', 'assets/SFX/Jellyhead/Jellysound.wav');
+            scene.load.audio('power_volt', 'assets/SFX/Volt/Voltsound.wav');
+            scene.load.audio('power_whirlwind', 'assets/SFX/Whirlwind/Whirlwind.wav');
+            
+            // Add load event listeners for debugging
+            scene.load.on('filecomplete-audio-buttonClick', () => {
+                console.log('✅ Back button sound loaded successfully');
+            });
+            
+            scene.load.on('filecomplete-audio-forwardButton', () => {
+                console.log('✅ Forward button sound loaded successfully');
+            });
+            
+            // Character power sound load listeners (consolidated)
+            let loadedCharacterSounds = 0;
+            const totalCharacterSounds = 6;
+            
+            const characterSounds = ['blaze', 'brick', 'frostbite', 'jellyhead', 'volt', 'whirlwind'];
+            characterSounds.forEach(char => {
+                scene.load.on(`filecomplete-audio-power_${char}`, () => {
+                    loadedCharacterSounds++;
+                    if (loadedCharacterSounds === totalCharacterSounds) {
+                        console.log('✅ All character power sounds loaded successfully');
+                    }
+                });
+            });
+            
+            scene.load.on('loaderror', (file) => {
+                console.error('❌ Sound loading error:', file);
+                console.log('🔄 Falling back to HTML5 Audio');
+            });
+        }
+    }
+};
+
 // XP and Progression System
 const XP_SYSTEM = {
     // XP rewards per match
@@ -251,6 +466,9 @@ class HomeScene extends Phaser.Scene {
                 console.error(`No sprite config found for character: ${key}`);
             }
         });
+
+        // Preload sound effects
+        SoundManager.preloadSounds(this);
     }
 
     create() {
@@ -330,14 +548,17 @@ class HomeScene extends Phaser.Scene {
 
         // Add click handlers
         this.localMultiplayerBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
             this.scene.start('CharacterSelectionScene');
         });
 
         this.tutorialBg.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
             this.openTutorialPanel();
         });
 
         this.characterInfoBg.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
             this.openCharacterInfoPanel();
         });
 
@@ -934,6 +1155,9 @@ class CharacterSelectionScene extends Phaser.Scene {
         // });
         
         // Power sprites removed for cleaner layout
+
+        // Preload sound effects
+        SoundManager.preloadSounds(this);
     }
 
     create() {
@@ -999,7 +1223,10 @@ class CharacterSelectionScene extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5);
         this.backBtn.setInteractive();
-        this.backBtn.on('pointerdown', () => this.scene.start('HomeScene'));
+        this.backBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.scene.start('HomeScene');
+        });
         
         // Add hover effects for Back button
         this.backBtn.on('pointerover', () => {
@@ -1024,7 +1251,10 @@ class CharacterSelectionScene extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5);
         this.infoBtn.setInteractive();
-        this.infoBtn.on('pointerdown', () => this.openInfoPanel());
+        this.infoBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.openInfoPanel();
+        });
         
         // Add hover effects for Info button
         this.infoBtn.on('pointerover', () => {
@@ -1063,7 +1293,10 @@ class CharacterSelectionScene extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5);
         this.player1LockerBtn.setInteractive();
-        this.player1LockerBtn.on('pointerdown', () => this.openLocker('player1'));
+        this.player1LockerBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.openLocker('player1');
+        });
         
         // Add hover effects
         this.player1LockerBtn.on('pointerover', () => {
@@ -1102,7 +1335,10 @@ class CharacterSelectionScene extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5);
         this.player2LockerBtn.setInteractive();
-        this.player2LockerBtn.on('pointerdown', () => this.openLocker('player2'));
+        this.player2LockerBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.openLocker('player2');
+        });
         
         // Add hover effects
         this.player2LockerBtn.on('pointerover', () => {
@@ -1310,7 +1546,10 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.player1CancelBtn.setStrokeStyle(2, 0xff0000);
         this.player1CancelBtn.setInteractive();
         this.player1CancelBtn.setVisible(false);
-        this.player1CancelBtn.on('pointerdown', () => this.cancelPlayer1Selection());
+        this.player1CancelBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.cancelPlayer1Selection();
+        });
         
         this.player1CancelText = this.add.text(310, 510, 'CANCEL', {
             fontSize: '10px',
@@ -1377,7 +1616,10 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.player2CancelBtn.setStrokeStyle(2, 0xff0000);
         this.player2CancelBtn.setInteractive();
         this.player2CancelBtn.setVisible(false);
-        this.player2CancelBtn.on('pointerdown', () => this.cancelPlayer2Selection());
+        this.player2CancelBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.cancelPlayer2Selection();
+        });
         
         this.player2CancelText = this.add.text(710, 510, 'CANCEL', {
             fontSize: '10px',
@@ -1665,7 +1907,10 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.lockerCloseBtn = this.add.rectangle(whirlwindColumnX, 55, 75, 35, 0x000000, 0.9);
         this.lockerCloseBtn.setStrokeStyle(3, 0xff0000);
         this.lockerCloseBtn.setInteractive();
-        this.lockerCloseBtn.on('pointerdown', () => this.closeLocker());
+        this.lockerCloseBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.closeLocker();
+        });
         this.lockerCloseText = this.add.text(whirlwindColumnX, 55, 'CLOSE', {
             fontSize: '14px',
             fontStyle: 'bold',
@@ -1803,6 +2048,7 @@ class CharacterSelectionScene extends Phaser.Scene {
                 if (isUnlocked) {
                     skinContainer.setInteractive();
                     skinContainer.on('pointerdown', () => {
+                        SoundManager.playForwardButton(this);
                         this.equipSkin(playerId, charKey, skinType);
                     });
                     
@@ -1954,7 +2200,10 @@ class CharacterSelectionScene extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5);
         this.tutorialTab.setInteractive();
-        this.tutorialTab.on('pointerdown', () => this.switchInfoTab('tutorial'));
+        this.tutorialTab.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.switchInfoTab('tutorial');
+        });
         
         this.charactersTab = this.add.rectangle(centerX + tabSpacing / 2, tabY, tabWidth, 40, 0x000000, 0.9);
         this.charactersTab.setStrokeStyle(3, 0x666666);
@@ -1966,13 +2215,19 @@ class CharacterSelectionScene extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5);
         this.charactersTab.setInteractive();
-        this.charactersTab.on('pointerdown', () => this.switchInfoTab('characters'));
+        this.charactersTab.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.switchInfoTab('characters');
+        });
         
         // Close button - responsive positioning
         this.infoCloseBtn = this.add.rectangle(modalRight - 50, modalTop + 40, 80, 40, 0x000000, 0.9);
         this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
         this.infoCloseBtn.setInteractive();
-        this.infoCloseBtn.on('pointerdown', () => this.closeInfoPanel());
+        this.infoCloseBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.closeInfoPanel();
+        });
         this.infoCloseText = this.add.text(modalRight - 50, modalTop + 40, 'CLOSE', {
             fontSize: '16px',
             fontStyle: 'bold',
@@ -2499,7 +2754,10 @@ class GameModesScene extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5);
         this.backBtn.setInteractive();
-        this.backBtn.on('pointerdown', () => this.goBackToCharacterSelection());
+        this.backBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.goBackToCharacterSelection();
+        });
         
         // Add hover effects
         this.backBtn.on('pointerover', () => {
@@ -2524,6 +2782,9 @@ class GameModesScene extends Phaser.Scene {
 
         // Setup keyboard controls
         this.setupControls();
+
+        // Preload sound effects
+        SoundManager.preloadSounds(this);
     }
 
     createModeToggleTabs() {
@@ -2556,8 +2817,14 @@ class GameModesScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // Add click handlers
-        this.soccerTabBg.on('pointerdown', () => this.selectMode('soccer'));
-        this.fightTabBg.on('pointerdown', () => this.selectMode('fight'));
+        this.soccerTabBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
+            this.selectMode('soccer');
+        });
+        this.fightTabBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
+            this.selectMode('fight');
+        });
 
         // Add hover effects
         this.soccerTabBg.on('pointerover', () => {
@@ -2626,7 +2893,10 @@ class GameModesScene extends Phaser.Scene {
             }).setOrigin(0.5);
 
             // Add click handler
-            optionBg.on('pointerdown', () => this.selectConfig(index));
+            optionBg.on('pointerdown', () => {
+                SoundManager.playForwardButton(this);
+                this.selectConfig(index);
+            });
 
             // Add hover effects
             optionBg.on('pointerover', () => {
@@ -2694,6 +2964,7 @@ class GameModesScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         this.continueButtonBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
             this.continueToMapSelection();
         });
 
@@ -2825,7 +3096,10 @@ class MapSelectScene extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5);
         this.backBtn.setInteractive();
-        this.backBtn.on('pointerdown', () => this.goBackToGameModes());
+        this.backBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.goBackToGameModes();
+        });
         
         // Add hover effects
         this.backBtn.on('pointerover', () => {
@@ -2966,6 +3240,7 @@ class MapSelectScene extends Phaser.Scene {
             // Click handlers for both thumbnail and click area
             const selectHandler = () => {
                 console.log('Selected map:', config.key);
+                SoundManager.playForwardButton(this);
                 this.selectMap(config.key);
             };
 
@@ -3066,6 +3341,7 @@ class MapSelectScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         this.startButtonBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
             this.startMatch();
         });
 
@@ -3271,6 +3547,9 @@ class GameScene extends Phaser.Scene {
             'assets/Sprites/Powers/Brick/BurstFreePack/128/Burst_1_128.png',
             { frameWidth: 128, frameHeight: 128 }
         );
+
+        // Preload sound effects
+        SoundManager.preloadSounds(this);
     }
 
     calculatePowerCooldown(playerId) {
@@ -3824,7 +4103,10 @@ class GameScene extends Phaser.Scene {
         this.pauseButton = this.add.circle(750, 50, 20, 0x0080ff, 0.9);
         this.pauseButton.setStrokeStyle(3, 0x00ffff);
         this.pauseButton.setInteractive();
-        this.pauseButton.on('pointerdown', () => this.togglePause());
+        this.pauseButton.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.togglePause();
+        });
         
         // Pause symbol (two vertical bars)
         this.pauseSymbol1 = this.add.rectangle(745, 50, 4, 16, 0xffffff);
@@ -4158,6 +4440,7 @@ class GameScene extends Phaser.Scene {
         
         // Add click handlers to button backgrounds
         fightBtnBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
             // Use the original full time setting, not remaining time
             const currentMatchSettings = {
                 time: selectedMatchSettings.time, // Full original time (90s if 90s was selected)
@@ -4169,16 +4452,19 @@ class GameScene extends Phaser.Scene {
         });
         
         continueBtnBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
             this.scene.start('CharacterSelectionScene');
         });
         
         // Add space key listener
         this.input.keyboard.once('keydown-SPACE', () => {
+            SoundManager.playForwardButton(this);
             this.scene.start('CharacterSelectionScene');
         });
         
         // Add F key listener for fight mode
         this.input.keyboard.once('keydown-F', () => {
+            SoundManager.playForwardButton(this);
             // Use the original full time setting, not remaining time
             const currentMatchSettings = {
                 time: selectedMatchSettings.time, // Full original time (90s if 90s was selected)
@@ -4522,6 +4808,14 @@ class GameScene extends Phaser.Scene {
         // Use one charge
         this.powers[player].charges--;
         
+        // Get selected character for this player
+        const characterKey = player === 'player1' ? selectedCharacters.player1 : selectedCharacters.player2;
+        const character = CHARACTERS[characterKey];
+        const playerSprite = player === 'player1' ? this.player1 : this.player2;
+        
+        // Play character-specific power sound effect
+        SoundManager.playCharacterPower(this, character.name);
+        
         console.log(`⚡ ${player} used power! Charges remaining: ${this.powers[player].charges}/${this.powers[player].maxCharges}`);
         
         // ONLY start cooldown when ALL charges are used up
@@ -4536,11 +4830,6 @@ class GameScene extends Phaser.Scene {
         } else {
             console.log(`✅ ${player} still has ${this.powers[player].charges} charges - NO COOLDOWN`);
         }
-        
-        // Get selected character for this player
-        const characterKey = player === 'player1' ? selectedCharacters.player1 : selectedCharacters.player2;
-        const character = CHARACTERS[characterKey];
-        const playerSprite = player === 'player1' ? this.player1 : this.player2;
         
         console.log(`⚡ Applying power for character: ${characterKey}, character name: ${character.name}`);
         
@@ -5877,7 +6166,10 @@ class GameScene extends Phaser.Scene {
         this.resumeBtn.setInteractive();
         this.resumeBtn.setDepth(1002);
         this.resumeBtn.setScrollFactor(0);
-        this.resumeBtn.on('pointerdown', () => this.resumeGame());
+        this.resumeBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.resumeGame();
+        });
         
         this.resumeText = this.add.text(400, 280, 'RESUME', {
             fontSize: '20px',
@@ -5896,7 +6188,10 @@ class GameScene extends Phaser.Scene {
         this.quitBtn.setInteractive();
         this.quitBtn.setDepth(1002);
         this.quitBtn.setScrollFactor(0);
-        this.quitBtn.on('pointerdown', () => this.quitToCharacterSelection());
+        this.quitBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.quitToCharacterSelection();
+        });
         
         this.quitText = this.add.text(400, 340, 'QUIT', {
             fontSize: '20px',
@@ -6092,6 +6387,9 @@ class FightScene extends Phaser.Scene {
         
         // Load blast effect sprites for each character
         this.loadBlastEffects();
+
+        // Preload sound effects
+        SoundManager.preloadSounds(this);
     }
 
     loadBlastEffects() {
@@ -6366,7 +6664,10 @@ class FightScene extends Phaser.Scene {
         this.pauseButton = this.add.circle(750, 50, 20, 0x0080ff, 0.9);
         this.pauseButton.setStrokeStyle(3, 0x00ffff);
         this.pauseButton.setInteractive();
-        this.pauseButton.on('pointerdown', () => this.togglePause());
+        this.pauseButton.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.togglePause();
+        });
         
         // Pause symbol (two vertical bars)
         this.pauseSymbol1 = this.add.rectangle(745, 50, 4, 16, 0xffffff);
@@ -6509,7 +6810,10 @@ class FightScene extends Phaser.Scene {
         this.resumeBtn.setInteractive();
         this.resumeBtn.setDepth(1002);
         this.resumeBtn.setScrollFactor(0);
-        this.resumeBtn.on('pointerdown', () => this.resumeGame());
+        this.resumeBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.resumeGame();
+        });
         
         this.resumeText = this.add.text(400, 280, 'RESUME', {
             fontSize: '20px',
@@ -6528,7 +6832,10 @@ class FightScene extends Phaser.Scene {
         this.quitBtn.setInteractive();
         this.quitBtn.setDepth(1002);
         this.quitBtn.setScrollFactor(0);
-        this.quitBtn.on('pointerdown', () => this.quitToCharacterSelection());
+        this.quitBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.quitToCharacterSelection();
+        });
         
         this.quitText = this.add.text(400, 340, 'QUIT', {
             fontSize: '20px',
@@ -6764,6 +7071,10 @@ class FightScene extends Phaser.Scene {
         const playerSprite = isPlayer1 ? this.player1 : this.player2;
         const opponent = isPlayer1 ? this.player2 : this.player1;
         const characterKey = isPlayer1 ? selectedCharacters.player1 : selectedCharacters.player2;
+        const character = CHARACTERS[characterKey];
+
+        // Play character-specific power sound effect
+        SoundManager.playCharacterPower(this, character.name);
 
         // Set blast on cooldown
         if (isPlayer1) {
@@ -7044,19 +7355,23 @@ class FightScene extends Phaser.Scene {
         
         // Add click handlers to button backgrounds
         restartBtnBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
             this.scene.restart();
         });
         
         selectBtnBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
             this.scene.start('CharacterSelectionScene');
         });
 
         // Add key listeners
         this.input.keyboard.once('keydown-R', () => {
+            SoundManager.playForwardButton(this);
             this.scene.restart();
         });
 
         this.input.keyboard.once('keydown-C', () => {
+            SoundManager.playForwardButton(this);
             this.scene.start('CharacterSelectionScene');
         });
     }
@@ -7075,6 +7390,11 @@ const config = {
             gravity: { y: 300 },
             debug: false
         }
+    },
+    audio: {
+        disableWebAudio: false,
+        context: false,
+        noAudio: false
     },
     scene: [HomeScene, CharacterSelectionScene, GameModesScene, MapSelectScene, GameScene, FightScene]
 };
