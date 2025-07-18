@@ -56,6 +56,11 @@ const SoundManager = {
     // HTML5 Audio fallback
     buttonClickAudio: null,
     forwardButtonAudio: null,
+    kickballAudio: null,
+    goalScoreAudio: null,
+    fightIntroAudio: null,
+    victoryAudio: null,
+    lastKickballPlay: 0,
     characterPowerAudio: {
         blaze: null,
         brick: null,
@@ -72,6 +77,10 @@ const SoundManager = {
                 // Initialize HTML5 Audio as fallback (WAV works on all browsers)
                 this.buttonClickAudio = new Audio('assets/SFX/back_002.wav');
                 this.forwardButtonAudio = new Audio('assets/SFX/select_001.wav');
+                this.kickballAudio = new Audio('assets/SFX/ballkicksound.wav');
+                this.goalScoreAudio = new Audio('assets/SFX/pluck_002.wav');
+                this.fightIntroAudio = new Audio('assets/SFX/fightdeep.wav');
+                this.victoryAudio = new Audio('assets/SFX/Victory.wav');
                 
                 // Initialize character-specific power sounds
                 this.characterPowerAudio.blaze = new Audio('assets/SFX/Blaze/Blazesound.wav');
@@ -84,10 +93,47 @@ const SoundManager = {
                 // Set volume
                 this.buttonClickAudio.volume = 0.5;
                 this.forwardButtonAudio.volume = 0.5;
+                this.kickballAudio.volume = 0.6;
+                this.goalScoreAudio.volume = 0.8;
+                this.fightIntroAudio.volume = 0.9;
+                this.victoryAudio.volume = 0.8;
                 
                 // Set character power volumes
                 Object.values(this.characterPowerAudio).forEach(audio => {
                     if (audio) audio.volume = 0.7;
+                });
+                
+                // Add load event handlers for HTML5 Audio
+                this.kickballAudio.addEventListener('canplaythrough', () => {
+                    console.log('✅ Ball kick HTML5 Audio ready');
+                });
+                
+                this.kickballAudio.addEventListener('error', (e) => {
+                    console.warn('🔇 Ball kick HTML5 Audio error:', e);
+                });
+                
+                this.goalScoreAudio.addEventListener('canplaythrough', () => {
+                    console.log('✅ Goal score HTML5 Audio ready');
+                });
+                
+                this.goalScoreAudio.addEventListener('error', (e) => {
+                    console.warn('🔇 Goal score HTML5 Audio error:', e);
+                });
+                
+                this.fightIntroAudio.addEventListener('canplaythrough', () => {
+                    console.log('✅ Fight intro HTML5 Audio ready');
+                });
+                
+                this.fightIntroAudio.addEventListener('error', (e) => {
+                    console.warn('🔇 Fight intro HTML5 Audio error:', e);
+                });
+                
+                this.victoryAudio.addEventListener('canplaythrough', () => {
+                    console.log('✅ Victory HTML5 Audio ready');
+                });
+                
+                this.victoryAudio.addEventListener('error', (e) => {
+                    console.warn('🔇 Victory HTML5 Audio error:', e);
                 });
                 
                 // Resume audio context if it's suspended
@@ -211,6 +257,118 @@ const SoundManager = {
         this.playCharacterPower(scene, characterName);
     },
     
+    // Play kickball sound for soccer mode
+    playKickballSound(scene) {
+        const currentTime = Date.now();
+        
+        // Add debouncing to prevent rapid-fire audio issues
+        if (currentTime - this.lastKickballPlay < this.debounceTime) {
+            return; // Skip if too soon
+        }
+        this.lastKickballPlay = currentTime;
+        
+        // Try Phaser sound first - this is the most reliable method
+        if (scene && scene.sound && scene.sound.get('kickball')) {
+            try {
+                scene.sound.play('kickball', { volume: 0.6 });
+                console.log('🔊 Playing ball kick sound via Phaser');
+                return;
+            } catch (error) {
+                console.warn('🔇 Phaser kickball sound failed:', error);
+            }
+        }
+        
+        // Simplified HTML5 Audio fallback - only try if properly loaded
+        if (this.kickballAudio && this.kickballAudio.readyState >= 3) {
+            try {
+                this.kickballAudio.currentTime = 0;
+                this.kickballAudio.play().catch(error => {
+                    // Silent fail - don't spam console
+                });
+            } catch (error) {
+                // Silent fail - don't spam console
+            }
+        }
+    },
+    
+    // Play goal score sound for soccer mode
+    playGoalScoreSound(scene) {
+        // Try Phaser sound first - this is the most reliable method
+        if (scene && scene.sound && scene.sound.get('goal_score')) {
+            try {
+                scene.sound.play('goal_score', { volume: 0.8 });
+                console.log('🔊 Playing goal score sound via Phaser');
+                return;
+            } catch (error) {
+                console.warn('🔇 Phaser goal score sound failed:', error);
+            }
+        }
+        
+        // Simplified HTML5 Audio fallback - only try if properly loaded
+        if (this.goalScoreAudio && this.goalScoreAudio.readyState >= 3) {
+            try {
+                this.goalScoreAudio.currentTime = 0;
+                this.goalScoreAudio.play().catch(error => {
+                    // Silent fail - don't spam console
+                });
+            } catch (error) {
+                // Silent fail - don't spam console
+            }
+        }
+    },
+    
+    // Play fight intro sound for fight mode
+    playFightIntroSound(scene) {
+        // Try Phaser sound first - this is the most reliable method
+        if (scene && scene.sound && scene.sound.get('fight_intro')) {
+            try {
+                scene.sound.play('fight_intro', { volume: 0.9 });
+                console.log('🔊 Playing fight intro sound via Phaser');
+                return;
+            } catch (error) {
+                console.warn('🔇 Phaser fight intro sound failed:', error);
+            }
+        }
+        
+        // Simplified HTML5 Audio fallback - only try if properly loaded
+        if (this.fightIntroAudio && this.fightIntroAudio.readyState >= 3) {
+            try {
+                this.fightIntroAudio.currentTime = 0;
+                this.fightIntroAudio.play().catch(error => {
+                    // Silent fail - don't spam console
+                });
+            } catch (error) {
+                // Silent fail - don't spam console
+            }
+        }
+    },
+    
+    // Play victory sound for win scenarios
+    playVictorySound(scene) {
+        // Try Phaser sound first - this is the most reliable method
+        if (scene && scene.sound && scene.sound.get('victory')) {
+            try {
+                scene.sound.play('victory', { volume: 0.8 });
+                console.log('🔊 Playing victory sound via Phaser');
+                return;
+            } catch (error) {
+                console.warn('🔇 Phaser victory sound failed:', error);
+            }
+        }
+        
+        // Simplified HTML5 Audio fallback - only try if properly loaded
+        if (this.victoryAudio && this.victoryAudio.readyState >= 3) {
+            try {
+                this.victoryAudio.currentTime = 0;
+                this.victoryAudio.play().catch(error => {
+                    // Silent fail - don't spam console
+                });
+            } catch (error) {
+                // Silent fail - don't spam console
+            }
+        }
+    },
+    
     // Preload sounds in any scene
     preloadSounds(scene) {
         if (scene && scene.load) {
@@ -228,6 +386,18 @@ const SoundManager = {
             scene.load.audio('power_volt', 'assets/SFX/Volt/Voltsound.wav');
             scene.load.audio('power_whirlwind', 'assets/SFX/Whirlwind/Whirlwind.wav');
             
+            // Load ball kick sound for soccer mode
+            scene.load.audio('kickball', 'assets/SFX/ballkicksound.wav');
+            
+            // Load goal scoring sound for soccer mode
+            scene.load.audio('goal_score', 'assets/SFX/pluck_002.wav');
+            
+            // Load fight intro sound for fight mode
+            scene.load.audio('fight_intro', 'assets/SFX/fightdeep.wav');
+            
+            // Load victory sound for win scenarios
+            scene.load.audio('victory', 'assets/SFX/Victory.wav');
+            
             // Add load event listeners for debugging
             scene.load.on('filecomplete-audio-buttonClick', () => {
                 console.log('✅ Back button sound loaded successfully');
@@ -235,6 +405,22 @@ const SoundManager = {
             
             scene.load.on('filecomplete-audio-forwardButton', () => {
                 console.log('✅ Forward button sound loaded successfully');
+            });
+            
+            scene.load.on('filecomplete-audio-kickball', () => {
+                console.log('✅ Ball kick sound loaded successfully');
+            });
+            
+            scene.load.on('filecomplete-audio-goal_score', () => {
+                console.log('✅ Goal score sound loaded successfully');
+            });
+            
+            scene.load.on('filecomplete-audio-fight_intro', () => {
+                console.log('✅ Fight intro sound loaded successfully');
+            });
+            
+            scene.load.on('filecomplete-audio-victory', () => {
+                console.log('✅ Victory sound loaded successfully');
             });
             
             // Character power sound load listeners (consolidated)
@@ -2668,6 +2854,7 @@ class CharacterSelectionScene extends Phaser.Scene {
     }
 
     confirmPlayer1Selection() {
+        SoundManager.playForwardButton(this);
         this.player1Confirmed = true;
         selectedCharacters.player1 = this.characterKeys[this.player1Selection];
         this.updateDisplay();
@@ -2681,6 +2868,7 @@ class CharacterSelectionScene extends Phaser.Scene {
     }
 
     confirmPlayer2Selection() {
+        SoundManager.playForwardButton(this);
         this.player2Confirmed = true;
         selectedCharacters.player2 = this.characterKeys[this.player2Selection];
         this.updateDisplay();
@@ -3548,6 +3736,9 @@ class GameScene extends Phaser.Scene {
             { frameWidth: 128, frameHeight: 128 }
         );
 
+        // Load meteor sprite for chaos event
+        this.load.image('meteor', 'assets/Sprites/Events/Meteor Drop/space/spr_big_meteor.png');
+
         // Preload sound effects
         SoundManager.preloadSounds(this);
     }
@@ -3916,9 +4107,13 @@ class GameScene extends Phaser.Scene {
             console.error('❌ Failed to create brick burst animation:', error.message);
         }
         
-        // Start with idle animations
-        this.player1.play('player1_idle_anim');
-        this.player2.play('player2_idle_anim');
+        // Start with idle animations (only if they exist)
+        if (this.anims.exists('player1_idle_anim')) {
+            this.player1.play('player1_idle_anim');
+        }
+        if (this.anims.exists('player2_idle_anim')) {
+            this.player2.play('player2_idle_anim');
+        }
         
         // Create soccer ball with pixel art sprite
         this.ball = this.physics.add.sprite(400, 450, 'ball'); // Positioned at same level as players
@@ -4005,10 +4200,8 @@ class GameScene extends Phaser.Scene {
                 frameRate: 10,
                 repeat: -1
             });
-        } else {
-            // Mini Pixel Pack - Single frame animations (no animation needed)
-            // Static frames will be used directly without animation
         }
+        // Note: Mini Pixel Pack characters don't need animations - they use static sprites
         
         // Create Player 2 animations
         if (p2SpriteConfig.type === 'sprite_sheet') {
@@ -4026,10 +4219,8 @@ class GameScene extends Phaser.Scene {
                 frameRate: 10,
                 repeat: -1
             });
-        } else {
-            // Mini Pixel Pack - Single frame animations (no animation needed)
-            // Static frames will be used directly without animation
         }
+        // Note: Mini Pixel Pack characters don't need animations - they use static sprites
     }
 
     getRandomChaosDelay() {
@@ -4252,6 +4443,9 @@ class GameScene extends Phaser.Scene {
     handleGoalScored(scorer) {
         if (this.gameOver) return;
         
+        // Play goal scoring sound
+        SoundManager.playGoalScoreSound(this);
+        
         if (scorer === 'left') {
             this.leftScore++;
             this.leftScoreText.setText(`PLAYER 1: ${this.leftScore}`);
@@ -4286,6 +4480,11 @@ class GameScene extends Phaser.Scene {
 
     handleGameOver(winner) {
         this.gameOver = true;
+        
+        // Play victory sound (unless it's a draw)
+        if (winner !== 'Draw') {
+            SoundManager.playVictorySound(this);
+        }
         
         // Award XP based on results
         let p1XP = 0;
@@ -4584,6 +4783,9 @@ class GameScene extends Phaser.Scene {
         }
         
         ball.setVelocity(kickVelocityX, kickVelocityY);
+        
+        // Play kickball sound effect
+        SoundManager.playKickballSound(this);
     }
 
     isPlayerPowerActive(playerKey) {
@@ -4646,7 +4848,9 @@ class GameScene extends Phaser.Scene {
             if (this.wasd.A.isDown) {
                 if (this.player1.body.touching.down) {
                     this.player1.setVelocityX(-player1HorizontalSpeed);
-                    this.player1.play('player1_walk_anim', true);
+                    if (this.anims.exists('player1_walk_anim')) {
+                        this.player1.play('player1_walk_anim', true);
+                    }
                 } else if (player1AirMovementSpeed > 0) {
                     // Allow air movement in zero gravity
                     this.player1.setVelocityX(-player1AirMovementSpeed);
@@ -4655,7 +4859,9 @@ class GameScene extends Phaser.Scene {
             } else if (this.wasd.D.isDown) {
                 if (this.player1.body.touching.down) {
                     this.player1.setVelocityX(player1HorizontalSpeed);
-                    this.player1.play('player1_walk_anim', true);
+                    if (this.anims.exists('player1_walk_anim')) {
+                        this.player1.play('player1_walk_anim', true);
+                    }
                 } else if (player1AirMovementSpeed > 0) {
                     // Allow air movement in zero gravity
                     this.player1.setVelocityX(player1AirMovementSpeed);
@@ -4663,7 +4869,7 @@ class GameScene extends Phaser.Scene {
                 this.player1.setFlipX(false); // Face right
             } else {
                 this.player1.setVelocityX(0);
-                if (this.player1.body.touching.down) {
+                if (this.player1.body.touching.down && this.anims.exists('player1_idle_anim')) {
                     this.player1.play('player1_idle_anim', true);
                 }
             }
@@ -4690,7 +4896,9 @@ class GameScene extends Phaser.Scene {
             if (this.cursors.left.isDown) {
                 if (this.player2.body.touching.down) {
                     this.player2.setVelocityX(-player2HorizontalSpeed);
-                    this.player2.play('player2_walk_anim', true);
+                    if (this.anims.exists('player2_walk_anim')) {
+                        this.player2.play('player2_walk_anim', true);
+                    }
                 } else if (player2AirMovementSpeed > 0) {
                     // Allow air movement in zero gravity
                     this.player2.setVelocityX(-player2AirMovementSpeed);
@@ -4699,7 +4907,9 @@ class GameScene extends Phaser.Scene {
             } else if (this.cursors.right.isDown) {
                 if (this.player2.body.touching.down) {
                     this.player2.setVelocityX(player2HorizontalSpeed);
-                    this.player2.play('player2_walk_anim', true);
+                    if (this.anims.exists('player2_walk_anim')) {
+                        this.player2.play('player2_walk_anim', true);
+                    }
                 } else if (player2AirMovementSpeed > 0) {
                     // Allow air movement in zero gravity
                     this.player2.setVelocityX(player2AirMovementSpeed);
@@ -4707,7 +4917,7 @@ class GameScene extends Phaser.Scene {
                 this.player2.setFlipX(false); // Face right
             } else {
                 this.player2.setVelocityX(0);
-                if (this.player2.body.touching.down) {
+                if (this.player2.body.touching.down && this.anims.exists('player2_idle_anim')) {
                     this.player2.play('player2_idle_anim', true);
                 }
             }
@@ -5837,7 +6047,8 @@ class GameScene extends Phaser.Scene {
     }
     
     spawnMeteor() {
-        const meteor = this.add.circle(Math.random() * 800, -50, 8, 0xff4500);
+        const meteor = this.add.sprite(Math.random() * 800, -50, 'meteor');
+        meteor.setScale(0.3); // Scale down the meteor to smaller size
         this.physics.add.existing(meteor);
         
         meteor.body.setVelocity(
@@ -6385,6 +6596,9 @@ class FightScene extends Phaser.Scene {
         // Load ground texture
         this.load.image('grass', 'assets/Sprites/Backgrounds/grass.png');
         
+        // Load fight intro image
+        this.load.image('fight_intro', 'assets/HUI/Fight/fight.png');
+        
         // Load blast effect sprites for each character
         this.loadBlastEffects();
 
@@ -6511,12 +6725,16 @@ class FightScene extends Phaser.Scene {
         // Initialize pause state
         this.isPaused = false;
         this.pauseMenuElements = [];
+        this.fightIntroActive = false;
 
         // Create UI
         this.createFightUI();
         
         // Create blast animations
         this.createBlastAnimations();
+        
+        // Show fight intro animation before allowing gameplay
+        this.showFightIntro();
     }
 
     setupPlayerSprite(player, spriteConfig) {
@@ -6565,6 +6783,7 @@ class FightScene extends Phaser.Scene {
                 repeat: -1
             });
         }
+        // Note: Mini Pixel Pack characters don't need animations - they use static sprites
 
         // Create Player 2 animations
         if (p2SpriteConfig.type === 'sprite_sheet') {
@@ -6581,6 +6800,7 @@ class FightScene extends Phaser.Scene {
                 repeat: -1
             });
         }
+        // Note: Mini Pixel Pack characters don't need animations - they use static sprites
     }
 
     createFightUI() {
@@ -6725,6 +6945,58 @@ class FightScene extends Phaser.Scene {
             frames: this.anims.generateFrameNumbers('jellyhead_slime', { start: 16, end: 23 }),
             frameRate: 8,
             repeat: -1
+        });
+    }
+
+    showFightIntro() {
+        // Set fight intro as active to disable player controls
+        this.fightIntroActive = true;
+        
+        // Play fight intro sound
+        SoundManager.playFightIntroSound(this);
+        
+        // Create the fight intro image in the center of the screen
+        const fightIntro = this.add.image(400, 300, 'fight_intro');
+        fightIntro.setOrigin(0.5);
+        fightIntro.setDepth(1000); // High depth to appear above everything
+        fightIntro.setScale(0.1); // Start very small
+        fightIntro.setAlpha(0); // Start invisible
+        
+        // Animation sequence
+        this.tweens.add({
+            targets: fightIntro,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            alpha: 1,
+            duration: 300,
+            ease: 'Back.easeOut',
+            onComplete: () => {
+                // Keep at full size for the display duration
+                this.tweens.add({
+                    targets: fightIntro,
+                    scaleX: 1.0,
+                    scaleY: 1.0,
+                    duration: 400,
+                    ease: 'Power2.easeInOut',
+                    onComplete: () => {
+                        // After 1 second total, zoom out and fade
+                        this.tweens.add({
+                            targets: fightIntro,
+                            scaleX: 2.0,
+                            scaleY: 2.0,
+                            alpha: 0,
+                            duration: 300,
+                            ease: 'Back.easeIn',
+                            onComplete: () => {
+                                // Remove the intro image and enable gameplay
+                                fightIntro.destroy();
+                                this.fightIntroActive = false;
+                                console.log('🥊 Fight intro complete - players can now fight!');
+                            }
+                        });
+                    }
+                });
+            }
         });
     }
 
@@ -6918,7 +7190,7 @@ class FightScene extends Phaser.Scene {
     }
 
     update() {
-        if (this.gameOver || this.isPaused) return;
+        if (this.gameOver || this.isPaused || this.fightIntroActive) return;
 
         // Update match timer
         this.updateMatchTimer();
@@ -7286,6 +7558,11 @@ class FightScene extends Phaser.Scene {
         
         // Use provided winner or determine based on HP
         const finalWinner = winner || (this.player1HP > 0 ? 'Player 1' : 'Player 2');
+        
+        // Play victory sound (unless it's a draw)
+        if (finalWinner !== 'Draw') {
+            SoundManager.playVictorySound(this);
+        }
         
         // Create overlay
         const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
