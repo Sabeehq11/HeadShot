@@ -861,6 +861,20 @@ class HomeScene extends Phaser.Scene {
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
+        // Hero Jumper Button
+        this.heroJumperBg = this.add.rectangle(400, startY + (buttonSpacing * 3), 320, 60, 0x000000, 0.9);
+        this.heroJumperBg.setStrokeStyle(4, 0xff00ff); // Vibrant purple border
+        this.heroJumperBg.setInteractive();
+        
+        this.heroJumperBtn = this.add.text(400, startY + (buttonSpacing * 3), 'HERO JUMPER', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#ff00ff', // Purple text to match border
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
         // Add click handlers
         this.localMultiplayerBg.on('pointerdown', () => {
             SoundManager.playForwardButton(this);
@@ -875,6 +889,11 @@ class HomeScene extends Phaser.Scene {
         this.characterInfoBg.on('pointerdown', () => {
             SoundManager.playButtonClick(this);
             this.openCharacterInfoPanel();
+        });
+
+        this.heroJumperBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
+            this.scene.start('SoloCharacterSelectionScene');
         });
 
         // Add hover effects for Local Multiplayer button
@@ -911,6 +930,18 @@ class HomeScene extends Phaser.Scene {
             this.characterInfoBg.setFillStyle(0x000000, 0.9);
             this.characterInfoBg.setStrokeStyle(4, 0xff00ff);
             this.characterInfoBtn.setStyle({ fill: '#ff00ff' });
+        });
+
+        // Add hover effects for Hero Jumper button
+        this.heroJumperBg.on('pointerover', () => {
+            this.heroJumperBg.setFillStyle(0x330033, 0.9); // Purple tint
+            this.heroJumperBg.setStrokeStyle(4, 0xff00ff);
+            this.heroJumperBtn.setStyle({ fill: '#ffffff' });
+        });
+        this.heroJumperBg.on('pointerout', () => {
+            this.heroJumperBg.setFillStyle(0x000000, 0.9);
+            this.heroJumperBg.setStrokeStyle(4, 0xff00ff);
+            this.heroJumperBtn.setStyle({ fill: '#ff00ff' });
         });
     }
 
@@ -8393,6 +8424,1216 @@ class FightScene extends Phaser.Scene {
     }
 }
 
+// Solo Character Selection Scene - for Hero Jumper mode
+class SoloCharacterSelectionScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'SoloCharacterSelectionScene' });
+        this.characterKeys = Object.keys(CHARACTERS);
+        this.playerSelection = 0;
+        this.playerConfirmed = false;
+        this.charactersDisplay = [];
+        this.playerGrid = [];
+        
+        // Info Panel state
+        this.infoPanelOpen = false;
+        this.infoCurrentTab = 'tutorial';
+        this.infoPanelElements = [];
+        this.infoContentElements = [];
+        
+        // Locker state
+        this.lockerOpen = false;
+        this.currentLockerPlayer = null;
+        this.lockerElements = [];
+        this.lockerCharElements = [];
+        
+        // Add fallback functions if CharacterSpriteHelper is missing functions
+        if (!CharacterSpriteHelper.getSkinDisplayName) {
+            CharacterSpriteHelper.getSkinDisplayName = function(skinType) {
+                const names = {
+                    'base': 'Base',
+                    'bronze': 'Bronze',
+                    'silver': 'Silver',
+                    'gold': 'Gold',
+                    'shadow': 'Shadow'
+                };
+                return names[skinType] || skinType;
+            };
+        }
+        
+        if (!CharacterSpriteHelper.getAllSkinTypes) {
+            CharacterSpriteHelper.getAllSkinTypes = function() {
+                return ['base', 'bronze', 'silver', 'gold', 'shadow'];
+            };
+        }
+        
+        if (!CharacterSpriteHelper.getSkinRarityColor) {
+            CharacterSpriteHelper.getSkinRarityColor = function(skinType) {
+                const colors = {
+                    'base': 0xffffff,    // white
+                    'bronze': 0xcd7f32,  // bronze
+                    'silver': 0xc0c0c0,  // silver
+                    'gold': 0xffd700,    // gold
+                    'shadow': 0x800080   // purple
+                };
+                return colors[skinType] || 0xffffff;
+            };
+        }
+    }
+
+    init() {
+        // Reset scene state
+        this.characterKeys = Object.keys(CHARACTERS);
+        this.playerSelection = 0;
+        this.playerConfirmed = false;
+        this.charactersDisplay = [];
+        this.playerGrid = [];
+        this.infoPanelOpen = false;
+        this.infoCurrentTab = 'tutorial';
+        this.infoPanelElements = [];
+        this.infoContentElements = [];
+        
+        console.log('🎮 Solo Character Selection initialized');
+    }
+
+    preload() {
+        // Load all character sprites for previews
+        this.characterKeys.forEach(key => {
+            const character = CHARACTERS[key];
+            const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+            
+            if (spriteConfig) {
+                if (spriteConfig.type === 'sprite_sheet') {
+                    // Load idle animation for Tiny Heroes
+                    this.load.spritesheet(`${key}_preview`, 
+                        spriteConfig.basePath + spriteConfig.animations.idle.file, 
+                        { frameWidth: 32, frameHeight: 32 }
+                    );
+                } else {
+                    // Load single frame for Mini Pixel Pack characters
+                    const idleAnim = spriteConfig.animations.idle;
+                    const framePath = spriteConfig.basePath + idleAnim.file;
+                    this.load.image(`${key}_preview`, framePath);
+                }
+            } else {
+                console.error(`No sprite config found for character: ${key}`);
+            }
+        });
+        
+        // Preload sound effects
+        SoundManager.preloadSounds(this);
+    }
+
+    create() {
+        SoundManager.initializeAudio(this);
+        
+        // Arcade-style gradient background (matching local multiplayer)
+        this.add.rectangle(400, 300, 800, 600, 0x000000);
+        this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8);
+        
+        // Arcade border frame (matching local multiplayer)
+        this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
+        this.add.rectangle(400, 300, 770, 570, 0x000000, 0).setStrokeStyle(2, 0xff00ff);
+
+        // Arcade-style title with glow effect (matching local multiplayer)
+        this.add.text(400, 40, 'HERO JUMPER', {
+            fontSize: '36px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#ff0000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
+        // Title underline (matching local multiplayer)
+        this.add.rectangle(400, 60, 500, 3, 0x00ffff);
+
+        // Back button (top-left corner - arcade style, matching local multiplayer)
+        this.backBtn = this.add.rectangle(85, 50, 100, 32, 0x000000, 0.9);
+        this.backBtn.setStrokeStyle(3, 0x00ffff);
+        this.backBtnText = this.add.text(85, 50, 'BACK', {
+            fontSize: '14px',
+            fontStyle: 'bold',
+            fill: '#00ffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        this.backBtn.setInteractive();
+        this.backBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.scene.start('HomeScene');
+        });
+        
+        // Add hover effects for Back button
+        this.backBtn.on('pointerover', () => {
+            this.backBtn.setFillStyle(0x003333, 0.9);
+            this.backBtn.setStrokeStyle(3, 0x00ffff);
+            this.backBtnText.setStyle({ fill: '#ffffff' });
+        });
+        this.backBtn.on('pointerout', () => {
+            this.backBtn.setFillStyle(0x000000, 0.9);
+            this.backBtn.setStrokeStyle(3, 0x00ffff);
+            this.backBtnText.setStyle({ fill: '#00ffff' });
+        });
+
+        // Info button (top-right corner - arcade style with purple colors, matching local multiplayer)
+        this.infoBtn = this.add.rectangle(715, 50, 100, 32, 0x000000, 0.9);
+        this.infoBtn.setStrokeStyle(3, 0xff00ff);
+        this.infoBtnText = this.add.text(715, 50, 'INFO', {
+            fontSize: '14px',
+            fontStyle: 'bold',
+            fill: '#ff00ff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        this.infoBtn.setInteractive();
+        this.infoBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.openInfoPanel();
+        });
+        
+        // Add hover effects for Info button
+        this.infoBtn.on('pointerover', () => {
+            this.infoBtn.setFillStyle(0x330033, 0.9);
+            this.infoBtn.setStrokeStyle(3, 0xff00ff);
+            this.infoBtnText.setStyle({ fill: '#ffffff' });
+        });
+        this.infoBtn.on('pointerout', () => {
+            this.infoBtn.setFillStyle(0x000000, 0.9);
+            this.infoBtn.setStrokeStyle(3, 0xff00ff);
+            this.infoBtnText.setStyle({ fill: '#ff00ff' });
+        });
+
+        // Single Player Section (centered like Player 1 but bigger) - Arcade style
+        this.add.rectangle(400, 100, 400, 50, 0x000000, 0.8);
+        this.add.rectangle(400, 100, 400, 50, 0x001100, 0).setStrokeStyle(4, 0x00ff00);
+        this.add.text(400, 100, 'SELECT YOUR HERO', {
+            fontSize: '28px',
+            fontStyle: 'bold',
+            fill: '#00ff00',
+            stroke: '#000000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
+        // Locker button - arcade style (centered below header)
+        this.lockerBtn = this.add.rectangle(400, 145, 80, 28, 0x000000, 0.8);
+        this.lockerBtn.setStrokeStyle(3, 0x00ff00);
+        this.lockerText = this.add.text(400, 145, 'LOCKER', {
+            fontSize: '12px',
+            fontStyle: 'bold',
+            fill: '#00ff00',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        this.lockerBtn.setInteractive();
+        this.lockerBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.openLocker('player1'); // Use player1 for solo mode
+        });
+        
+        // Add hover effects for Locker button
+        this.lockerBtn.on('pointerover', () => {
+            this.lockerBtn.setFillStyle(0x001100, 0.9);
+            this.lockerBtn.setStrokeStyle(3, 0x00ff00);
+            this.lockerText.setStyle({ fill: '#ffffff' });
+        });
+        this.lockerBtn.on('pointerout', () => {
+            this.lockerBtn.setFillStyle(0x000000, 0.8);
+            this.lockerBtn.setStrokeStyle(3, 0x00ff00);
+            this.lockerText.setStyle({ fill: '#00ff00' });
+        });
+
+        // Create character grid (centered like local multiplayer)
+        this.createCharacterGrid();
+        
+        // Create player UI panel (like local multiplayer)
+        this.createPlayerUI();
+        
+        // Setup input handlers
+        this.setupInputHandlers();
+        
+        // Create character preview animations
+        this.createCharacterAnimations();
+        
+        // Update initial selection
+        this.updateSelection();
+    }
+
+    createCharacterGrid() {
+        this.playerGrid = [];
+
+        // Grid settings (matching local multiplayer)
+        const gridCols = 3;
+        const gridRows = 2;
+        const cellWidth = 110;
+        const cellHeight = 120;
+        
+        // Centered grid (like local multiplayer but centered in full screen)
+        const startX = 285; // Centered for 3 columns
+        const startY = 200;
+
+        this.characterKeys.forEach((key, index) => {
+            const character = CHARACTERS[key];
+            const row = Math.floor(index / gridCols);
+            const col = index % gridCols;
+            
+            // Character preview position
+            const x = startX + (col * cellWidth);
+            const y = startY + (row * cellHeight);
+            
+            const sprite = this.createCharacterPreview(x, y, key, 'base');
+            const name = this.add.text(x, y + 50, character.name, {
+                fontSize: '16px',
+                fontStyle: 'bold',
+                fill: '#FFD700',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5);
+
+            this.playerGrid.push({
+                sprite: sprite,
+                name: name,
+                character: key,
+                index: index,
+                x: x,
+                y: y
+            });
+        });
+    }
+
+    createCharacterPreview(x, y, characterKey, skinType) {
+        const character = CHARACTERS[characterKey];
+        const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+        
+        let sprite;
+        
+        // Check if the sprite texture exists
+        if (this.textures.exists(`${characterKey}_preview`)) {
+            if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
+                // For sprite sheets (Tiny Heroes), use static frame
+                sprite = this.add.image(x, y, `${characterKey}_preview`);
+                sprite.setScale(1.8)
+                      .setOrigin(0.5)
+                      .setFrame(0);
+            } else {
+                // For single frames (Mini Pixel Pack)
+                sprite = this.add.image(x, y, `${characterKey}_preview`);
+                sprite.setScale(2.5)
+                      .setOrigin(0.5);
+            }
+        } else {
+            // Create a placeholder if sprite doesn't exist
+            console.error(`Sprite not found for character: ${characterKey}`);
+            sprite = this.add.rectangle(x, y, 32, 32, character.color);
+            sprite.setScale(2);
+            
+            // Add character name as text
+            this.add.text(x, y, characterKey.charAt(0).toUpperCase(), {
+                fontSize: '16px',
+                fill: '#ffffff'
+            }).setOrigin(0.5);
+        }
+
+        // Apply skin tint if not base skin
+        if (skinType !== 'base') {
+            const skinColor = CharacterSpriteHelper.getSkinRarityColor(skinType);
+            sprite.setTint(skinColor);
+        }
+
+        // Add subtle hover effect
+        sprite.setInteractive();
+        sprite.on('pointerover', () => {
+            this.tweens.add({
+                targets: sprite,
+                scaleX: sprite.scaleX * 1.1,
+                scaleY: sprite.scaleY * 1.1,
+                duration: 200,
+                ease: 'Power2'
+            });
+        });
+        
+        sprite.on('pointerout', () => {
+            this.tweens.add({
+                targets: sprite,
+                scaleX: sprite.scaleX / 1.1,
+                scaleY: sprite.scaleY / 1.1,
+                duration: 200,
+                ease: 'Power2'
+            });
+        });
+
+        return sprite;
+    }
+
+    createPlayerUI() {
+        // Player UI (centered like local multiplayer but single panel)
+        this.playerUI = {
+            panel: this.add.rectangle(400, 480, 400, 140, 0x000000, 0.9).setStrokeStyle(4, 0x00ff00),
+            title: this.add.text(400, 425, 'HERO SELECTION', {
+                fontSize: '18px',
+                fontStyle: 'bold',
+                fill: '#00ff00',
+                stroke: '#000000',
+                strokeThickness: 3,
+                shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+            }).setOrigin(0.5),
+            character: this.add.text(400, 455, '', {
+                fontSize: '22px',
+                fontStyle: 'bold',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5),
+            power: this.add.text(400, 485, '', {
+                fontSize: '16px',
+                fontStyle: 'bold',
+                fill: '#ffff00',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5),
+            controls: this.add.text(400, 510, 'ARROW KEYS TO SELECT • ENTER TO START',
+                {
+                fontSize: '12px',
+                fontStyle: 'bold',
+                fill: '#aaaaaa',
+                stroke: '#000000',
+                strokeThickness: 1
+            }).setOrigin(0.5),
+            description: this.add.text(400, 530, '', {
+                fontSize: '11px',
+                fill: '#cccccc',
+                stroke: '#000000',
+                strokeThickness: 1,
+                wordWrap: { width: 360, useAdvancedWrap: true }
+            }).setOrigin(0.5)
+        };
+    }
+
+    setupInputHandlers() {
+        // Arrow key navigation
+        this.cursors = this.input.keyboard.createCursorKeys();
+        
+        // WASD keys
+        this.wasdKeys = this.input.keyboard.addKeys('W,S,A,D');
+        
+        // Enter key
+        this.input.keyboard.on('keydown-ENTER', () => {
+            SoundManager.playForwardButton(this);
+            const selectedCharacter = this.characterKeys[this.playerSelection];
+            this.scene.start('HeroJumperScene', { selectedCharacter: selectedCharacter });
+        });
+        
+        // Escape key
+        this.input.keyboard.on('keydown-ESC', () => {
+            SoundManager.playButtonClick(this);
+            this.scene.start('HomeScene');
+        });
+    }
+
+    createCharacterAnimations() {
+        // Create idle animations for sprite sheet characters
+        this.characterKeys.forEach(key => {
+            const character = CHARACTERS[key];
+            const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+            
+            if (spriteConfig && spriteConfig.type === 'sprite_sheet') {
+                // Create idle animation for preview
+                if (!this.anims.exists(`${key}_preview_idle`)) {
+                    this.anims.create({
+                        key: `${key}_preview_idle`,
+                        frames: this.anims.generateFrameNumbers(`${key}_preview`, { start: 0, end: 3 }),
+                        frameRate: 8,
+                        repeat: -1
+                    });
+                }
+                
+                // Play animation on the character sprite
+                const gridItem = this.playerGrid.find(item => item.character === key);
+                if (gridItem && gridItem.sprite && spriteConfig.type === 'sprite_sheet') {
+                    // Convert image to sprite for animation
+                    const x = gridItem.sprite.x;
+                    const y = gridItem.sprite.y;
+                    const scale = gridItem.sprite.scaleX;
+                    
+                    gridItem.sprite.destroy();
+                    gridItem.sprite = this.add.sprite(x, y, `${key}_preview`);
+                    gridItem.sprite.setScale(scale).setOrigin(0.5);
+                    gridItem.sprite.play(`${key}_preview_idle`);
+                    
+                    // Re-add hover effects
+                    gridItem.sprite.setInteractive();
+                    gridItem.sprite.on('pointerover', () => {
+                        this.tweens.add({
+                            targets: gridItem.sprite,
+                            scaleX: gridItem.sprite.scaleX * 1.1,
+                            scaleY: gridItem.sprite.scaleY * 1.1,
+                            duration: 200,
+                            ease: 'Power2'
+                        });
+                    });
+                    
+                    gridItem.sprite.on('pointerout', () => {
+                        this.tweens.add({
+                            targets: gridItem.sprite,
+                            scaleX: gridItem.sprite.scaleX / 1.1,
+                            scaleY: gridItem.sprite.scaleY / 1.1,
+                            duration: 200,
+                            ease: 'Power2'
+                        });
+                    });
+                }
+            }
+        });
+    }
+
+    update() {
+        if (this.infoPanelOpen || this.lockerOpen) return;
+        
+        // Handle input for character selection
+        const cols = 3;
+        
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.left) || Phaser.Input.Keyboard.JustDown(this.wasdKeys.A)) {
+            SoundManager.playButtonClick(this);
+            this.playerSelection = (this.playerSelection - 1 + this.characterKeys.length) % this.characterKeys.length;
+            this.updateSelection();
+        } else if (Phaser.Input.Keyboard.JustDown(this.cursors.right) || Phaser.Input.Keyboard.JustDown(this.wasdKeys.D)) {
+            SoundManager.playButtonClick(this);
+            this.playerSelection = (this.playerSelection + 1) % this.characterKeys.length;
+            this.updateSelection();
+        } else if (Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.wasdKeys.W)) {
+            SoundManager.playButtonClick(this);
+            this.playerSelection = (this.playerSelection - cols + this.characterKeys.length) % this.characterKeys.length;
+            this.updateSelection();
+        } else if (Phaser.Input.Keyboard.JustDown(this.cursors.down) || Phaser.Input.Keyboard.JustDown(this.wasdKeys.S)) {
+            SoundManager.playButtonClick(this);
+            this.playerSelection = (this.playerSelection + cols) % this.characterKeys.length;
+            this.updateSelection();
+        }
+    }
+
+    updateSelection() {
+        // Update character highlights
+        this.playerGrid.forEach((item, index) => {
+            if (index === this.playerSelection) {
+                // Highlight selected character with yellow border
+                item.sprite.setTint(0xffff00);
+                item.name.setStyle({ fill: '#ffff00' });
+            } else {
+                // Reset to normal
+                item.sprite.clearTint();
+                item.name.setStyle({ fill: '#FFD700' });
+            }
+        });
+
+        // Update UI panel with selected character info
+        const selectedCharacter = CHARACTERS[this.characterKeys[this.playerSelection]];
+        if (selectedCharacter && this.playerUI) {
+            this.playerUI.character.setText(selectedCharacter.name.toUpperCase());
+            this.playerUI.power.setText(selectedCharacter.power.toUpperCase());
+            this.playerUI.description.setText(selectedCharacter.description);
+        }
+    }
+
+    // Info Panel Methods
+    openInfoPanel() {
+        if (this.infoPanelOpen || this.lockerOpen) return;
+        
+        this.infoPanelOpen = true;
+        this.infoCurrentTab = 'tutorial';
+        
+        // Get screen dimensions for responsive layout
+        const screenWidth = this.cameras.main.width;
+        const screenHeight = this.cameras.main.height;
+        
+        // Calculate responsive modal size (80% of screen, max 700x500)
+        const modalWidth = Math.min(700, screenWidth * 0.85);
+        const modalHeight = Math.min(500, screenHeight * 0.85);
+        const centerX = screenWidth / 2;
+        const centerY = screenHeight / 2;
+        
+        // Create backdrop
+        this.infoBackdrop = this.add.rectangle(centerX, centerY, screenWidth, screenHeight, 0x000000, 0.8);
+        this.infoBackdrop.setInteractive();
+        this.infoBackdrop.on('pointerdown', () => this.closeInfoPanel());
+        
+        // Create main panel - responsive and centered
+        this.infoPanel = this.add.rectangle(centerX, centerY, modalWidth, modalHeight, 0x000000, 0.95);
+        this.infoPanel.setStrokeStyle(4, 0xff00ff);
+        this.infoPanel.setInteractive();
+        
+        // Calculate positions relative to modal
+        const modalTop = centerY - modalHeight / 2;
+        const modalRight = centerX + modalWidth / 2;
+        
+        // Title - responsive positioning
+        this.infoPanelTitle = this.add.text(centerX, modalTop + 40, 'HERO JUMPER INFO', {
+            fontSize: Math.min(36, modalWidth / 20) + 'px',
+            fontStyle: 'bold',
+            fill: '#ff00ff',
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        
+        // Close button - responsive positioning
+        this.infoCloseBtn = this.add.rectangle(modalRight - 50, modalTop + 40, 80, 40, 0x000000, 0.9);
+        this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
+        this.infoCloseBtn.setInteractive();
+        this.infoCloseBtn.on('pointerdown', () => this.closeInfoPanel());
+        this.infoCloseText = this.add.text(modalRight - 50, modalTop + 40, 'CLOSE', {
+            fontSize: '16px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        
+        // Add hover effects
+        this.infoCloseBtn.on('pointerover', () => {
+            this.infoCloseBtn.setFillStyle(0x330000, 0.9);
+            this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
+            this.infoCloseText.setStyle({ fill: '#ffffff' });
+        });
+        this.infoCloseBtn.on('pointerout', () => {
+            this.infoCloseBtn.setFillStyle(0x000000, 0.9);
+            this.infoCloseBtn.setStrokeStyle(3, 0xff0000);
+            this.infoCloseText.setStyle({ fill: '#ff0000' });
+        });
+        
+        // Store panel elements
+        this.infoPanelElements = [
+            this.infoBackdrop,
+            this.infoPanel,
+            this.infoPanelTitle,
+            this.infoCloseBtn,
+            this.infoCloseText
+        ];
+        
+        // Create info content
+        this.createHeroJumperInfo(modalWidth, modalHeight, centerX, centerY, modalTop);
+    }
+
+    createHeroJumperInfo(modalWidth, modalHeight, centerX, centerY, modalTop) {
+        const contentTop = modalTop + 80;
+        const contentHeight = modalHeight - 120;
+        
+        // Create content background
+        const contentBg = this.add.rectangle(centerX, contentTop + contentHeight / 2, modalWidth - 40, contentHeight, 0x0f0f0f, 0.95);
+        contentBg.setStrokeStyle(2, 0x444444);
+        this.infoContentElements.push(contentBg);
+        
+                 // Hero Jumper instructions
+         const infoText = `HERO JUMPER - TRAMPOLINE BOUNCE GAME
+
+CONTROLS:
+• Left/Right Arrow Keys or A/D to move horizontally
+• NO MANUAL JUMPING - you bounce automatically when landing on platforms!
+• Screen wrapping - exit one side to appear on the other
+
+PLATFORM TYPES:
+• Brown Platforms: Normal bounce (standard height)
+• Blue Platforms: Booster bounce (extra high jump!)
+• Dark Platforms: Fall after you step on them (be quick!)
+
+GAMEPLAY:
+• Auto-bounce from platform to platform by landing on them
+• Avoid falling soccer balls from above (lose 1 life when hit)
+• Use booster platforms for extra height
+• Climb as high as possible to increase your score
+• Score increases based on vertical height reached
+
+OBJECTIVE:
+• Survive as long as possible
+• Achieve the highest score by climbing higher
+• Master the trampoline bounce mechanics
+
+TIPS:
+• Aim for blue booster platforms for higher jumps
+• Keep moving to avoid hazards
+• Watch out for falling (dark) platforms
+• Use screen edges to escape tight situations`;
+        
+        this.infoContent = this.add.text(centerX, contentTop + contentHeight / 2, infoText, {
+            fontSize: '14px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 1,
+            wordWrap: { width: modalWidth - 80, useAdvancedWrap: true },
+            align: 'left'
+        }).setOrigin(0.5);
+        
+        this.infoContentElements.push(this.infoContent);
+    }
+    
+    closeInfoPanel() {
+        if (!this.infoPanelOpen) return;
+        
+        this.infoPanelOpen = false;
+        
+        // Destroy all panel elements
+        this.infoPanelElements.forEach(element => {
+            if (element) element.destroy();
+        });
+        this.infoPanelElements = [];
+        
+        // Destroy content elements
+        if (this.infoContentElements) {
+            this.infoContentElements.forEach(element => {
+                if (element) element.destroy();
+            });
+            this.infoContentElements = [];
+        }
+    }
+
+    // Locker Methods (simplified for solo play)
+    openLocker(playerId) {
+        console.log(`Opening locker for ${playerId} (Hero Jumper mode)`);
+        
+        // Close info panel if it's open
+        if (this.infoPanelOpen) {
+            this.closeInfoPanel();
+        }
+        
+        // Prevent multiple lockers from opening
+        if (this.lockerOpen) {
+            return;
+        }
+        
+        this.lockerOpen = true;
+        this.currentLockerPlayer = playerId;
+        
+        // Create modal backdrop
+        this.lockerBackdrop = this.add.rectangle(400, 300, 800, 600, 0x000000, 0);
+        this.lockerBackdrop.setInteractive();
+        this.lockerBackdrop.on('pointerdown', () => this.closeLocker());
+        
+        // Create modal panel - arcade style
+        this.lockerPanel = this.add.rectangle(400, 300, 700, 550, 0x000000, 0);
+        this.lockerPanel.setStrokeStyle(4, 0x00ff00);
+        this.lockerPanel.setScale(0.8);
+        
+        // Animate backdrop fade in to full opacity
+        this.tweens.add({
+            targets: this.lockerBackdrop,
+            alpha: 0.95,
+            duration: 300,
+            ease: 'Power2'
+        });
+        
+        // Animate panel fade in and scale up to full opacity
+        this.tweens.add({
+            targets: this.lockerPanel,
+            alpha: 1.0,
+            scaleX: 1.0,
+            scaleY: 1.0,
+            duration: 300,
+            ease: 'Back.easeOut'
+        });
+        
+        // Title - arcade style
+        this.lockerTitle = this.add.text(400, 80, 'HERO LOCKER', {
+            fontSize: '32px',
+            fontStyle: 'bold',
+            fill: '#00ff00',
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        
+        // Info text
+        this.lockerInfo = this.add.text(400, 110, 'CHARACTER SKINS & CUSTOMIZATION', {
+            fontSize: '18px',
+            fontStyle: 'bold',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        
+        // Simple message for Hero Jumper mode
+        const lockerMessage = this.add.text(400, 300, 'LOCKER FEATURE COMING SOON!\n\nCharacter skins and customization\nwill be available in future updates.\n\nFor now, enjoy the base character designs\nin Hero Jumper mode!', {
+            fontSize: '18px',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2,
+            align: 'center'
+        }).setOrigin(0.5);
+        
+        // Close button - arcade style
+        this.lockerCloseBtn = this.add.rectangle(400, 450, 120, 40, 0x000000, 0.9);
+        this.lockerCloseBtn.setStrokeStyle(3, 0xff0000);
+        this.lockerCloseBtn.setInteractive();
+        this.lockerCloseBtn.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.closeLocker();
+        });
+        this.lockerCloseText = this.add.text(400, 450, 'CLOSE', {
+            fontSize: '16px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        
+        // Add hover effects to close button
+        this.lockerCloseBtn.on('pointerover', () => {
+            this.lockerCloseBtn.setFillStyle(0x330000, 0.9);
+            this.lockerCloseBtn.setStrokeStyle(3, 0xff0000);
+            this.lockerCloseText.setStyle({ fill: '#ffffff' });
+        });
+        this.lockerCloseBtn.on('pointerout', () => {
+            this.lockerCloseBtn.setFillStyle(0x000000, 0.9);
+            this.lockerCloseBtn.setStrokeStyle(3, 0xff0000);
+            this.lockerCloseText.setStyle({ fill: '#ff0000' });
+        });
+        
+        // Store locker elements for cleanup
+        this.lockerElements = [
+            this.lockerBackdrop,
+            this.lockerPanel,
+            this.lockerTitle,
+            this.lockerInfo,
+            lockerMessage,
+            this.lockerCloseBtn,
+            this.lockerCloseText
+        ];
+    }
+
+    closeLocker() {
+        if (!this.lockerOpen) return;
+        
+        this.lockerOpen = false;
+        this.currentLockerPlayer = null;
+        
+        // Destroy all locker elements
+        this.lockerElements.forEach(element => {
+            if (element) element.destroy();
+        });
+        this.lockerElements = [];
+        
+        // Destroy character elements if they exist
+        if (this.lockerCharElements) {
+            this.lockerCharElements.forEach(element => {
+                if (element) element.destroy();
+            });
+            this.lockerCharElements = [];
+        }
+    }
+}
+
+// Hero Jumper Scene - Doodle Jump-style gameplay
+class HeroJumperScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'HeroJumperScene' });
+        this.player = null;
+        this.platforms = null;
+        this.hazards = null;
+        this.score = 0;
+        this.lives = 3;
+        this.cameraOffsetY = 0;
+        this.highestY = 600;
+        this.selectedCharacter = null;
+        this.cursors = null;
+        this.wasdKeys = null;
+        this.gameOver = false;
+        this.gameOverElements = [];
+    }
+
+    init(data) {
+        // Get selected character from previous scene
+        this.selectedCharacter = data.selectedCharacter || 'blaze';
+        console.log(`🎮 Hero Jumper starting with character: ${this.selectedCharacter}`);
+        
+        // Reset game state
+        this.score = 0;
+        this.lives = 3;
+        this.cameraOffsetY = 0;
+        this.highestY = 600;
+        this.gameOver = false;
+        this.gameOverElements = [];
+    }
+
+    preload() {
+        // Load selected character sprite
+        const character = CHARACTERS[this.selectedCharacter];
+        const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+        
+        if (spriteConfig) {
+            if (spriteConfig.type === 'sprite_sheet') {
+                this.load.spritesheet(`hero_idle`, 
+                    spriteConfig.basePath + spriteConfig.animations.idle.file, 
+                    { frameWidth: 32, frameHeight: 32 }
+                );
+            } else {
+                this.load.image(`hero_idle`, spriteConfig.basePath + spriteConfig.animations.idle.file);
+            }
+        }
+
+        // Load soccer ball for hazards (using football.png as soccer ball)
+        this.load.image('soccer_ball', 'assets/Sprites/Ball/Sport-Balls-Asset-Pack-Pixel-Art/64x64/football.png');
+    }
+
+    create() {
+        SoundManager.initializeAudio(this);
+        
+        // Set up physics world properly for Doodle Jump mechanics
+        this.physics.world.gravity.y = 800; // Strong gravity for Doodle Jump feel
+        
+        // Sky gradient background
+        this.add.rectangle(400, 300, 800, 600, 0x87ceeb); // Sky blue
+        
+        // Create physics groups
+        this.platforms = this.physics.add.staticGroup();
+        this.hazards = this.physics.add.group();
+        
+        // Create starting platform (always normal type)
+        const startingPlatform = this.createPlatform(400, 550, true);
+        startingPlatform.platformType = 'normal';
+        startingPlatform.bounceVelocity = -500;
+        
+        // Generate initial platforms
+        this.generatePlatforms();
+        
+        // Create player
+        this.createPlayer();
+        
+        // Create UI
+        this.createUI();
+        
+        // Setup input
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.wasdKeys = this.input.keyboard.addKeys('W,S,A,D');
+        
+        // Setup camera to follow player with better tracking
+        this.cameras.main.startFollow(this.player, true, 0.05, 0.1);
+        
+        // Create hazard spawning timer
+        this.time.addEvent({
+            delay: 3000, // Slightly longer delay
+            callback: this.spawnHazard,
+            callbackScope: this,
+            loop: true
+        });
+        
+        console.log('🎮 Hero Jumper scene created successfully');
+    }
+
+    createPlayer() {
+        this.player = this.physics.add.sprite(400, 500, 'hero_idle');
+        this.player.setBounce(0.2);
+        this.player.setCollideWorldBounds(false);
+        this.player.body.setGravityY(0); // Don't set extra gravity, use world gravity
+        this.player.setScale(2.2); // Balanced size - visible but not too big
+        
+        // Create player animations if sprite sheet
+        const character = CHARACTERS[this.selectedCharacter];
+        const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+        
+        if (spriteConfig && spriteConfig.type === 'sprite_sheet') {
+            if (!this.anims.exists('hero_idle_anim')) {
+                this.anims.create({
+                    key: 'hero_idle_anim',
+                    frames: this.anims.generateFrameNumbers('hero_idle', { start: 0, end: 3 }),
+                    frameRate: 8,
+                    repeat: -1
+                });
+            }
+            this.player.play('hero_idle_anim');
+        }
+        
+        // Player-platform collision - TRAMPOLINE BOUNCE MECHANICS
+        this.physics.add.collider(this.player, this.platforms, (player, platform) => {
+            // Only allow bouncing when falling down AND touching the platform from above
+            if (player.body.velocity.y > 0 && player.body.bottom <= platform.body.top + 20) {
+                // Use platform-specific bounce velocity
+                const bounceVelocity = platform.bounceVelocity || -500; // Default fallback
+                player.setVelocityY(bounceVelocity);
+                
+                // Different sounds for different platform types
+                if (platform.platformType === 'booster') {
+                    SoundManager.playForwardButton(this); // Different sound for booster
+                } else {
+                    SoundManager.playButtonClick(this); // Standard bounce sound
+                }
+                
+                // Check if platform should fall
+                if (platform.shouldFall && !platform.falling) {
+                    platform.falling = true;
+                    this.physics.world.enable(platform);
+                    platform.body.setGravityY(200);
+                    
+                    // Make platform semi-transparent when falling
+                    platform.setAlpha(0.7);
+                    
+                    // Remove platform after falling for a while
+                    this.time.delayedCall(3000, () => {
+                        if (platform && platform.active) {
+                            platform.destroy();
+                        }
+                    });
+                }
+            }
+        });
+        
+        // Player-hazard collision
+        this.physics.add.overlap(this.player, this.hazards, (player, hazard) => {
+            this.handleHazardHit(hazard);
+        });
+    }
+
+    createPlatform(x, y, isStarting = false) {
+        // Determine platform type (20% chance for booster platform)
+        const isBooster = !isStarting && Math.random() < 0.2;
+        const isFalling = !isStarting && !isBooster && Math.random() < 0.15; // 15% chance for falling platforms
+        
+        let platform;
+        let platformWidth = 100;
+        let platformHeight = 20;
+        
+        if (isBooster) {
+            // Booster Platform: Smaller and blue
+            platformWidth = 80;
+            platformHeight = 16;
+            platform = this.add.rectangle(x, y, platformWidth, platformHeight, 0x0066ff);
+            platform.setStrokeStyle(2, 0x0044cc);
+            platform.platformType = 'booster';
+            platform.bounceVelocity = -750; // Stronger bounce
+        } else {
+            // Normal Platform: Brown
+            platform = this.add.rectangle(x, y, platformWidth, platformHeight, 0x8b4513);
+            platform.setStrokeStyle(2, 0x654321);
+            platform.platformType = 'normal';
+            platform.bounceVelocity = -500; // Standard bounce
+        }
+        
+        this.physics.add.existing(platform, true); // static body
+        
+        // Ensure platform has proper physics body
+        platform.body.setSize(platformWidth, platformHeight);
+        platform.body.setOffset(0, 0);
+        
+        this.platforms.add(platform);
+        
+        // Some platforms fall when stepped on (except starting platform and boosters)
+        if (isFalling) {
+            platform.shouldFall = true;
+            platform.falling = false;
+            // Make falling platforms slightly darker
+            platform.setFillStyle(0x704214);
+        }
+        
+        return platform;
+    }
+
+    generatePlatforms() {
+        // Generate platforms going upward with better spacing for Doodle Jump
+        for (let y = 400; y > -4000; y -= Phaser.Math.Between(120, 180)) {
+            const x = Phaser.Math.Between(80, 720); // Better screen bounds
+            this.createPlatform(x, y);
+        }
+    }
+
+    spawnHazard() {
+        if (this.gameOver) return;
+        
+        const x = Phaser.Math.Between(50, 750);
+        const y = this.player.y - 600; // Spawn above player
+        
+        const hazard = this.physics.add.sprite(x, y, 'soccer_ball');
+        hazard.setScale(0.5);
+        hazard.setBounce(0.8);
+        hazard.body.setGravityY(200);
+        
+        this.hazards.add(hazard);
+        
+        // Remove hazard when it goes too far below
+        this.time.delayedCall(10000, () => {
+            if (hazard && hazard.active) {
+                hazard.destroy();
+            }
+        });
+    }
+
+    createUI() {
+        // Score display (fixed to camera)
+        this.scoreText = this.add.text(400, 50, 'SCORE: 0', {
+            fontSize: '24px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5).setScrollFactor(0);
+        
+        // Lives display
+        this.livesText = this.add.text(100, 50, 'LIVES: 3', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5).setScrollFactor(0);
+    }
+
+    handleHazardHit(hazard) {
+        SoundManager.playButtonClick(this); // Using existing sound for now
+        hazard.destroy();
+        
+        this.lives--;
+        this.livesText.setText(`LIVES: ${this.lives}`);
+        
+        if (this.lives <= 0) {
+            this.triggerGameOver();
+        }
+    }
+
+    triggerGameOver() {
+        this.gameOver = true;
+        console.log('🎮 Game Over triggered');
+        
+        // Stop player movement
+        this.player.setVelocity(0, 0);
+        this.player.body.setGravityY(0);
+        
+        // Create game over screen
+        this.createGameOverScreen();
+    }
+
+    createGameOverScreen() {
+        const centerX = this.cameras.main.centerX;
+        const centerY = this.cameras.main.centerY;
+        
+        // Backdrop
+        const backdrop = this.add.rectangle(centerX, centerY, 800, 600, 0x000000, 0.8);
+        backdrop.setScrollFactor(0);
+        this.gameOverElements.push(backdrop);
+        
+        // Game Over title
+        const gameOverTitle = this.add.text(centerX, centerY - 100, 'GAME OVER', {
+            fontSize: '48px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5).setScrollFactor(0);
+        this.gameOverElements.push(gameOverTitle);
+        
+        // Final score
+        const finalScoreText = this.add.text(centerX, centerY - 40, `FINAL SCORE: ${this.score}`, {
+            fontSize: '24px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5).setScrollFactor(0);
+        this.gameOverElements.push(finalScoreText);
+        
+        // Retry button (green)
+        const retryButton = this.add.rectangle(centerX - 100, centerY + 50, 150, 50, 0x000000, 0.9);
+        retryButton.setStrokeStyle(4, 0x00ff00);
+        retryButton.setInteractive();
+        retryButton.setScrollFactor(0);
+        this.gameOverElements.push(retryButton);
+        
+        const retryText = this.add.text(centerX - 100, centerY + 50, 'RETRY', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#00ff00',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5).setScrollFactor(0);
+        this.gameOverElements.push(retryText);
+        
+        retryButton.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
+            this.scene.restart({ selectedCharacter: this.selectedCharacter });
+        });
+        
+        // Return to Home button (red)
+        const homeButton = this.add.rectangle(centerX + 100, centerY + 50, 180, 50, 0x000000, 0.9);
+        homeButton.setStrokeStyle(4, 0xff0000);
+        homeButton.setInteractive();
+        homeButton.setScrollFactor(0);
+        this.gameOverElements.push(homeButton);
+        
+        const homeText = this.add.text(centerX + 100, centerY + 50, 'RETURN TO HOME', {
+            fontSize: '16px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5).setScrollFactor(0);
+        this.gameOverElements.push(homeText);
+        
+        homeButton.on('pointerdown', () => {
+            SoundManager.playButtonClick(this);
+            this.scene.start('HomeScene');
+        });
+    }
+
+    update() {
+        if (this.gameOver) return;
+        
+        // Player horizontal movement with air control (reduced speed for better control)
+        if (this.cursors.left.isDown || this.wasdKeys.A.isDown) {
+            this.player.setVelocityX(-200); // Reduced horizontal movement speed
+        } else if (this.cursors.right.isDown || this.wasdKeys.D.isDown) {
+            this.player.setVelocityX(200);
+        } else {
+            // Gradual deceleration instead of instant stop
+            this.player.setVelocityX(this.player.body.velocity.x * 0.8);
+        }
+        
+        // NO MANUAL JUMPING - Trampoline bounce mechanics only
+        // W/Up keys are intentionally ignored for authentic trampoline gameplay
+        // Player automatically bounces when landing on platforms with different velocities
+        
+        // Wrap player around screen edges
+        if (this.player.x < -25) {
+            this.player.x = 825;
+        } else if (this.player.x > 825) {
+            this.player.x = -25;
+        }
+        
+        // Update score based on height
+        if (this.player.y < this.highestY) {
+            this.highestY = this.player.y;
+            this.score = Math.floor((600 - this.highestY) / 5); // More points per height
+            this.scoreText.setText(`SCORE: ${this.score}`);
+        }
+        
+        // Generate more platforms as player goes higher (improved system)
+        const currentHighest = this.player.y - 600; // Generate platforms above current position
+        const existingPlatforms = this.platforms.children.entries;
+        const highestPlatform = Math.min(...existingPlatforms.map(p => p.y));
+        
+        if (currentHighest < highestPlatform) {
+            // Generate new platforms above the highest existing platform
+            for (let y = highestPlatform - 150; y > currentHighest - 1000; y -= Phaser.Math.Between(120, 180)) {
+                const x = Phaser.Math.Between(80, 720);
+                this.createPlatform(x, y);
+            }
+        }
+        
+        // Remove platforms that are far below the player to save memory
+        this.platforms.children.entries.forEach(platform => {
+            if (platform.y > this.player.y + 1000) {
+                platform.destroy();
+            }
+        });
+        
+        // Remove hazards that are far from the player
+        this.hazards.children.entries.forEach(hazard => {
+            if (hazard.y > this.player.y + 800 || hazard.y < this.player.y - 800) {
+                hazard.destroy();
+            }
+        });
+        
+        // Check if player fell too far below their highest point
+        if (this.player.y > this.highestY + 600) {
+            this.triggerGameOver();
+        }
+    }
+}
+
 // Game configuration
 const config = {
     type: Phaser.AUTO,
@@ -8412,7 +9653,7 @@ const config = {
         context: false,
         noAudio: false
     },
-    scene: [HomeScene, CharacterSelectionScene, GameModesScene, MapSelectScene, GameScene, FightScene]
+    scene: [HomeScene, CharacterSelectionScene, SoloCharacterSelectionScene, GameModesScene, MapSelectScene, GameScene, FightScene, HeroJumperScene]
 };
 
 // Initialize the game
