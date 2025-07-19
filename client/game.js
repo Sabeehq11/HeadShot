@@ -9029,6 +9029,7 @@ CONTROLS:
 • Left/Right Arrow Keys or A/D to move horizontally
 • NO MANUAL JUMPING - you bounce automatically when landing on platforms!
 • Screen wrapping - exit one side to appear on the other
+• Pass through platforms from below, land on them from above (Doodle Jump style)
 
 PLATFORM TYPES:
 • Brown Platforms: Normal bounce (standard height)
@@ -9346,12 +9347,19 @@ class HeroJumperScene extends Phaser.Scene {
             this.player.play('hero_idle_anim');
         }
         
-        // Player-platform collision - AUTOMATIC TRAMPOLINE BOUNCE MECHANICS
-        this.physics.add.collider(this.player, this.platforms, (player, platform) => {
-            // FIXED: Use proper body touching detection for reliable trampoline bouncing
-            // Only bounce when player is landing on platform from above (not from sides or below)
-            if (player.body.touching.down && platform.body.touching.up) {
-                // Apply platform-specific bounce velocity (stronger for booster platforms)
+        // Player-platform overlap - ONE-WAY TRAMPOLINE MECHANICS (like Doodle Jump)
+        this.physics.add.overlap(this.player, this.platforms, (player, platform) => {
+            // ONE-WAY PLATFORM COLLISION: Player can pass through from below, but lands on top
+            // Only bounce when player is moving downward AND above the platform
+            const playerBottom = player.body.y + player.body.height;
+            const platformTop = platform.body.y;
+            
+            // Check if player is falling downward and positioned above the platform
+            if (player.body.velocity.y > 0 && playerBottom > platformTop && playerBottom < platformTop + 20) {
+                // Stop the player from falling through
+                player.body.y = platformTop - player.body.height;
+                
+                // Apply platform-specific bounce velocity (trampoline effect)
                 const boost = platform.boost ? -750 : -500;
                 player.setVelocityY(boost);
                 
@@ -9365,20 +9373,26 @@ class HeroJumperScene extends Phaser.Scene {
                 // Check if platform should fall (falling platforms)
                 if (platform.shouldFall && !platform.falling) {
                     platform.falling = true;
-                    this.physics.world.enable(platform);
-                    platform.body.setGravityY(200);
+                    
+                    // FIXED: Convert static body to dynamic body for falling
+                    this.platforms.remove(platform);
+                    platform.body.destroy();
+                    this.physics.add.existing(platform, false); // false = dynamic body
+                    platform.body.setGravityY(300); // Set gravity for falling
+                    platform.body.setVelocityY(100); // Initial downward velocity
                     
                     // Make platform semi-transparent when falling
                     platform.setAlpha(0.7);
                     
                     // Remove platform after falling for a while
-                    this.time.delayedCall(3000, () => {
+                    this.time.delayedCall(5000, () => {
                         if (platform && platform.active) {
                             platform.destroy();
                         }
                     });
                 }
             }
+            // If player is moving upward or below the platform, allow them to pass through
         });
         
         // Player-hazard collision
