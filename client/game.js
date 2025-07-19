@@ -1426,6 +1426,36 @@ class CharacterSelectionScene extends Phaser.Scene {
         this.infoCurrentTab = 'tutorial';
         this.infoPanelElements = [];
         this.infoContentElements = [];
+        
+        // **CRITICAL FIX**: Reset global character selection state to prevent data carry-over
+        console.log('🔄 Resetting character selection data...');
+        selectedCharacters = {
+            player1: null,
+            player2: null
+        };
+        
+        // **CRITICAL FIX**: Clear texture cache for player sprites to prevent fight mode data persistence
+        console.log('🧹 Clearing cached player sprite textures...');
+        const textureKeysToRemove = [
+            'player1_idle', 'player1_walk', 'player2_idle', 'player2_walk',
+            'fight_player1_idle', 'fight_player1_walk', 'fight_player2_idle', 'fight_player2_walk'
+        ];
+        
+        textureKeysToRemove.forEach(key => {
+            if (this.textures && this.textures.exists(key)) {
+                this.textures.remove(key);
+                console.log(`🗑️ Removed cached texture: ${key}`);
+            }
+        });
+        
+        // Clear any lingering physics world references from previous scenes
+        if (this.physics && this.physics.world) {
+            // Reset physics world properties to defaults
+            this.physics.world.gravity.y = 300; // Reset to default gravity
+            console.log('⚙️ Reset physics world properties');
+        }
+        
+        console.log('✅ Character selection scene initialized with completely clean state');
     }
 
     preload() {
@@ -3713,6 +3743,35 @@ class GameScene extends Phaser.Scene {
     }
 
     preload() {
+        // **CRITICAL FIX**: Ensure clean texture loading for soccer mode
+        console.log('🏈 GameScene preload - ensuring fresh sprite loading...');
+        
+        // Clear any fight mode textures that might interfere
+        const fightTexturesToClear = [
+            'fight_player1_idle', 'fight_player1_walk', 
+            'fight_player2_idle', 'fight_player2_walk'
+        ];
+        
+        fightTexturesToClear.forEach(key => {
+            if (this.textures.exists(key)) {
+                this.textures.remove(key);
+                console.log(`🗑️ Cleared fight texture: ${key}`);
+            }
+        });
+        
+        // Clear existing soccer textures to force fresh loading
+        const soccerTexturesToClear = [
+            'player1_idle', 'player1_walk', 
+            'player2_idle', 'player2_walk'
+        ];
+        
+        soccerTexturesToClear.forEach(key => {
+            if (this.textures.exists(key)) {
+                this.textures.remove(key);
+                console.log(`🔄 Cleared existing soccer texture for fresh reload: ${key}`);
+            }
+        });
+        
         // Load selected background
         this.load.image(selectedMap, `assets/Sprites/Backgrounds/${selectedMap}.png`);
 
@@ -3948,6 +4007,28 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
+        console.log('🚀 GameScene create() starting with COMPLETE reset...');
+        
+        // **CRITICAL FIX**: Reset physics world to prevent any carry-over from FightScene
+        console.log('⚙️ Resetting physics world...');
+        
+        // Store current physics world configuration
+        const currentGravity = { x: this.physics.world.gravity.x, y: this.physics.world.gravity.y };
+        
+        // Clear all existing bodies and colliders
+        if (this.physics.world.colliders) {
+            this.physics.world.colliders.destroy();
+        }
+        
+        // Reset physics world completely
+        this.physics.world.shutdown();
+        this.physics.world.step(0); // Force a step to clear everything
+        
+        // Reinitialize physics world with fresh settings
+        this.physics.world.gravity.set(currentGravity.x, currentGravity.y);
+        
+        console.log('✅ Physics world reset complete');
+
         // Add background first (behind everything)
         this.add.image(0, 0, selectedMap)
             .setOrigin(0)
@@ -4025,11 +4106,22 @@ class GameScene extends Phaser.Scene {
             originalBallMaxVelocity: null
         };
         
+        // **VALIDATION**: Ensure character selections are valid
+        if (!selectedCharacters.player1 || !selectedCharacters.player2) {
+            console.error('🚨 Invalid character selection detected!', selectedCharacters);
+            // Fallback to default characters
+            selectedCharacters.player1 = selectedCharacters.player1 || 'blaze';
+            selectedCharacters.player2 = selectedCharacters.player2 || 'frostbite';
+            console.log('🔧 Using fallback characters:', selectedCharacters);
+        }
+        
         // Get selected characters
         const p1Character = CHARACTERS[selectedCharacters.player1];
         const p2Character = CHARACTERS[selectedCharacters.player2];
         const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
         const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
+        
+        console.log(`🎮 GameScene starting with: P1=${selectedCharacters.player1}, P2=${selectedCharacters.player2}`);
     
         // Create ground using grass texture
         const ground = this.add.image(400, 575, 'grass');
@@ -4037,66 +4129,51 @@ class GameScene extends Phaser.Scene {
         ground.setDisplaySize(800, 50); // Stretch to full screen width and maintain 50px height
         this.physics.add.existing(ground, true);
         
-        // Create Player 1 with selected character sprite
-        this.player1 = this.physics.add.sprite(200, 450, 'player1_idle');
-        this.player1.setBounce(0.2);
-        this.player1.setCollideWorldBounds(true);
-        this.player1.setMass(1);
-        this.player1.setDrag(100);
-        this.player1.setMaxVelocity(300, 800); // Adjusted for better gameplay feel
+        // **CRITICAL FIX**: Completely destroy existing players before creating fresh ones
+        console.log('🏃 Destroying any existing player sprites...');
         
-        // Set scale based on character type
-        if (p1SpriteConfig && (p1SpriteConfig.type === 'sprite_sheet' || p1SpriteConfig.hasAnimation)) {
-            this.player1.setScale(2.0);  // Tiny Heroes
-            this.player1.setOrigin(0.5, 1);
-            // Tighten collision body for Tiny Heroes (32x32 base -> 64x64 visual)
-            this.player1.body.setSize(24, 30); // Narrower width, slightly shorter height
-            this.player1.body.setOffset(4, 2); // Center the collision body
-        } else {
-            this.player1.setScale(3.0);  // Mini Pixel Pack - larger scale to match Tiny Heroes
-            this.player1.setOrigin(0.5, 1);
-            // Adjust collision body for Mini Pixel Pack (16x16 base -> 48x48 visual)
-            this.player1.body.setSize(16, 16); // Match the original sprite size for proper collision
-            this.player1.body.setOffset(0, 0); // Center the collision body
+        if (this.player1) {
+            console.log('🗑️ Destroying existing player1 sprite');
+            this.player1.destroy(true); // true = destroy texture
+            this.player1 = null;
         }
         
-        // Apply Player 1 equipped skin tint
-        if (this.p1EquippedSkin && this.p1EquippedSkin !== 'base') {
-            const skinColor = CharacterSpriteHelper.getSkinRarityColor(this.p1EquippedSkin);
-            this.player1.setTint(skinColor);
+        if (this.player2) {
+            console.log('🗑️ Destroying existing player2 sprite');
+            this.player2.destroy(true); // true = destroy texture
+            this.player2 = null;
         }
         
-        // Create Player 2 with selected character sprite
-        this.player2 = this.physics.add.sprite(600, 450, 'player2_idle');
-        this.player2.setBounce(0.2);
-        this.player2.setCollideWorldBounds(true);
-        this.player2.setMass(1);
-        this.player2.setDrag(100);
-        this.player2.setMaxVelocity(300, 800); // Adjusted for better gameplay feel
-        
-        // Set scale based on character type
-        if (p2SpriteConfig && (p2SpriteConfig.type === 'sprite_sheet' || p2SpriteConfig.hasAnimation)) {
-            this.player2.setScale(2.0);  // Tiny Heroes
-            this.player2.setOrigin(0.5, 1);
-            // Tighten collision body for Tiny Heroes (32x32 base -> 64x64 visual)
-            this.player2.body.setSize(24, 30); // Narrower width, slightly shorter height
-            this.player2.body.setOffset(4, 2); // Center the collision body
-        } else {
-            this.player2.setScale(3.0);  // Mini Pixel Pack - larger scale to match Tiny Heroes
-            this.player2.setOrigin(0.5, 1);
-            // Adjust collision body for Mini Pixel Pack (16x16 base -> 48x48 visual)
-            this.player2.body.setSize(16, 16); // Match the original sprite size for proper collision
-            this.player2.body.setOffset(0, 0); // Center the collision body
-        }
-        
-        // Apply Player 2 equipped skin tint
-        if (this.p2EquippedSkin && this.p2EquippedSkin !== 'base') {
-            const skinColor = CharacterSpriteHelper.getSkinRarityColor(this.p2EquippedSkin);
-            this.player2.setTint(skinColor);
-        }
+        // Small delay to ensure complete destruction
+        this.time.delayedCall(10, () => {
+            console.log('🏃 Creating completely fresh player sprites for soccer mode...');
+            
+            // Create Player 1 with selected character sprite - completely fresh
+            this.player1 = this.physics.add.sprite(200, 450, 'player1_idle');
+            this.setupPlayerPhysics(this.player1, p1SpriteConfig, this.p1EquippedSkin);
+            
+            // Create Player 2 with selected character sprite - completely fresh
+            this.player2 = this.physics.add.sprite(600, 450, 'player2_idle');
+            this.setupPlayerPhysics(this.player2, p2SpriteConfig, this.p2EquippedSkin);
+            
+            console.log('✅ Fresh player sprites created successfully');
+            
+            // Continue with the rest of the setup after players are created
+            this.finishGameSetup(p1SpriteConfig, p2SpriteConfig);
+        });
+    }
+    
+    finishGameSetup(p1SpriteConfig, p2SpriteConfig) {
+        console.log('🔧 Finishing GameScene setup after fresh player creation...');
         
         // Create animations for both players
         this.createPlayerAnimations(p1SpriteConfig, p2SpriteConfig);
+        
+        // Store ground reference for collision setup
+        this.ground = this.add.image(400, 575, 'grass');
+        this.ground.setOrigin(0.5, 0.5);
+        this.ground.setDisplaySize(800, 50);
+        this.physics.add.existing(this.ground, true);
         
         // Debug loaded textures
         console.log('🔍 Checking loaded textures...');
@@ -4108,7 +4185,7 @@ class GameScene extends Phaser.Scene {
         console.log('🎬 Creating snowball animations...');
         
         // Create main snowball animation (6 frames: 0-5)
-        if (this.textures.exists('snowball_main')) {
+        if (this.textures.exists('snowball_main') && !this.anims.exists('snowball_roll')) {
             try {
                 this.anims.create({
                     key: 'snowball_roll',
@@ -4120,10 +4197,12 @@ class GameScene extends Phaser.Scene {
             } catch (error) {
                 console.error('❌ Failed to create main snowball animation:', error.message);
             }
+        } else if (this.anims.exists('snowball_roll')) {
+            console.log('⚠️ snowball_roll already exists, skipping creation');
         }
         
         // Create freecool snowball animation (6 frames: 0-5)
-        if (this.textures.exists('snowball_freecool')) {
+        if (this.textures.exists('snowball_freecool') && !this.anims.exists('snowball_freecool_anim')) {
             try {
                 this.anims.create({
                     key: 'snowball_freecool_anim',
@@ -4135,6 +4214,8 @@ class GameScene extends Phaser.Scene {
             } catch (error) {
                 console.error('❌ Failed to create freecool snowball animation:', error.message);
             }
+        } else if (this.anims.exists('snowball_freecool_anim')) {
+            console.log('⚠️ snowball_freecool_anim already exists, skipping creation');
         }
         
         // Create fireball animation from individual frames
@@ -4143,12 +4224,17 @@ class GameScene extends Phaser.Scene {
             fireballFrames.push({ key: `fireball_${i}` });
         }
         
-        this.anims.create({
-            key: 'fireball_anim',
-            frames: fireballFrames,
-            frameRate: 15, // 15 FPS for smooth animation
-            repeat: -1 // Loop indefinitely
-        });
+        if (!this.anims.exists('fireball_anim')) {
+            this.anims.create({
+                key: 'fireball_anim',
+                frames: fireballFrames,
+                frameRate: 15, // 15 FPS for smooth animation
+                repeat: -1 // Loop indefinitely
+            });
+            console.log('✅ Fireball animation created (60 frames)');
+        } else {
+            console.log('⚠️ fireball_anim already exists, skipping creation');
+        }
         
         // Create fire column animation from individual frames
         const fireColumnFrames = [];
@@ -4156,21 +4242,31 @@ class GameScene extends Phaser.Scene {
             fireColumnFrames.push({ key: `fire_column_${i}` });
         }
         
-        this.anims.create({
-            key: 'fire_column_anim',
-            frames: fireColumnFrames,
-            frameRate: 12, // 12 FPS for fire column animation
-            repeat: 0 // Play once
-        });
+        if (!this.anims.exists('fire_column_anim')) {
+            this.anims.create({
+                key: 'fire_column_anim',
+                frames: fireColumnFrames,
+                frameRate: 12, // 12 FPS for fire column animation
+                repeat: 0 // Play once
+            });
+            console.log('✅ Fire column animation created (14 frames)');
+        } else {
+            console.log('⚠️ fire_column_anim already exists, skipping creation');
+        }
         
         // Create JellyHead slime animation from 3rd row of sprite sheet
         // Assuming the sprite sheet has frames arranged in rows, 3rd row starts at frame 16 (if 8 frames per row)
-        this.anims.create({
-            key: 'jellyhead_slime_anim',
-            frames: this.anims.generateFrameNumbers('jellyhead_slime', { start: 16, end: 23 }), // 3rd row: frames 16-23
-            frameRate: 8,
-            repeat: -1 // Loop indefinitely
-        });
+        if (!this.anims.exists('jellyhead_slime_anim')) {
+            this.anims.create({
+                key: 'jellyhead_slime_anim',
+                frames: this.anims.generateFrameNumbers('jellyhead_slime', { start: 16, end: 23 }), // 3rd row: frames 16-23
+                frameRate: 8,
+                repeat: -1 // Loop indefinitely
+            });
+            console.log('✅ JellyHead slime animation created');
+        } else {
+            console.log('⚠️ jellyhead_slime_anim already exists, skipping creation');
+        }
         
         // Create Volt lightning animations for dash effect
         this.anims.create({
@@ -4224,16 +4320,20 @@ class GameScene extends Phaser.Scene {
         });
         
         // Create Brick burst animation for immunity effect
-        try {
-            this.anims.create({
-                key: 'brick_burst_anim',
-                frames: this.anims.generateFrameNumbers('brick_burst', { start: 0, end: 19 }),
-                frameRate: 20,
-                repeat: 0 // Play once
-            });
-            console.log('✅ Brick burst animation created successfully');
-        } catch (error) {
-            console.error('❌ Failed to create brick burst animation:', error.message);
+        if (!this.anims.exists('brick_burst_anim')) {
+            try {
+                this.anims.create({
+                    key: 'brick_burst_anim',
+                    frames: this.anims.generateFrameNumbers('brick_burst', { start: 0, end: 19 }),
+                    frameRate: 20,
+                    repeat: 0 // Play once
+                });
+                console.log('✅ Brick burst animation created successfully');
+            } catch (error) {
+                console.error('❌ Failed to create brick burst animation:', error.message);
+            }
+        } else {
+            console.log('⚠️ brick_burst_anim already exists, skipping creation');
         }
         
         // Start with idle animations (only if they exist)
@@ -4266,10 +4366,10 @@ class GameScene extends Phaser.Scene {
         this.add.image(10, 550, 'goalPost').setOrigin(0, 1).setScale(4.0);
         this.add.image(790, 550, 'goalPost').setOrigin(1, 1).setFlipX(true).setScale(4.0);
     
-        // Physics collisions
-        this.physics.add.collider(this.player1, ground);
-        this.physics.add.collider(this.player2, ground);
-        this.physics.add.collider(this.ball, ground);
+        // Physics collisions - use ground reference from finishGameSetup
+        this.physics.add.collider(this.player1, this.ground);
+        this.physics.add.collider(this.player2, this.ground);
+        this.physics.add.collider(this.ball, this.ground);
         this.physics.add.collider(this.player1, this.ball, this.handlePlayerBallCollision, null, this);
         this.physics.add.collider(this.player2, this.ball, this.handlePlayerBallCollision, null, this);
         this.physics.add.collider(this.player1, this.player2, this.handlePlayerPlayerCollision, null, this);
@@ -4310,46 +4410,142 @@ class GameScene extends Phaser.Scene {
         
         // Initialize socket connection
         this.initializeSocket();
+        
+        // **COMPREHENSIVE DEBUGGING**: Log current state after fresh setup
+        this.debugGameSceneState();
     }
 
     createPlayerAnimations(p1SpriteConfig, p2SpriteConfig) {
-        // Create Player 1 animations
+        console.log('🎬 Creating GameScene player animations...');
+        
+        // **CRITICAL FIX**: Clear any existing player animations before creating new ones
+        const playerAnimsToRemove = [
+            'player1_idle_anim', 'player1_walk_anim',
+            'player2_idle_anim', 'player2_walk_anim',
+            // Also clear any fight animations that might still exist
+            'fight_player1_idle_anim', 'fight_player1_walk_anim', 
+            'fight_player2_idle_anim', 'fight_player2_walk_anim'
+        ];
+        
+        playerAnimsToRemove.forEach(key => {
+            if (this.anims.exists(key)) {
+                this.anims.remove(key);
+                console.log(`🗑️ Removed existing animation: ${key}`);
+            }
+        });
+        
+        // Create Player 1 animations with existence checks
         if (p1SpriteConfig.type === 'sprite_sheet') {
             // Tiny Heroes - Sprite sheet animations
-            this.anims.create({
-                key: 'player1_idle_anim',
-                frames: this.anims.generateFrameNumbers('player1_idle', { start: 0, end: 3 }),
-                frameRate: 8,
-                repeat: -1
-            });
+            if (!this.anims.exists('player1_idle_anim')) {
+                this.anims.create({
+                    key: 'player1_idle_anim',
+                    frames: this.anims.generateFrameNumbers('player1_idle', { start: 0, end: 3 }),
+                    frameRate: 8,
+                    repeat: -1
+                });
+                console.log('✅ Created player1_idle_anim');
+            }
             
-            this.anims.create({
-                key: 'player1_walk_anim',
-                frames: this.anims.generateFrameNumbers('player1_walk', { start: 0, end: 5 }),
-                frameRate: 10,
-                repeat: -1
-            });
+            if (!this.anims.exists('player1_walk_anim')) {
+                this.anims.create({
+                    key: 'player1_walk_anim',
+                    frames: this.anims.generateFrameNumbers('player1_walk', { start: 0, end: 5 }),
+                    frameRate: 10,
+                    repeat: -1
+                });
+                console.log('✅ Created player1_walk_anim');
+            }
         }
         // Note: Mini Pixel Pack characters don't need animations - they use static sprites
         
-        // Create Player 2 animations
+        // Create Player 2 animations with existence checks
         if (p2SpriteConfig.type === 'sprite_sheet') {
             // Tiny Heroes - Sprite sheet animations
-            this.anims.create({
-                key: 'player2_idle_anim',
-                frames: this.anims.generateFrameNumbers('player2_idle', { start: 0, end: 3 }),
-                frameRate: 8,
-                repeat: -1
-            });
+            if (!this.anims.exists('player2_idle_anim')) {
+                this.anims.create({
+                    key: 'player2_idle_anim',
+                    frames: this.anims.generateFrameNumbers('player2_idle', { start: 0, end: 3 }),
+                    frameRate: 8,
+                    repeat: -1
+                });
+                console.log('✅ Created player2_idle_anim');
+            }
             
-            this.anims.create({
-                key: 'player2_walk_anim',
-                frames: this.anims.generateFrameNumbers('player2_walk', { start: 0, end: 5 }),
-                frameRate: 10,
-                repeat: -1
-            });
+            if (!this.anims.exists('player2_walk_anim')) {
+                this.anims.create({
+                    key: 'player2_walk_anim',
+                    frames: this.anims.generateFrameNumbers('player2_walk', { start: 0, end: 5 }),
+                    frameRate: 10,
+                    repeat: -1
+                });
+                console.log('✅ Created player2_walk_anim');
+            }
         }
         // Note: Mini Pixel Pack characters don't need animations - they use static sprites
+        
+        console.log('🎬 GameScene player animations setup complete');
+    }
+
+    debugGameSceneState() {
+        console.log('🐛 =================================================');
+        console.log('🐛 GAMESCENE STATE DEBUG - POST FRESH SETUP');
+        console.log('🐛 =================================================');
+        
+        // Debug texture keys
+        console.log('🖼️ Active Texture Keys:');
+        const textureKeys = Object.keys(this.textures.list);
+        const playerTextures = textureKeys.filter(key => key.includes('player') || key.includes('fight'));
+        playerTextures.forEach(key => console.log(`   - ${key}`));
+        
+        // Debug animation keys
+        console.log('🎬 Active Animation Keys:');
+        const animationKeys = Object.keys(this.anims.anims.entries);
+        const playerAnims = animationKeys.filter(key => key.includes('player') || key.includes('fight'));
+        playerAnims.forEach(key => console.log(`   - ${key}`));
+        
+        // Debug player 1 properties
+        if (this.player1) {
+            console.log('👤 Player 1 Properties:');
+            console.log(`   - Texture Key: ${this.player1.texture.key}`);
+            console.log(`   - Scale: ${this.player1.scaleX} x ${this.player1.scaleY}`);
+            console.log(`   - Position: ${this.player1.x}, ${this.player1.y}`);
+            console.log(`   - Body Size: ${this.player1.body?.width || 'N/A'} x ${this.player1.body?.height || 'N/A'}`);
+            console.log(`   - Body Offset: ${this.player1.body?.offset?.x || 'N/A'}, ${this.player1.body?.offset?.y || 'N/A'}`);
+            console.log(`   - Tint: ${this.player1.tint.toString(16)}`);
+            console.log(`   - Current Animation: ${this.player1.anims?.currentAnim?.key || 'None'}`);
+        } else {
+            console.log('👤 Player 1: NOT CREATED');
+        }
+        
+        // Debug player 2 properties
+        if (this.player2) {
+            console.log('👤 Player 2 Properties:');
+            console.log(`   - Texture Key: ${this.player2.texture.key}`);
+            console.log(`   - Scale: ${this.player2.scaleX} x ${this.player2.scaleY}`);
+            console.log(`   - Position: ${this.player2.x}, ${this.player2.y}`);
+            console.log(`   - Body Size: ${this.player2.body?.width || 'N/A'} x ${this.player2.body?.height || 'N/A'}`);
+            console.log(`   - Body Offset: ${this.player2.body?.offset?.x || 'N/A'}, ${this.player2.body?.offset?.y || 'N/A'}`);
+            console.log(`   - Tint: ${this.player2.tint.toString(16)}`);
+            console.log(`   - Current Animation: ${this.player2.anims?.currentAnim?.key || 'None'}`);
+        } else {
+            console.log('👤 Player 2: NOT CREATED');
+        }
+        
+        // Debug selected characters
+        console.log('🎭 Selected Characters:');
+        console.log(`   - Player 1: ${selectedCharacters.player1 || 'None'}`);
+        console.log(`   - Player 2: ${selectedCharacters.player2 || 'None'}`);
+        
+        // Debug physics world
+        console.log('⚙️ Physics World:');
+        console.log(`   - Gravity: ${this.physics.world.gravity.x}, ${this.physics.world.gravity.y}`);
+        console.log(`   - Bodies Count: ${this.physics.world.bodies.size}`);
+        console.log(`   - Static Bodies Count: ${this.physics.world.staticBodies.size}`);
+        
+        console.log('🐛 =================================================');
+        console.log('🐛 END GAMESCENE STATE DEBUG');
+        console.log('🐛 =================================================');
     }
 
     getRandomChaosDelay() {
@@ -6583,22 +6779,176 @@ class GameScene extends Phaser.Scene {
     }
 
     quitToCharacterSelection() {
+        this.cleanupGameScene();
+        this.scene.stop();
+        this.scene.start('CharacterSelectionScene');
+    }
+    
+    cleanupGameScene() {
+        console.log('🧹 Cleaning up GameScene...');
+        
         // Clean up any paused timers
         if (this.matchTimer) {
             this.matchTimer.paused = false;
+            this.matchTimer.destroy();
+            this.matchTimer = null;
         }
         if (this.chaosTimer) {
             this.chaosTimer.paused = false;
+            this.chaosTimer.destroy();
+            this.chaosTimer = null;
         }
         if (this.powerTimer) {
             this.powerTimer.paused = false;
+            this.powerTimer.destroy();
+            this.powerTimer = null;
         }
         if (this.ballSpeedTimer) {
             this.ballSpeedTimer.paused = false;
+            this.ballSpeedTimer.destroy();
+            this.ballSpeedTimer = null;
         }
         
-        this.scene.stop();
-        this.scene.start('CharacterSelectionScene');
+        // Clean up chaos manager completely
+        if (this.chaosManager) {
+            // Clean up meteors
+            if (this.chaosManager.meteors) {
+                this.chaosManager.meteors.forEach(meteor => {
+                    if (meteor && meteor.active) meteor.destroy();
+                });
+            }
+            
+            // Clean up cloned ball
+            if (this.chaosManager.clonedBall && this.chaosManager.clonedBall.active) {
+                this.chaosManager.clonedBall.destroy();
+            }
+            
+            // Clean up chaos UI elements
+            if (this.chaosManager.eventBanner) {
+                this.chaosManager.eventBanner.destroy();
+            }
+            if (this.chaosManager.darkOverlay) {
+                this.chaosManager.darkOverlay.destroy();
+            }
+            if (this.chaosManager.player1Light) {
+                this.chaosManager.player1Light.destroy();
+            }
+            if (this.chaosManager.player2Light) {
+                this.chaosManager.player2Light.destroy();
+            }
+            if (this.chaosManager.ballLight) {
+                this.chaosManager.ballLight.destroy();
+            }
+            
+            // Clean up meteor timer
+            if (this.chaosManager.meteorTimer) {
+                this.chaosManager.meteorTimer.destroy();
+            }
+        }
+        
+        // Clean up pause menu
+        this.hidePauseMenu();
+        
+        // Reset player physics and properties to default
+        if (this.player1 && this.player1.body) {
+            this.player1.clearTint();
+            this.player1.setScale(1);
+            this.player1.body.reset(this.player1.x, this.player1.y);
+        }
+        if (this.player2 && this.player2.body) {
+            this.player2.clearTint();
+            this.player2.setScale(1);
+            this.player2.body.reset(this.player2.x, this.player2.y);
+        }
+        
+        console.log('✅ GameScene cleanup complete');
+    }
+    
+    setupPlayerPhysics(player, spriteConfig, equippedSkin) {
+        console.log('⚙️ Setting up fresh player physics for soccer mode...');
+        
+        // **CRITICAL**: Complete state reset to prevent any fight mode persistence
+        player.clearTint();
+        player.setAlpha(1); // Reset transparency
+        player.setRotation(0); // Reset rotation
+        player.setScale(1); // Reset to base scale first
+        player.setOrigin(0.5, 0.5); // Reset origin
+        player.setFlipX(false); // Reset horizontal flip
+        player.setFlipY(false); // Reset vertical flip
+        
+        // Stop any playing animations and effects
+        if (player.anims && player.anims.isPlaying) {
+            player.stop();
+        }
+        
+        // Clear any visual effects or tweens
+        if (this.tweens) {
+            this.tweens.killTweensOf(player);
+        }
+        
+        // Reset ALL physics properties to soccer-specific defaults
+        player.setBounce(0.2);
+        player.setCollideWorldBounds(true);
+        player.setMass(1);
+        player.setDrag(100);
+        player.setMaxVelocity(300, 800);
+        
+        // Force velocity to zero
+        player.setVelocity(0, 0);
+        player.setAngularVelocity(0);
+        
+        // **CRITICAL**: Completely destroy and recreate the physics body
+        if (player.body) {
+            // Store position before destroying body
+            const currentX = player.x;
+            const currentY = player.y;
+            
+            // Destroy existing physics body
+            if (this.physics && this.physics.world && this.physics.world.bodies) {
+                this.physics.world.remove(player.body);
+            }
+            
+            // Create fresh physics body
+            this.physics.add.existing(player);
+            
+            // Restore position
+            player.setPosition(currentX, currentY);
+            
+            console.log('🔄 Physics body completely recreated');
+        }
+        
+        // Apply character-specific configuration with fresh settings
+        if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
+            // Tiny Heroes configuration for soccer
+            player.setScale(2.0);
+            player.setOrigin(0.5, 1);
+            if (player.body) {
+                player.body.setSize(24, 30, true); // Force body size refresh
+                player.body.setOffset(4, 2);
+                console.log('📏 Applied Tiny Heroes physics: 24x30 body');
+            }
+        } else {
+            // Mini Pixel Pack configuration for soccer
+            player.setScale(3.0);
+            player.setOrigin(0.5, 1);
+            if (player.body) {
+                player.body.setSize(16, 16, true); // Force body size refresh
+                player.body.setOffset(0, 0);
+                console.log('📏 Applied Mini Pixel Pack physics: 16x16 body');
+            }
+        }
+        
+        // Apply equipped skin tint AFTER all other setup
+        if (equippedSkin && equippedSkin !== 'base') {
+            const skinColor = CharacterSpriteHelper.getSkinRarityColor(equippedSkin);
+            player.setTint(skinColor);
+            console.log(`🎨 Applied skin tint: ${skinColor.toString(16)}`);
+        }
+        
+        // Final validation
+        const finalScale = player.scaleX;
+        const finalBodySize = player.body ? `${player.body.width}x${player.body.height}` : 'No body';
+        console.log(`✅ Soccer player physics setup complete - Scale: ${finalScale}, Body: ${finalBodySize}, Position: ${player.x},${player.y}`);
     }
 
     switchToFightMode() {
@@ -6609,6 +6959,9 @@ class GameScene extends Phaser.Scene {
         };
         
         console.log(`🥊 Switching to Fight Mode with: ${fightSettings.time}s, ${fightSettings.heartLimit} hearts`);
+        
+        // Clean up GameScene before switching
+        this.cleanupGameScene();
         
         // Switch to fight scene with current settings
         this.scene.start('FightScene', fightSettings);
@@ -6686,39 +7039,42 @@ class FightScene extends Phaser.Scene {
         const p1Character = CHARACTERS[selectedCharacters.player1];
         const p2Character = CHARACTERS[selectedCharacters.player2];
 
-        // Load Player 1 character sprites
+        // **CRITICAL FIX**: Use unique texture keys for fight mode to prevent cache conflicts
+        console.log('🥊 Loading FightScene sprites with unique texture keys...');
+        
+        // Load Player 1 character sprites with fight-specific keys
         const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
         if (p1SpriteConfig) {
             if (p1SpriteConfig.type === 'sprite_sheet') {
-                this.load.spritesheet('player1_idle', 
+                this.load.spritesheet('fight_player1_idle', 
                     p1SpriteConfig.basePath + p1SpriteConfig.animations.idle.file, 
                     { frameWidth: 32, frameHeight: 32 }
                 );
-                this.load.spritesheet('player1_walk', 
+                this.load.spritesheet('fight_player1_walk', 
                     p1SpriteConfig.basePath + p1SpriteConfig.animations.walk.file, 
                     { frameWidth: 32, frameHeight: 32 }
                 );
             } else {
-                this.load.image('player1_idle', p1SpriteConfig.basePath + p1SpriteConfig.animations.idle.file);
-                this.load.image('player1_walk', p1SpriteConfig.basePath + p1SpriteConfig.animations.walk.file);
+                this.load.image('fight_player1_idle', p1SpriteConfig.basePath + p1SpriteConfig.animations.idle.file);
+                this.load.image('fight_player1_walk', p1SpriteConfig.basePath + p1SpriteConfig.animations.walk.file);
             }
         }
 
-        // Load Player 2 character sprites
+        // Load Player 2 character sprites with fight-specific keys
         const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
         if (p2SpriteConfig) {
             if (p2SpriteConfig.type === 'sprite_sheet') {
-                this.load.spritesheet('player2_idle', 
+                this.load.spritesheet('fight_player2_idle', 
                     p2SpriteConfig.basePath + p2SpriteConfig.animations.idle.file, 
                     { frameWidth: 32, frameHeight: 32 }
                 );
-                this.load.spritesheet('player2_walk', 
+                this.load.spritesheet('fight_player2_walk', 
                     p2SpriteConfig.basePath + p2SpriteConfig.animations.walk.file, 
                     { frameWidth: 32, frameHeight: 32 }
                 );
             } else {
-                this.load.image('player2_idle', p2SpriteConfig.basePath + p2SpriteConfig.animations.idle.file);
-                this.load.image('player2_walk', p2SpriteConfig.basePath + p2SpriteConfig.animations.walk.file);
+                this.load.image('fight_player2_idle', p2SpriteConfig.basePath + p2SpriteConfig.animations.idle.file);
+                this.load.image('fight_player2_walk', p2SpriteConfig.basePath + p2SpriteConfig.animations.walk.file);
             }
         }
 
@@ -6786,21 +7142,32 @@ class FightScene extends Phaser.Scene {
         ground.setDisplaySize(800, 50);
         this.physics.add.existing(ground, true);
 
+        // **VALIDATION**: Ensure character selections are valid
+        if (!selectedCharacters.player1 || !selectedCharacters.player2) {
+            console.error('🚨 Invalid character selection detected in FightScene!', selectedCharacters);
+            // Fallback to default characters
+            selectedCharacters.player1 = selectedCharacters.player1 || 'blaze';
+            selectedCharacters.player2 = selectedCharacters.player2 || 'frostbite';
+            console.log('🔧 Using fallback characters in FightScene:', selectedCharacters);
+        }
+        
         // Get selected characters and their sprite configs
         const p1Character = CHARACTERS[selectedCharacters.player1];
         const p2Character = CHARACTERS[selectedCharacters.player2];
         const p1SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p1Character.sprite.category, p1Character.sprite.id);
         const p2SpriteConfig = CharacterSpriteHelper.getCharacterConfig(p2Character.sprite.category, p2Character.sprite.id);
+        
+        console.log(`🥊 FightScene starting with: P1=${selectedCharacters.player1}, P2=${selectedCharacters.player2}`);
 
-        // Create players
-        this.player1 = this.physics.add.sprite(200, 450, 'player1_idle');
+        // Create players with fight-specific texture keys
+        this.player1 = this.physics.add.sprite(200, 450, 'fight_player1_idle');
         this.player1.setBounce(0.2);
         this.player1.setCollideWorldBounds(true);
         this.player1.setMass(1);
         this.player1.setDrag(100);
         this.player1.setMaxVelocity(300, 800);
 
-        this.player2 = this.physics.add.sprite(600, 450, 'player2_idle');
+        this.player2 = this.physics.add.sprite(600, 450, 'fight_player2_idle');
         this.player2.setBounce(0.2);
         this.player2.setCollideWorldBounds(true);
         this.player2.setMass(1);
@@ -6826,11 +7193,11 @@ class FightScene extends Phaser.Scene {
         this.createPlayerAnimations(p1SpriteConfig, p2SpriteConfig);
 
         // Start with idle animations (only if they exist)
-        if (this.anims.exists('player1_idle_anim')) {
-            this.player1.play('player1_idle_anim');
+        if (this.anims.exists('fight_player1_idle_anim')) {
+            this.player1.play('fight_player1_idle_anim');
         }
-        if (this.anims.exists('player2_idle_anim')) {
-            this.player2.play('player2_idle_anim');
+        if (this.anims.exists('fight_player2_idle_anim')) {
+            this.player2.play('fight_player2_idle_anim');
         }
 
         // Physics collisions
@@ -6867,17 +7234,35 @@ class FightScene extends Phaser.Scene {
     }
 
     setupPlayerSprite(player, spriteConfig) {
+        console.log('⚙️ Setting up FightScene player sprite...');
+        
+        // **CRITICAL**: Clear any existing properties and reset to defaults
+        player.clearTint();
+        player.setScale(1);
+        player.setOrigin(0.5, 0.5);
+        
+        // Reset velocity to zero
+        player.setVelocity(0, 0);
+        
+        // Completely reset the physics body
+        if (player.body) {
+            player.body.reset(player.x, player.y);
+        }
+        
+        // Apply character-specific configuration with fresh settings
         if (spriteConfig && (spriteConfig.type === 'sprite_sheet' || spriteConfig.hasAnimation)) {
             player.setScale(2.0);
             player.setOrigin(0.5, 1);
-            player.body.setSize(24, 30);
+            player.body.setSize(24, 30, true); // Force body size refresh
             player.body.setOffset(4, 2);
         } else {
             player.setScale(3.0);
             player.setOrigin(0.5, 1);
-            player.body.setSize(16, 16);
+            player.body.setSize(16, 16, true); // Force body size refresh
             player.body.setOffset(0, 0);
         }
+        
+        console.log(`✅ FightScene player setup complete - Scale: ${player.scaleX}, Body: ${player.body.width}x${player.body.height}`);
     }
 
     restorePlayerSkinTint(playerSprite, playerId) {
@@ -6897,39 +7282,73 @@ class FightScene extends Phaser.Scene {
     }
 
     createPlayerAnimations(p1SpriteConfig, p2SpriteConfig) {
-        // Create Player 1 animations
+        console.log('🥊 Creating FightScene player animations...');
+        
+        // **CRITICAL FIX**: Clear existing fight animations to prevent duplication
+        const fightAnimsToRemove = [
+            'fight_player1_idle_anim', 'fight_player1_walk_anim',
+            'fight_player2_idle_anim', 'fight_player2_walk_anim',
+            // Also clear any soccer animations that might still exist
+            'player1_idle_anim', 'player1_walk_anim',
+            'player2_idle_anim', 'player2_walk_anim'
+        ];
+        
+        fightAnimsToRemove.forEach(key => {
+            if (this.anims.exists(key)) {
+                this.anims.remove(key);
+                console.log(`🗑️ Removed existing animation: ${key}`);
+            }
+        });
+        
+        // Create Player 1 animations with fight-specific keys and existence checks
         if (p1SpriteConfig.type === 'sprite_sheet') {
-            this.anims.create({
-                key: 'player1_idle_anim',
-                frames: this.anims.generateFrameNumbers('player1_idle', { start: 0, end: 3 }),
-                frameRate: 8,
-                repeat: -1
-            });
-            this.anims.create({
-                key: 'player1_walk_anim',
-                frames: this.anims.generateFrameNumbers('player1_walk', { start: 0, end: 5 }),
-                frameRate: 10,
-                repeat: -1
-            });
+            if (!this.anims.exists('fight_player1_idle_anim')) {
+                this.anims.create({
+                    key: 'fight_player1_idle_anim',
+                    frames: this.anims.generateFrameNumbers('fight_player1_idle', { start: 0, end: 3 }),
+                    frameRate: 8,
+                    repeat: -1
+                });
+                console.log('✅ Created fight_player1_idle_anim');
+            }
+            
+            if (!this.anims.exists('fight_player1_walk_anim')) {
+                this.anims.create({
+                    key: 'fight_player1_walk_anim',
+                    frames: this.anims.generateFrameNumbers('fight_player1_walk', { start: 0, end: 5 }),
+                    frameRate: 10,
+                    repeat: -1
+                });
+                console.log('✅ Created fight_player1_walk_anim');
+            }
         }
         // Note: Mini Pixel Pack characters don't need animations - they use static sprites
 
-        // Create Player 2 animations
+        // Create Player 2 animations with fight-specific keys and existence checks
         if (p2SpriteConfig.type === 'sprite_sheet') {
-            this.anims.create({
-                key: 'player2_idle_anim',
-                frames: this.anims.generateFrameNumbers('player2_idle', { start: 0, end: 3 }),
-                frameRate: 8,
-                repeat: -1
-            });
-            this.anims.create({
-                key: 'player2_walk_anim',
-                frames: this.anims.generateFrameNumbers('player2_walk', { start: 0, end: 5 }),
-                frameRate: 10,
-                repeat: -1
-            });
+            if (!this.anims.exists('fight_player2_idle_anim')) {
+                this.anims.create({
+                    key: 'fight_player2_idle_anim',
+                    frames: this.anims.generateFrameNumbers('fight_player2_idle', { start: 0, end: 3 }),
+                    frameRate: 8,
+                    repeat: -1
+                });
+                console.log('✅ Created fight_player2_idle_anim');
+            }
+            
+            if (!this.anims.exists('fight_player2_walk_anim')) {
+                this.anims.create({
+                    key: 'fight_player2_walk_anim',
+                    frames: this.anims.generateFrameNumbers('fight_player2_walk', { start: 0, end: 5 }),
+                    frameRate: 10,
+                    repeat: -1
+                });
+                console.log('✅ Created fight_player2_walk_anim');
+            }
         }
         // Note: Mini Pixel Pack characters don't need animations - they use static sprites
+        
+        console.log('🥊 FightScene player animations setup complete');
     }
 
     createFightUI() {
@@ -7288,22 +7707,131 @@ class FightScene extends Phaser.Scene {
     }
 
     quitToCharacterSelection() {
+        console.log('🏠 Quitting FightScene to Character Selection...');
+        
+        // Clean up safely first
+        this.cleanupFightScene();
+        
+        // Stop the scene and transition with delay
+        this.scene.stop();
+        
+        // Use game-level scene manager for safer transition
+        this.scene.manager.start('CharacterSelectionScene');
+    }
+    
+    cleanupFightScene() {
+        console.log('🧹 Cleaning up FightScene safely...');
+        
+        try {
+            // **STEP 1**: First destroy all sprites that might be using textures
+            if (this.player1) {
+                try {
+                    console.log('🗑️ Destroying player1 sprite...');
+                    this.player1.destroy(true);
+                    this.player1 = null;
+                    console.log('✅ Player1 destroyed successfully');
+                } catch (error) {
+                    console.error('❌ Error destroying player1:', error.message);
+                    this.player1 = null;
+                }
+            } else {
+                console.log('ℹ️ Player1 already null, skipping destroy');
+            }
+            
+            if (this.player2) {
+                try {
+                    console.log('🗑️ Destroying player2 sprite...');
+                    this.player2.destroy(true);
+                    this.player2 = null;
+                    console.log('✅ Player2 destroyed successfully');
+                } catch (error) {
+                    console.error('❌ Error destroying player2:', error.message);
+                    this.player2 = null;
+                }
+            } else {
+                console.log('ℹ️ Player2 already null, skipping destroy');
+            }
+        
+        // **STEP 2**: Clear all fight-specific animations BEFORE removing textures
+        const fightAnims = [
+            'fight_player1_idle_anim', 'fight_player1_walk_anim',
+            'fight_player2_idle_anim', 'fight_player2_walk_anim'
+        ];
+        
+        fightAnims.forEach(key => {
+            if (this.anims && this.anims.exists(key)) {
+                try {
+                    this.anims.remove(key);
+                    console.log(`🗑️ Cleared fight animation: ${key}`);
+                } catch (error) {
+                    console.error(`❌ Error clearing animation ${key}:`, error.message);
+                }
+            }
+        });
+        
+        // **STEP 3**: Force a small delay to let renderer process sprite destruction
+        console.log('⏱️ Allowing renderer to process sprite destruction...');
+        
+        // **STEP 4**: Skip texture removal during scene transition to prevent errors
+        // Textures will be cleaned up automatically when CharacterSelectionScene reloads them
+        console.log('⚠️ Skipping texture removal to prevent rendering errors during transition');
+        console.log('✅ Fight textures will be cleared by CharacterSelectionScene init()');
+        
+        // Instead, just mark the textures as unused
+        const fightTextures = [
+            'fight_player1_idle', 'fight_player1_walk',
+            'fight_player2_idle', 'fight_player2_walk'
+        ];
+        
+        console.log(`📋 Fight textures to be cleared later: ${fightTextures.join(', ')}`);
+        
         // Clean up any paused timers
         if (this.matchTimer) {
             this.matchTimer.paused = false;
+            this.matchTimer.destroy();
+            this.matchTimer = null;
         }
         if (this.chaosTimer) {
             this.chaosTimer.paused = false;
+            this.chaosTimer.destroy();
+            this.chaosTimer = null;
         }
         if (this.powerTimer) {
             this.powerTimer.paused = false;
+            this.powerTimer.destroy();
+            this.powerTimer = null;
         }
         if (this.ballSpeedTimer) {
             this.ballSpeedTimer.paused = false;
+            this.ballSpeedTimer.destroy();
+            this.ballSpeedTimer = null;
         }
         
-        this.scene.stop();
-        this.scene.start('CharacterSelectionScene');
+        // Clean up fight-specific elements
+        if (this.blasts) {
+            this.blasts.forEach(blast => {
+                if (blast && blast.active) blast.destroy();
+            });
+            this.blasts = [];
+        }
+        
+        // Clean up pause menu
+        this.hidePauseMenu();
+        
+        // **STEP 5**: Since we've destroyed sprites above, skip individual property reset
+        console.log('✅ Players already destroyed - skipping individual property reset');
+        
+        // Clear any tweens or effects
+        if (this.tweens) {
+            this.tweens.killAll();
+        }
+        
+        console.log('✅ FightScene comprehensive cleanup complete');
+        
+        } catch (globalError) {
+            console.error('❌ Critical error during FightScene cleanup:', globalError.message);
+            console.log('🔧 Continuing despite cleanup error...');
+        }
     }
 
     handlePlayerCollision(player1, player2) {
@@ -7331,19 +7859,19 @@ class FightScene extends Phaser.Scene {
         if (this.wasd.A.isDown) {
             this.player1.setVelocityX(-160);
             this.player1.setFlipX(true);
-            if (this.player1.body.touching.down && this.anims.exists('player1_walk_anim')) {
-                this.player1.play('player1_walk_anim', true);
+            if (this.player1.body.touching.down && this.anims.exists('fight_player1_walk_anim')) {
+                this.player1.play('fight_player1_walk_anim', true);
             }
         } else if (this.wasd.D.isDown) {
             this.player1.setVelocityX(160);
             this.player1.setFlipX(false);
-            if (this.player1.body.touching.down && this.anims.exists('player1_walk_anim')) {
-                this.player1.play('player1_walk_anim', true);
+            if (this.player1.body.touching.down && this.anims.exists('fight_player1_walk_anim')) {
+                this.player1.play('fight_player1_walk_anim', true);
             }
         } else {
             this.player1.setVelocityX(0);
-            if (this.player1.body.touching.down && this.anims.exists('player1_idle_anim')) {
-                this.player1.play('player1_idle_anim', true);
+            if (this.player1.body.touching.down && this.anims.exists('fight_player1_idle_anim')) {
+                this.player1.play('fight_player1_idle_anim', true);
             }
         }
 
@@ -7355,19 +7883,19 @@ class FightScene extends Phaser.Scene {
         if (this.cursors.left.isDown) {
             this.player2.setVelocityX(-160);
             this.player2.setFlipX(true);
-            if (this.player2.body.touching.down && this.anims.exists('player2_walk_anim')) {
-                this.player2.play('player2_walk_anim', true);
+            if (this.player2.body.touching.down && this.anims.exists('fight_player2_walk_anim')) {
+                this.player2.play('fight_player2_walk_anim', true);
             }
         } else if (this.cursors.right.isDown) {
             this.player2.setVelocityX(160);
             this.player2.setFlipX(false);
-            if (this.player2.body.touching.down && this.anims.exists('player2_walk_anim')) {
-                this.player2.play('player2_walk_anim', true);
+            if (this.player2.body.touching.down && this.anims.exists('fight_player2_walk_anim')) {
+                this.player2.play('fight_player2_walk_anim', true);
             }
         } else {
             this.player2.setVelocityX(0);
-            if (this.player2.body.touching.down && this.anims.exists('player2_idle_anim')) {
-                this.player2.play('player2_idle_anim', true);
+            if (this.player2.body.touching.down && this.anims.exists('fight_player2_idle_anim')) {
+                this.player2.play('fight_player2_idle_anim', true);
             }
         }
 
@@ -7686,10 +8214,13 @@ class FightScene extends Phaser.Scene {
     }
 
     handleFightEnd(winner = null) {
+        console.log('🏁 Fight ending, setting gameOver = true');
         this.gameOver = true;
+        this.isTransitioning = false; // Reset transition flag for end screen
         
         // Use provided winner or determine based on HP
         const finalWinner = winner || (this.player1HP > 0 ? 'Player 1' : 'Player 2');
+        console.log(`🏆 Fight winner: ${finalWinner}`);
         
         // Play victory sound (unless it's a draw)
         if (finalWinner !== 'Draw') {
@@ -7764,25 +8295,101 @@ class FightScene extends Phaser.Scene {
         
         // Add click handlers to button backgrounds
         restartBtnBg.on('pointerdown', () => {
+            if (!this.gameOver || this.isTransitioning) return;
+            this.isTransitioning = true;
+            
             SoundManager.playForwardButton(this);
             this.scene.restart();
         });
         
         selectBtnBg.on('pointerdown', () => {
+            if (!this.gameOver || this.isTransitioning) return;
+            this.isTransitioning = true;
+            
             SoundManager.playForwardButton(this);
-            this.scene.start('CharacterSelectionScene');
+            
+            // Clean up safely with delayed transition
+            this.cleanupFightScene();
+            
+            // Small delay to ensure cleanup is complete before scene transition
+            this.time.delayedCall(100, () => {
+                console.log('🚀 Transitioning to CharacterSelectionScene...');
+                this.scene.start('CharacterSelectionScene');
+            });
         });
 
-        // Add key listeners
-        this.input.keyboard.once('keydown-R', () => {
+        // **CRITICAL FIX**: Remove any existing R/C key handlers first
+        this.input.keyboard.off('keydown-R');
+        this.input.keyboard.off('keydown-C');
+        
+        // Add persistent key listeners (not 'once' - that's why they stopped working!)
+        const restartHandler = () => {
+            if (!this.gameOver) return; // Only work when game is over
+            if (this.isTransitioning) return; // Prevent multiple calls
+            
+            console.log('🔄 Restart key pressed');
+            this.isTransitioning = true; // Mark as transitioning
+            
             SoundManager.playForwardButton(this);
             this.scene.restart();
-        });
-
-        this.input.keyboard.once('keydown-C', () => {
+        };
+        
+        const selectHandler = () => {
+            console.log('🔑 C key handler triggered');
+            console.log(`🎮 Game state - gameOver: ${this.gameOver}, isTransitioning: ${this.isTransitioning}`);
+            
+            if (!this.gameOver) {
+                console.log('⚠️ Game not over, ignoring C key');
+                return;
+            }
+            if (this.isTransitioning) {
+                console.log('⚠️ Already transitioning, ignoring C key');
+                return;
+            }
+            
+            console.log('🏠 Character selection key pressed - processing...');
+            this.isTransitioning = true; // Mark as transitioning
+            
             SoundManager.playForwardButton(this);
-            this.scene.start('CharacterSelectionScene');
-        });
+            
+            try {
+                // Clean up safely with error handling
+                console.log('🧹 Starting cleanup...');
+                this.cleanupFightScene();
+                console.log('✅ Cleanup completed successfully');
+                
+                // Small delay to ensure cleanup is complete before scene transition
+                this.time.delayedCall(100, () => {
+                    console.log('🚀 Transitioning to CharacterSelectionScene...');
+                    this.scene.start('CharacterSelectionScene');
+                });
+            } catch (error) {
+                console.error('❌ Error during C key handler:', error.message);
+                console.error('🔄 Attempting direct scene transition...');
+                
+                // Fallback: direct transition without cleanup
+                this.scene.start('CharacterSelectionScene');
+            }
+        };
+        
+        // Use persistent 'on' handlers instead of 'once'
+        this.input.keyboard.on('keydown-R', restartHandler);
+        this.input.keyboard.on('keydown-C', selectHandler);
+        
+        console.log('🎮 Fight end key handlers registered (R = restart, C = character select)');
+    }
+    
+    shutdown() {
+        console.log('🔚 FightScene shutting down...');
+        
+        // Clean up all key handlers to prevent conflicts with other scenes
+        if (this.input && this.input.keyboard) {
+            this.input.keyboard.removeAllKeys();
+            console.log('🗑️ Removed all FightScene key handlers');
+        }
+        
+        // Call comprehensive cleanup
+        this.cleanupFightScene();
     }
 }
 
