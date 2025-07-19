@@ -9036,9 +9036,10 @@ PLATFORM TYPES:
 • Dark Platforms: Fall after you step on them (be quick!)
 
 GAMEPLAY:
-• Auto-bounce from platform to platform by landing on them
+• Automatic trampoline bouncing - no jump button needed!
+• Land on platforms to bounce up automatically
 • Avoid falling soccer balls from above (lose 1 life when hit)
-• Use booster platforms for extra height
+• Use blue booster platforms for extra height
 • Climb as high as possible to increase your score
 • Score increases based on vertical height reached
 
@@ -9275,8 +9276,8 @@ class HeroJumperScene extends Phaser.Scene {
     create() {
         SoundManager.initializeAudio(this);
         
-        // Set up physics world properly for Doodle Jump mechanics
-        this.physics.world.gravity.y = 800; // Strong gravity for Doodle Jump feel
+        // Set up physics world for trampoline mechanics (balanced gravity)
+        this.physics.world.gravity.y = 600; // Balanced gravity for trampoline feel (not too floaty, not too fast)
         
         // Sky gradient background
         this.add.rectangle(400, 300, 800, 600, 0x87ceeb); // Sky blue
@@ -9289,6 +9290,7 @@ class HeroJumperScene extends Phaser.Scene {
         const startingPlatform = this.createPlatform(400, 550, true);
         startingPlatform.platformType = 'normal';
         startingPlatform.bounceVelocity = -500;
+        startingPlatform.boost = false; // Starting platform is never a booster
         
         // Generate initial platforms
         this.generatePlatforms();
@@ -9319,10 +9321,14 @@ class HeroJumperScene extends Phaser.Scene {
 
     createPlayer() {
         this.player = this.physics.add.sprite(400, 500, 'hero_idle');
-        this.player.setBounce(0.2);
+        this.player.setBounce(0); // Remove bounce to prevent interference with trampoline mechanics
         this.player.setCollideWorldBounds(false);
         this.player.body.setGravityY(0); // Don't set extra gravity, use world gravity
         this.player.setScale(2.2); // Balanced size - visible but not too big
+        
+        // Set up player body for better collision detection
+        this.player.body.setSize(this.player.width * 0.8, this.player.height * 0.9);
+        this.player.body.setOffset(this.player.width * 0.1, this.player.height * 0.1);
         
         // Create player animations if sprite sheet
         const character = CHARACTERS[this.selectedCharacter];
@@ -9340,22 +9346,23 @@ class HeroJumperScene extends Phaser.Scene {
             this.player.play('hero_idle_anim');
         }
         
-        // Player-platform collision - TRAMPOLINE BOUNCE MECHANICS
+        // Player-platform collision - AUTOMATIC TRAMPOLINE BOUNCE MECHANICS
         this.physics.add.collider(this.player, this.platforms, (player, platform) => {
-            // Only allow bouncing when falling down AND touching the platform from above
-            if (player.body.velocity.y > 0 && player.body.bottom <= platform.body.top + 20) {
-                // Use platform-specific bounce velocity
-                const bounceVelocity = platform.bounceVelocity || -500; // Default fallback
-                player.setVelocityY(bounceVelocity);
+            // FIXED: Use proper body touching detection for reliable trampoline bouncing
+            // Only bounce when player is landing on platform from above (not from sides or below)
+            if (player.body.touching.down && platform.body.touching.up) {
+                // Apply platform-specific bounce velocity (stronger for booster platforms)
+                const boost = platform.boost ? -750 : -500;
+                player.setVelocityY(boost);
                 
-                // Different sounds for different platform types
-                if (platform.platformType === 'booster') {
-                    SoundManager.playForwardButton(this); // Different sound for booster
+                // Different sounds for different platform types (trampoline effect)
+                if (platform.boost) {
+                    SoundManager.playForwardButton(this); // Higher pitch sound for booster bounce
                 } else {
                     SoundManager.playButtonClick(this); // Standard bounce sound
                 }
                 
-                // Check if platform should fall
+                // Check if platform should fall (falling platforms)
                 if (platform.shouldFall && !platform.falling) {
                     platform.falling = true;
                     this.physics.world.enable(platform);
@@ -9397,12 +9404,14 @@ class HeroJumperScene extends Phaser.Scene {
             platform.setStrokeStyle(2, 0x0044cc);
             platform.platformType = 'booster';
             platform.bounceVelocity = -750; // Stronger bounce
+            platform.boost = true; // Add boost property for easy detection
         } else {
             // Normal Platform: Brown
             platform = this.add.rectangle(x, y, platformWidth, platformHeight, 0x8b4513);
             platform.setStrokeStyle(2, 0x654321);
             platform.platformType = 'normal';
             platform.bounceVelocity = -500; // Standard bounce
+            platform.boost = false; // Normal platform
         }
         
         this.physics.add.existing(platform, true); // static body
