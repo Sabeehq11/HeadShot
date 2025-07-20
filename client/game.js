@@ -9314,6 +9314,9 @@ class HeroJumperScene extends Phaser.Scene {
         // Load soccer ball for hazards (using football.png as soccer ball)
         this.load.image('soccer_ball', 'assets/Sprites/Ball/Sport-Balls-Asset-Pack-Pixel-Art/64x64/football.png');
         
+        // Load infinity background for Hero Jumper
+        this.load.image('infinity_bg', 'assets/Sprites/Backgrounds/infinity.png');
+        
         // Load monster sprites for Hero Jumper mode
         this.loadMonsterSprites();
         
@@ -9456,13 +9459,8 @@ class HeroJumperScene extends Phaser.Scene {
         console.log(`🌍 World gravity set to: ${this.physics.world.gravity.y}`);
         console.log('🌍 This is the baseline gravity that projectiles must overcome');
         
-        // 🎨 ARCADE-STYLE BACKGROUND (match app theme)
-        this.add.rectangle(400, 300, 800, 600, 0x000000); // Black base
-        this.add.rectangle(400, 300, 800, 600, 0x000033, 0.8); // Dark blue overlay
-        
-        // Add arcade border frame (match app styling)
-        this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
-        this.add.rectangle(400, 300, 770, 570, 0x000000, 0).setStrokeStyle(2, 0xff00ff);
+        // 🎨 INFINITY BACKGROUND - Stacked repeating pattern for infinite scrolling
+        this.createInfinityBackground();
         
         // Create physics groups
         this.platforms = this.physics.add.staticGroup();
@@ -9553,6 +9551,170 @@ class HeroJumperScene extends Phaser.Scene {
 
         
         console.log('🎮 Hero Jumper scene created successfully');
+    }
+
+    createInfinityBackground() {
+        console.log('🖼️ Creating infinity background with dimensions: 400x330');
+        
+        // Store background images for scrolling updates
+        this.backgroundImages = [];
+        
+        // Image dimensions: 400x330, Game window: 800x600
+        const imgWidth = 400;
+        const imgHeight = 330;
+        const gameWidth = 800;
+        const gameHeight = 600;
+        
+        // Calculate how many images needed with extra coverage
+        const horizontalCount = 4; // Extra images on sides to prevent cutoff (covers 1600px width)
+        const verticalCount = 20; // Many more images for better vertical coverage
+        
+        console.log(`🖼️ Creating ${horizontalCount}x${verticalCount} infinity background grid`);
+        
+        // Create stacked background images with extra side coverage
+        for (let row = -10; row < verticalCount - 10; row++) { // Start well above and extend below
+            for (let col = -1; col < horizontalCount - 1; col++) { // Start left of screen, extend right
+                const x = col * imgWidth; // Align images perfectly (no gaps)
+                const y = row * imgHeight; // Stack perfectly (no gaps)
+                
+                const bgImage = this.add.image(x, y, 'infinity_bg');
+                bgImage.setOrigin(0, 0); // Top-left origin for perfect tiling
+                bgImage.setDepth(-100); // Behind everything
+                bgImage.setScrollFactor(0.3); // Parallax scrolling effect - slower than gameplay
+                
+                this.backgroundImages.push({
+                    image: bgImage,
+                    originalY: y,
+                    row: row,
+                    col: col
+                });
+            }
+        }
+        
+        console.log(`✅ Created ${this.backgroundImages.length} infinity background images`);
+    }
+
+    updateInfinityBackground() {
+        if (!this.backgroundImages || !this.player) return;
+        
+        const imgHeight = 330;
+        const imgWidth = 400;
+        const cameraY = this.cameras.main.scrollY;
+        const cameraX = this.cameras.main.scrollX;
+        const scrollFactor = 0.3; // Match the parallax scroll factor
+        
+        // Calculate effective camera position for background (considering parallax)
+        const effectiveCameraY = cameraY * scrollFactor;
+        const effectiveCameraX = cameraX * scrollFactor;
+        
+        // Define visible area with large buffer to prevent gaps
+        const bufferSize = 1000; // Large buffer to ensure coverage
+        const visibleTop = effectiveCameraY - bufferSize;
+        const visibleBottom = effectiveCameraY + 600 + bufferSize; // 600 = screen height
+        const visibleLeft = effectiveCameraX - bufferSize;
+        const visibleRight = effectiveCameraX + 800 + bufferSize; // 800 = screen width
+        
+        // Group images by column for better management
+        const imagesByColumn = {};
+        this.backgroundImages.forEach(bgData => {
+            if (!imagesByColumn[bgData.col]) {
+                imagesByColumn[bgData.col] = [];
+            }
+            imagesByColumn[bgData.col].push(bgData);
+        });
+        
+        // Update each column
+        Object.keys(imagesByColumn).forEach(col => {
+            const columnImages = imagesByColumn[col];
+            
+            columnImages.forEach(bgData => {
+                const bgImage = bgData.image;
+                
+                // Vertical repositioning for infinite scrolling (accounting for top-left origin)
+                if (bgImage.y > visibleBottom) {
+                    // Image is too far below, move it above the topmost image
+                    const topImage = columnImages.reduce((highest, img) => 
+                        img.image.y < highest.image.y ? img : highest
+                    );
+                    bgImage.y = topImage.image.y - imgHeight;
+                } else if (bgImage.y + imgHeight < visibleTop) {
+                    // Image is too far above, move it below the bottommost image
+                    const bottomImage = columnImages.reduce((lowest, img) => 
+                        img.image.y > lowest.image.y ? img : lowest
+                    );
+                    bgImage.y = bottomImage.image.y + imgHeight;
+                }
+                
+                // Horizontal repositioning for side coverage (accounting for top-left origin)
+                if (bgImage.x > visibleRight) {
+                    bgImage.x -= imgWidth * 4; // Move left by 4 image widths
+                } else if (bgImage.x + imgWidth < visibleLeft) {
+                    bgImage.x += imgWidth * 4; // Move right by 4 image widths
+                }
+            });
+        });
+        
+        // Safety check: Ensure we always have enough vertical coverage
+        this.ensureVerticalCoverage(effectiveCameraY - bufferSize, effectiveCameraY + 600 + bufferSize);
+    }
+
+    ensureVerticalCoverage(minY, maxY) {
+        const imgHeight = 330;
+        const imgWidth = 400;
+        
+        // Check each column for gaps
+        for (let col = -1; col < 3; col++) { // Check all columns we care about
+            const columnImages = this.backgroundImages.filter(bg => bg.col === col);
+            
+            if (columnImages.length === 0) continue;
+            
+            // Sort by Y position
+            columnImages.sort((a, b) => a.image.y - b.image.y);
+            
+            // Check if we need more images at the top
+            const topImage = columnImages[0];
+            if (topImage.image.y > minY) {
+                const needed = Math.ceil((topImage.image.y - minY) / imgHeight);
+                for (let i = 1; i <= needed; i++) {
+                    const newY = topImage.image.y - (i * imgHeight);
+                    const newX = col * imgWidth;
+                    
+                    const bgImage = this.add.image(newX, newY, 'infinity_bg');
+                    bgImage.setOrigin(0, 0);
+                    bgImage.setDepth(-100);
+                    bgImage.setScrollFactor(0.3);
+                    
+                    this.backgroundImages.push({
+                        image: bgImage,
+                        originalY: newY,
+                        row: Math.floor(newY / imgHeight),
+                        col: col
+                    });
+                }
+            }
+            
+            // Check if we need more images at the bottom
+            const bottomImage = columnImages[columnImages.length - 1];
+            if (bottomImage.image.y + imgHeight < maxY) {
+                const needed = Math.ceil((maxY - (bottomImage.image.y + imgHeight)) / imgHeight);
+                for (let i = 1; i <= needed; i++) {
+                    const newY = bottomImage.image.y + (i * imgHeight);
+                    const newX = col * imgWidth;
+                    
+                    const bgImage = this.add.image(newX, newY, 'infinity_bg');
+                    bgImage.setOrigin(0, 0);
+                    bgImage.setDepth(-100);
+                    bgImage.setScrollFactor(0.3);
+                    
+                    this.backgroundImages.push({
+                        image: bgImage,
+                        originalY: newY,
+                        row: Math.floor(newY / imgHeight),
+                        col: col
+                    });
+                }
+            }
+        }
     }
 
     createPowerAnimations() {
@@ -10334,6 +10496,9 @@ class HeroJumperScene extends Phaser.Scene {
         if (this.monsterManager) {
             this.monsterManager.update();
         }
+
+        // Update infinity background for seamless scrolling
+        this.updateInfinityBackground();
         
 
         
