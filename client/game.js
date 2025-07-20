@@ -9242,6 +9242,7 @@ class HeroJumperScene extends Phaser.Scene {
         this.player = null;
         this.platforms = null;
         this.hazards = null;
+        this.monsterManager = null; // Monster management system
         this.score = 0;
         this.lives = 3;
         this.cameraOffsetY = 0;
@@ -9307,6 +9308,9 @@ class HeroJumperScene extends Phaser.Scene {
         // Load soccer ball for hazards (using football.png as soccer ball)
         this.load.image('soccer_ball', 'assets/Sprites/Ball/Sport-Balls-Asset-Pack-Pixel-Art/64x64/football.png');
         
+        // Load monster sprites for Hero Jumper mode
+        this.loadMonsterSprites();
+        
         // Load fight mode power sprites (same as fight scene)
         this.loadPowerSprites();
     }
@@ -9346,6 +9350,59 @@ class HeroJumperScene extends Phaser.Scene {
             'assets/Sprites/Powers/JellyHead/Slime-Sheet.png',
             { frameWidth: 52, frameHeight: 55 }
         );
+    }
+
+    loadMonsterSprites() {
+        console.log('🐲 Loading monster sprites...');
+        
+        // Load CrimsonFlyingEye monster sprites
+        console.log('📁 Loading Crimson Flying Eye sprites...');
+        this.load.spritesheet('crimson_idle', 
+            'assets/Sprites/HeroJumper/Monster/CrimsonFlyingEye/Flight.png',
+            { frameWidth: 150, frameHeight: 150 } // Correct frame size based on 1200x150 sprite sheet
+        );
+        
+        this.load.spritesheet('crimson_attack', 
+            'assets/Sprites/HeroJumper/Monster/CrimsonFlyingEye/Attack1.png',
+            { frameWidth: 150, frameHeight: 150 }
+        );
+        
+        this.load.spritesheet('crimson_death', 
+            'assets/Sprites/HeroJumper/Monster/CrimsonFlyingEye/Death.png',
+            { frameWidth: 150, frameHeight: 150 }
+        );
+        
+        // Load TwilightFlyingEye monster sprites
+        console.log('📁 Loading Twilight Flying Eye sprites...');
+        this.load.spritesheet('twilight_idle', 
+            'assets/Sprites/HeroJumper/Monster/TwilightFlyingEye/Flight.png',
+            { frameWidth: 150, frameHeight: 150 }
+        );
+        
+        this.load.spritesheet('twilight_attack', 
+            'assets/Sprites/HeroJumper/Monster/TwilightFlyingEye/Attack1.png',
+            { frameWidth: 150, frameHeight: 150 }
+        );
+        
+        this.load.spritesheet('twilight_death', 
+            'assets/Sprites/HeroJumper/Monster/TwilightFlyingEye/Death.png',
+            { frameWidth: 150, frameHeight: 150 }
+        );
+        
+        console.log('🐲 Hero Jumper monster sprites loading initiated');
+        
+        // Add load event listeners for debugging
+        this.load.on('filecomplete-spritesheet-crimson_idle', () => {
+            console.log('✅ crimson_idle loaded successfully');
+        });
+        
+        this.load.on('filecomplete-spritesheet-twilight_idle', () => {
+            console.log('✅ twilight_idle loaded successfully');
+        });
+        
+        this.load.on('loaderror', (file) => {
+            console.error('❌ Failed to load file:', file);
+        });
     }
 
     create() {
@@ -9425,6 +9482,9 @@ class HeroJumperScene extends Phaser.Scene {
         // Add power activation key (spacebar)
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         
+        // Add debug key for testing monsters (M key)
+        this.mKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
+        
         // Initialize power system for Hero Jumper
         this.powerCooldown = 0; // No cooldown as requested
         // Note: projectiles group already created earlier
@@ -9459,6 +9519,10 @@ class HeroJumperScene extends Phaser.Scene {
             callbackScope: this,
             loop: true
         });
+        
+        // Initialize monster management system
+        this.monsterManager = new HeroMonsterManager(this);
+        console.log('🐲 Monster system initialized');
         
         console.log('🎮 Hero Jumper scene created successfully');
     }
@@ -9538,6 +9602,8 @@ class HeroJumperScene extends Phaser.Scene {
         this.player = this.physics.add.sprite(400, 500, uniqueTextureKey);
         this.player.setBounce(0); // Remove bounce to prevent interference with trampoline mechanics
         this.player.setCollideWorldBounds(false);
+        this.player.isStunned = false; // Initialize stun state
+        this.player.isInvincible = false; // Initialize invincibility state
         // Player automatically uses world gravity (600), no need to set individual gravity
         
         // Set scale based on character sprite type for better visual balance
@@ -10085,6 +10151,12 @@ class HeroJumperScene extends Phaser.Scene {
         this.gameOver = true;
         console.log('🎮 Game Over triggered');
         
+        // Clean up monster system
+        if (this.monsterManager) {
+            this.monsterManager.destroy();
+            this.monsterManager = null;
+        }
+        
         // Stop player movement
         this.player.setVelocity(0, 0);
         // Player will stop moving due to setVelocity(0, 0), no need to modify gravity
@@ -10218,6 +10290,19 @@ class HeroJumperScene extends Phaser.Scene {
             return;
         }
         
+        // Update monster system
+        if (this.monsterManager) {
+            this.monsterManager.update();
+        }
+        
+        // Check if player is stunned - if so, disable controls
+        if (this.player.isStunned) {
+            // Player is stunned - no control input allowed
+            // Keep falling and apply slight deceleration
+            this.player.setVelocityX(this.player.body.velocity.x * 0.9);
+            return; // Skip normal movement controls
+        }
+        
         // Player horizontal movement with air control (reduced speed for better control)
         if (this.cursors.left.isDown || this.wasdKeys.A.isDown) {
             this.player.setVelocityX(-200); // Reduced horizontal movement speed
@@ -10240,6 +10325,14 @@ class HeroJumperScene extends Phaser.Scene {
             console.log('🎮 SPACEBAR PRESSED - Attempting to activate power!');
             console.log(`🎮 Space key state - isDown: ${this.spaceKey.isDown}, isUp: ${this.spaceKey.isUp}`);
             this.activatePower();
+        }
+        
+        // 🐲 DEBUG: Manual monster spawn (M key) - Uses progressive system
+        if (Phaser.Input.Keyboard.JustDown(this.mKey)) {
+            console.log('🎮 M KEY PRESSED - Manual progressive monster spawn for testing!');
+            if (this.monsterManager) {
+                this.monsterManager.spawnMultipleMonsters();
+            }
         }
         
         // Wrap player around screen edges
@@ -10909,6 +11002,529 @@ class HeroJumperScene extends Phaser.Scene {
             ease: 'Power2',
             onComplete: () => bonusText.destroy()
         });
+    }
+}
+
+// HeroMonsterManager - Manages monster spawning, animations, and combat for Hero Jumper mode
+class HeroMonsterManager {
+    constructor(scene) {
+        this.scene = scene;
+        this.monsters = scene.physics.add.group();
+        this.activeMonsters = [];
+        this.lastSpawnScore = 0;
+        this.lastDebugScore = 0;
+        this.monsterTypes = ['crimson', 'twilight'];
+        this.baseMonsterHealth = 1;
+        this.currentMonsterHealth = 1;
+        this.monstersSpawned = 0;
+        
+        console.log('🐲 HeroMonsterManager initialized');
+        
+        // Setup monster animations
+        this.createMonsterAnimations();
+        
+        // Setup collision handlers
+        this.setupCollisions();
+    }
+
+    createMonsterAnimations() {
+        const scene = this.scene;
+        
+        // Create animations for each monster type
+        this.monsterTypes.forEach(type => {
+            // Idle animation (8 frames: 0-7)
+            const idleKey = `${type}_idle_anim`;
+            if (!scene.anims.exists(idleKey)) {
+                scene.anims.create({
+                    key: idleKey,
+                    frames: scene.anims.generateFrameNumbers(`${type}_idle`, { start: 0, end: 7 }),
+                    frameRate: 12,
+                    repeat: -1
+                });
+                console.log(`✅ Created idle animation: ${idleKey} with 8 frames`);
+            }
+            
+            // Attack animation (8 frames: 0-7)
+            const attackKey = `${type}_attack_anim`;
+            if (!scene.anims.exists(attackKey)) {
+                scene.anims.create({
+                    key: attackKey,
+                    frames: scene.anims.generateFrameNumbers(`${type}_attack`, { start: 0, end: 7 }),
+                    frameRate: 15,
+                    repeat: 0 // Play once
+                });
+                console.log(`✅ Created attack animation: ${attackKey} with 8 frames`);
+            }
+            
+            // Death animation (8 frames: 0-7)
+            const deathKey = `${type}_death_anim`;
+            if (!scene.anims.exists(deathKey)) {
+                scene.anims.create({
+                    key: deathKey,
+                    frames: scene.anims.generateFrameNumbers(`${type}_death`, { start: 0, end: 7 }),
+                    frameRate: 12,
+                    repeat: 0 // Play once
+                });
+                console.log(`✅ Created death animation: ${deathKey} with 8 frames`);
+            }
+        });
+        
+        console.log('🎬 Monster animations created');
+    }
+
+    setupCollisions() {
+        const scene = this.scene;
+        
+        // Player-monster collision with precise detection
+        scene.physics.add.overlap(scene.player, this.monsters, (player, monster) => {
+            if (monster.isDying || player.isStunned || player.isInvincible) return; // Skip if monster dying, player stunned, or invincible
+            
+            // Get precise collision bounds
+            const playerBounds = {
+                left: player.body.x,
+                right: player.body.x + player.body.width,
+                top: player.body.y,
+                bottom: player.body.y + player.body.height,
+                centerX: player.body.x + player.body.width/2,
+                centerY: player.body.y + player.body.height/2
+            };
+            
+            const monsterBounds = {
+                left: monster.body.x,
+                right: monster.body.x + monster.body.width,
+                top: monster.body.y,
+                bottom: monster.body.y + monster.body.height,
+                centerX: monster.body.x + monster.body.width/2,
+                centerY: monster.body.y + monster.body.height/2
+            };
+            
+            // Calculate actual distance between centers
+            const distance = Phaser.Math.Distance.Between(
+                playerBounds.centerX, playerBounds.centerY,
+                monsterBounds.centerX, monsterBounds.centerY
+            );
+            
+            // Only trigger collision if actually close enough (more precise)
+            if (distance > 80) return; // Must be within 80 pixels of center-to-center
+            
+            // STRICT jump-on-monster detection - must be clearly above and falling down
+            const isAboveMonster = playerBounds.bottom < monsterBounds.centerY;
+            const isFallingFast = player.body.velocity.y > 100; // Must be falling fast
+            const isLandingOnTop = playerBounds.bottom > monsterBounds.top && playerBounds.bottom < monsterBounds.top + 40; // Landing zone
+            
+            if (isAboveMonster && isFallingFast && isLandingOnTop) {
+                // Player successfully jumps on monster - kill monster, boost player
+                this.playerJumpsOnMonster(player, monster);
+            } else {
+                // Monster attacks player with DEVASTATING knockback
+                this.monsterTouchesPlayer(player, monster);
+            }
+        }, null, scene);
+        
+        // Projectile hits monster (damage monster)
+        scene.physics.add.overlap(scene.projectiles, this.monsters, (projectile, monster) => {
+            if (monster.isDying) return; // Skip if monster is already dying
+            
+            this.projectileHitsMonster(projectile, monster);
+        }, null, scene);
+        
+        console.log('💥 Monster collision handlers setup');
+    }
+
+    update() {
+        const scene = this.scene;
+        
+        // Debug score tracking every 50 points for better visibility
+        if (scene.score > 0 && scene.score % 50 === 0 && scene.score !== this.lastDebugScore) {
+            console.log(`🎯 Score Update: ${scene.score} (Next strategic spawn at: ${this.lastSpawnScore + 500})`);
+            this.lastDebugScore = scene.score;
+        }
+        
+        // Check if we need to spawn monsters (every 500 points with progressive difficulty)
+        const shouldSpawn = scene.score >= this.lastSpawnScore + 500;
+        if (shouldSpawn) {
+            console.log(`🚨 STRATEGIC SPAWN TRIGGER: Score ${scene.score} >= ${this.lastSpawnScore + 500}`);
+            this.spawnMultipleMonsters();
+            this.lastSpawnScore = scene.score;
+            
+            // Increase monster health every 500 points (max 5 shots)
+            this.currentMonsterHealth = Math.min(5, Math.floor(scene.score / 500) + 1);
+            console.log(`🎯 Monster health increased to: ${this.currentMonsterHealth} shots required`);
+        }
+        
+        // FIRST SPAWN: Always spawn if score >= 500 and no monsters active
+        if (scene.score >= 500 && this.activeMonsters.length === 0 && this.lastSpawnScore === 0) {
+            console.log(`🚨 FIRST STRATEGIC SPAWN: Score is ${scene.score}, spawning initial monsters!`);
+            this.spawnMultipleMonsters();
+            this.lastSpawnScore = scene.score;
+        }
+        
+        // Update monster movement and behavior
+        this.activeMonsters.forEach(monster => {
+            if (monster.active && !monster.isDying) {
+                this.updateMonsterMovement(monster);
+            }
+        });
+        
+        // Clean up dead monsters
+        this.activeMonsters = this.activeMonsters.filter(monster => monster.active);
+        
+        // Debug active monsters count
+        if (this.activeMonsters.length > 0) {
+            console.log(`🐲 Active monsters: ${this.activeMonsters.length}`);
+        }
+    }
+
+    spawnMultipleMonsters() {
+        const scene = this.scene;
+        
+        // PROGRESSIVE DIFFICULTY: Calculate monsters to spawn based on score
+        const scoreThreshold = Math.floor(scene.score / 500); // Which 500-point milestone we're at
+        
+        // Scaling monster count: 1-4 monsters max, but with randomization
+        let maxMonsters;
+        if (scoreThreshold <= 1) {
+            maxMonsters = 1; // Score 500-1000: Always 1 monster (learning phase)
+        } else if (scoreThreshold <= 3) {
+            maxMonsters = 2; // Score 1500-2000: 1-2 monsters (getting harder)
+        } else if (scoreThreshold <= 6) {
+            maxMonsters = 3; // Score 2500-3500: 1-3 monsters (challenging)  
+        } else {
+            maxMonsters = 4; // Score 4000+: 1-4 monsters (brutal endgame)
+        }
+        
+        // Random number of monsters within the scaling range
+        const monstersToSpawn = Phaser.Math.Between(1, maxMonsters);
+        
+        console.log(`🎯 PROGRESSIVE SPAWNING:`);
+        console.log(`   Score: ${scene.score} (Milestone: ${scoreThreshold})`);
+        console.log(`   Max monsters for this level: ${maxMonsters}`);
+        console.log(`   Spawning: ${monstersToSpawn} monsters`);
+        
+        // Spawn the calculated number of monsters with slight delays and spread positions
+        for (let i = 0; i < monstersToSpawn; i++) {
+            const delay = i * 400; // 400ms between each monster spawn for better spacing
+            scene.time.delayedCall(delay, () => {
+                this.spawnMonster();
+            });
+        }
+        
+        console.log(`💥 Spawning ${monstersToSpawn} monsters with progressive difficulty!`);
+    }
+
+    spawnMonster() {
+        const scene = this.scene;
+        
+        // Random monster type
+        const monsterType = Phaser.Utils.Array.GetRandom(this.monsterTypes);
+        
+        // STRATEGIC SPAWNING: Place monster ABOVE player's current position
+        const playerCurrentY = scene.player.y;
+        const spawnOffsetAbove = Phaser.Math.Between(250, 400); // Spawn 250-400 pixels above player
+        const monsterY = playerCurrentY - spawnOffsetAbove; // Higher up in the level
+        
+        // Random starting side (left or right) - BUT KEEP VISIBLE
+        const startFromLeft = Math.random() < 0.5;
+        const startX = startFromLeft ? 50 : 750; // Start INSIDE screen bounds for visibility
+        
+        console.log(`🐲 STRATEGIC MONSTER SPAWNING:`);
+        console.log(`   Type: ${monsterType}`);
+        console.log(`   Player Y: ${playerCurrentY}`);
+        console.log(`   Monster Y: ${monsterY} (${spawnOffsetAbove}px above player)`);
+        console.log(`   Position: (${startX}, ${monsterY})`);
+        console.log(`   Texture exists: ${scene.textures.exists(`${monsterType}_idle`)}`);
+        console.log(`   Camera position: (${scene.cameras.main.scrollX}, ${scene.cameras.main.scrollY})`);
+        
+        // Check if texture exists before creating sprite
+        if (!scene.textures.exists(`${monsterType}_idle`)) {
+            console.error(`❌ Monster texture '${monsterType}_idle' not found! Available textures:`);
+            console.log(scene.textures.list);
+            return;
+        }
+        
+        // Create monster sprite at strategic position
+        const monster = scene.physics.add.sprite(startX, monsterY, `${monsterType}_idle`);
+        monster.setScale(2.0); // Much bigger scale for better visibility
+        
+        // Set depth to ensure monster appears above other game objects
+        monster.setDepth(1000);
+        
+        // Make sprite fully visible with subtle tint for variety
+        monster.setAlpha(1.0);
+        monster.setTint(monsterType === 'crimson' ? 0xff9999 : 0xbb99ff); // Very light tint
+        
+        console.log(`✅ Monster sprite created successfully`);
+        console.log(`   Monster dimensions: ${monster.width} x ${monster.height}`);
+        console.log(`   Monster scale: ${monster.scaleX}`);
+        
+        // Monster properties
+        monster.monsterType = monsterType;
+        monster.health = this.currentMonsterHealth;
+        monster.maxHealth = this.currentMonsterHealth;
+        monster.movingRight = startFromLeft;
+        monster.patrolStartX = startFromLeft ? 50 : 400;
+        monster.patrolEndX = startFromLeft ? 400 : 750; // Full patrol between sides
+        monster.isDying = false;
+        monster.isAttacking = false;
+        
+        // Physics setup with precise hitbox
+        monster.body.setSize(monster.width * 0.6, monster.height * 0.6); // Smaller, more accurate hitbox
+        monster.body.setOffset(monster.width * 0.2, monster.height * 0.2); // Center the hitbox
+        monster.body.setCollideWorldBounds(false);
+        
+        // FLYING MONSTERS - Set zero gravity and manual velocity control
+        monster.body.setGravityY(-scene.physics.world.gravity.y); // Completely counteract world gravity
+        monster.setVelocityX(monster.movingRight ? 150 : -150); // Horizontal movement
+        monster.setVelocityY(0); // No vertical movement - flying
+        
+        // CRITICAL: Lock the monster's Y position to prevent following player
+        monster.fixedY = monsterY; // Store original Y position
+        monster.y = monster.fixedY; // Set initial position
+        
+        console.log(`🎮 Monster physics setup:`);
+        console.log(`   Body size: ${monster.body.width} x ${monster.body.height}`);
+        console.log(`   Velocity X: ${monster.body.velocity.x}`);
+        console.log(`   Velocity Y: ${monster.body.velocity.y}`);
+        console.log(`   Gravity Y: ${monster.body.gravity.y}`);
+        console.log(`   World Gravity Y: ${scene.physics.world.gravity.y}`);
+        console.log(`   Final world position: (${monster.x}, ${monster.y})`);
+        console.log(`   Distance above player: ${playerCurrentY - monster.y} pixels`);
+        
+        // Check if animation exists before playing
+        const animKey = `${monsterType}_idle_anim`;
+        if (scene.anims.exists(animKey)) {
+            monster.play(animKey);
+            console.log(`✅ Playing animation: ${animKey} on sprite at (${monster.x}, ${monster.y})`);
+            console.log(`   Monster sprite visible: ${monster.visible}, alpha: ${monster.alpha}, scale: ${monster.scaleX}`);
+        } else {
+            console.error(`❌ Animation '${animKey}' not found!`);
+            console.log(`Available animations:`, Object.keys(scene.anims.anims.entries));
+        }
+        
+        // Add to groups
+        this.monsters.add(monster);
+        this.activeMonsters.push(monster);
+        
+        this.monstersSpawned++;
+        console.log(`🐲 Monster spawned strategically: ${monsterType} at (${startX}, ${monsterY}) - Health: ${monster.health} - Total spawned: ${this.monstersSpawned}`);
+        console.log(`   🎯 Player will encounter this monster when climbing ${spawnOffsetAbove} pixels higher!`);
+    }
+
+    updateMonsterMovement(monster) {
+        if (monster.isDying || monster.isAttacking) return;
+        
+        const currentX = monster.x;
+        
+        // CRITICAL: Keep monsters flying at fixed height (no vertical movement)
+        monster.setVelocityY(0); // Force Y velocity to always be 0
+        monster.y = monster.fixedY; // Lock Y position - never follow player down
+        
+        // Check if monster needs to reverse direction (full-screen patrol)
+        if (monster.movingRight && currentX >= monster.patrolEndX) {
+            monster.movingRight = false;
+            monster.setVelocityX(-150);
+            monster.setFlipX(true);
+        } else if (!monster.movingRight && currentX <= monster.patrolStartX) {
+            monster.movingRight = true;
+            monster.setVelocityX(150);
+            monster.setFlipX(false);
+        }
+        
+        // Ensure horizontal velocity is maintained
+        if (Math.abs(monster.body.velocity.x) < 100) {
+            monster.setVelocityX(monster.movingRight ? 150 : -150);
+        }
+        
+        // Double-check Y position lock every frame
+        if (Math.abs(monster.y - monster.fixedY) > 5) {
+            monster.y = monster.fixedY;
+            console.log(`🔒 Monster Y position corrected back to ${monster.fixedY}`);
+        }
+    }
+
+    playerJumpsOnMonster(player, monster) {
+        console.log(`🦘 Player jumps on ${monster.monsterType} monster!`);
+        
+        // Stop monster movement and lock position
+        monster.setVelocity(0, 0);
+        monster.y = monster.fixedY; // Keep at fixed height even while dying
+        monster.isDying = true;
+        
+        // Play death animation
+        monster.play(`${monster.monsterType}_death_anim`);
+        
+        // Give player high trampoline bounce (higher than normal platforms)
+        player.setVelocityY(-700); // Higher than normal platform bounce
+        
+        // Play satisfying sound
+        SoundManager.playForwardButton(this.scene);
+        
+        // Award bonus points
+        this.scene.score += 50;
+        this.scene.scoreText.setText(`SCORE: ${this.scene.score}`);
+        
+        // Destroy monster after death animation
+        this.scene.time.delayedCall(500, () => {
+            if (monster.active) {
+                monster.destroy();
+            }
+        });
+        
+        console.log('🎯 Monster destroyed by jump, player boosted with trampoline effect!');
+    }
+
+    monsterTouchesPlayer(player, monster) {
+        if (monster.isAttacking || player.isStunned || player.isInvincible) return; // Already attacking, player stunned, or invincible
+        
+        console.log(`💀 Monster ${monster.monsterType} DEVASTATES player!`);
+        
+        // Stop monster and play attack animation
+        monster.setVelocity(0, 0);
+        monster.y = monster.fixedY; // Keep monster at fixed height
+        monster.isAttacking = true;
+        monster.play(`${monster.monsterType}_attack_anim`);
+        
+        // CALCULATE KNOCKBACK DIRECTION - Away from monster
+        const playerCenter = player.x + player.width/2;
+        const monsterCenter = monster.x + monster.width/2;
+        const knockbackDirection = playerCenter < monsterCenter ? -1 : 1; // Push away from monster
+        
+        // DEVASTATING KNOCKBACK - Can push player off map!
+        const knockbackForceX = knockbackDirection * 800; // Much stronger horizontal push
+        const knockbackForceY = -400; // Strong upward launch before falling
+        
+        // STUN PLAYER - Critical for difficulty
+        player.isStunned = true;
+        player.stunStartTime = this.scene.time.now;
+        player.setVelocityX(knockbackForceX); // MASSIVE horizontal knockback
+        player.setVelocityY(knockbackForceY); // Launch player up then they fall hard
+        player.setTint(0xff0000); // Red tint for damage
+        
+        // Player loses a life
+        this.scene.lives -= 1;
+        this.scene.livesText.setText(`LIVES: ${this.scene.lives}`);
+        
+        // Play damage sound + screen shake for impact
+        SoundManager.playButtonClick(this.scene);
+        
+        // SCREEN SHAKE for devastating impact
+        this.scene.cameras.main.shake(300, 0.02); // 300ms shake with intensity 0.02
+        
+        console.log(`💥 Player LAUNCHED with massive knockback! Direction: ${knockbackDirection > 0 ? 'RIGHT' : 'LEFT'} Force: ${knockbackForceX}`);
+        
+        // Brief invincibility during knockback flight (0.8 seconds)
+        player.isInvincible = true;
+        
+        // Visual indicator during invincibility - subtle alpha flicker
+        const flickerEffect = this.scene.add.tween({
+            targets: player,
+            alpha: 0.7,
+            duration: 100,
+            yoyo: true,
+            repeat: 7, // Flicker for 0.8 seconds
+            onComplete: () => {
+                if (player.active) player.alpha = 1.0; // Restore full opacity
+            }
+        });
+        
+        this.scene.time.delayedCall(800, () => {
+            if (player.active) {
+                player.isInvincible = false;
+                player.alpha = 1.0; // Ensure full opacity restored
+                console.log(`⚡ Player invincibility removed - vulnerable again`);
+            }
+        });
+        
+        // Remove stun and red tint after 2 seconds (longer due to devastating hit)
+        this.scene.time.delayedCall(2000, () => {
+            if (player.active) {
+                player.isStunned = false;
+                player.clearTint();
+                console.log(`✅ Player recovers from devastating hit`);
+            }
+        });
+        
+        // Check for game over (monster hits can be instantly fatal if player falls off map)
+        if (this.scene.lives <= 0) {
+            this.scene.triggerGameOver();
+            return;
+        }
+        
+        // Additional check - if player gets knocked too far off screen, trigger game over
+        this.scene.time.delayedCall(3000, () => {
+            if (player.active && (player.x < -200 || player.x > this.scene.cameras.main.width + 200 || player.y > this.scene.cameras.main.height + 300)) {
+                console.log(`💀 Player knocked off the map! Game Over!`);
+                this.scene.lives = 0; // Instant death from being knocked off
+                this.scene.livesText.setText(`LIVES: 0`);
+                this.scene.triggerGameOver();
+            }
+        });
+        
+        // Monster resumes idle after devastating attack
+        this.scene.time.delayedCall(1200, () => {
+            if (monster.active && !monster.isDying) {
+                monster.isAttacking = false;
+                monster.play(`${monster.monsterType}_idle_anim`);
+                monster.setVelocityX(monster.movingRight ? 150 : -150);
+                monster.y = monster.fixedY; // Ensure monster stays at fixed height
+            }
+        });
+        
+        console.log(`💥💔 Player DEVASTATED and launched! Lives remaining: ${this.scene.lives}`);
+    }
+
+    projectileHitsMonster(projectile, monster) {
+        console.log(`🎯 Projectile hits ${monster.monsterType} monster!`);
+        
+        // Destroy projectile
+        projectile.destroy();
+        
+        // Damage monster
+        monster.health -= 1;
+        
+        // Visual feedback for hit
+        monster.setTint(0xffffff);
+        this.scene.time.delayedCall(100, () => {
+            if (monster.active) {
+                monster.clearTint();
+            }
+        });
+        
+        // Check if monster dies
+        if (monster.health <= 0) {
+            console.log(`💀 Monster ${monster.monsterType} destroyed by projectile!`);
+            
+            // Stop monster and play death animation
+            monster.setVelocity(0, 0);
+            monster.y = monster.fixedY; // Keep at fixed height when dying
+            monster.isDying = true;
+            monster.play(`${monster.monsterType}_death_anim`);
+            
+            // Award points
+            this.scene.score += 25;
+            this.scene.scoreText.setText(`SCORE: ${this.scene.score}`);
+            
+            // Play satisfying sound
+            SoundManager.playForwardButton(this.scene);
+            
+            // Destroy monster after death animation
+            this.scene.time.delayedCall(500, () => {
+                if (monster.active) {
+                    monster.destroy();
+                }
+            });
+        } else {
+            console.log(`🩹 Monster ${monster.monsterType} health: ${monster.health}/${monster.maxHealth}`);
+        }
+    }
+
+    // Clean up when scene ends
+    destroy() {
+        if (this.monsters) {
+            this.monsters.clear(true, true);
+        }
+        this.activeMonsters = [];
+        console.log('🗑️ HeroMonsterManager destroyed');
     }
 }
 
