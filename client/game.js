@@ -102,7 +102,7 @@ const SoundManager = {
                 this.fightIntroAudio.volume = 0.9;
                 this.victoryAudio.volume = 0.8;
                 this.bruhAudio.volume = 0.7;
-                this.backgroundMusicAudio.volume = 0.25; // Low volume for background music
+                this.backgroundMusicAudio.volume = 0.15; // Lower volume for background music so other SFX can be heard
                 this.backgroundMusicAudio.loop = true; // Enable looping
                 
                 // Set character power volumes
@@ -428,7 +428,7 @@ const SoundManager = {
                     return; // Already playing, don't restart
                 }
                 scene.sound.play('background_music', { 
-                    volume: 0.25, 
+                    volume: 0.15, 
                     loop: true 
                 });
                 console.log('🎵 Background music started via Phaser');
@@ -1482,7 +1482,7 @@ class CharacterSelectionScene extends Phaser.Scene {
         // Clear any lingering physics world references from previous scenes
         if (this.physics && this.physics.world) {
             // Reset physics world properties to defaults
-            this.physics.world.gravity.y = 300; // Reset to default gravity
+            this.physics.world.gravity.y = 600; // Reset to default gravity (updated)
             console.log('⚙️ Reset physics world properties');
         }
         
@@ -1537,6 +1537,10 @@ class CharacterSelectionScene extends Phaser.Scene {
     }
 
     create() {
+        // Initialize audio and start background music
+        SoundManager.initializeAudio(this);
+        SoundManager.startBackgroundMusic(this);
+        
         // Debug CharacterSpriteHelper
         console.log('CharacterSpriteHelper available:', typeof CharacterSpriteHelper);
         console.log('getSkinDisplayName available:', typeof CharacterSpriteHelper?.getSkinDisplayName);
@@ -4118,7 +4122,7 @@ class GameScene extends Phaser.Scene {
             nextEventTime: Date.now() + initialDelay,
             eventDuration: 0,
             eventEndTime: 0,
-            originalGravity: 300,
+            originalGravity: 600,  // Updated to match new global gravity
             originalPlayer1Speed: 160,
             originalPlayer2Speed: 160,
             meteors: [],
@@ -5177,9 +5181,9 @@ class GameScene extends Phaser.Scene {
         this.updateChaosManager();
         
         // Calculate movement speeds based on chaos events
-        let horizontalSpeed = 160;
-        let jumpSpeed = 330;
-        let airMovementSpeed = 100; // Normal mode: allow air control at reduced speed
+        let horizontalSpeed = 200;  // Increased from 160 for faster left/right movement
+        let jumpSpeed = 360;        // Reduced from 400 for lower jump height
+        let airMovementSpeed = 130; // Increased from 100 for better air control
         
         if (this.chaosManager.currentEvent === 'zero_gravity') {
             horizontalSpeed = 100; // Slower horizontal movement for slow motion
@@ -5559,7 +5563,7 @@ class GameScene extends Phaser.Scene {
             
             // Set projectile velocity straight across the screen - exactly like the old blue circle
             projectile.body.setVelocity(direction * 350, 0);
-            projectile.body.setGravityY(-300); // Negative gravity to counteract world gravity like fight mode
+                            projectile.body.setGravityY(-600); // Negative gravity to counteract world gravity (updated)
             projectile.body.setCollideWorldBounds(false); // Don't collide with world bounds
             projectile.body.setSize(20, 20); // Set collision size
             
@@ -5603,7 +5607,7 @@ class GameScene extends Phaser.Scene {
             this.physics.add.existing(projectile);
             
             projectile.body.setVelocity(direction * 300, 0);
-            projectile.body.setGravityY(-300);
+            projectile.body.setGravityY(-600); // Updated to match new gravity
             
             // Handle collision with opponent (fight mode)
             this.physics.add.overlap(projectile, opponent, () => {
@@ -5910,7 +5914,7 @@ class GameScene extends Phaser.Scene {
         
         // Set projectile velocity
         projectile.body.setVelocity(direction * 280, 0);
-        projectile.body.setGravityY(-300);
+        projectile.body.setGravityY(-600); // Updated to match new gravity
         projectile.body.setCollideWorldBounds(false);
         projectile.body.setSize(26, 28); // Collision size (half of frame size: 52/2, 55/2)
         
@@ -7888,13 +7892,13 @@ class FightScene extends Phaser.Scene {
 
         // Player 1 movement (WASD)
         if (this.wasd.A.isDown) {
-            this.player1.setVelocityX(-160);
+            this.player1.setVelocityX(-200);  // Increased from -160 for faster movement
             this.player1.setFlipX(true);
             if (this.player1.body.touching.down && this.anims.exists('fight_player1_walk_anim')) {
                 this.player1.play('fight_player1_walk_anim', true);
             }
         } else if (this.wasd.D.isDown) {
-            this.player1.setVelocityX(160);
+            this.player1.setVelocityX(200);   // Increased from 160 for faster movement
             this.player1.setFlipX(false);
             if (this.player1.body.touching.down && this.anims.exists('fight_player1_walk_anim')) {
                 this.player1.play('fight_player1_walk_anim', true);
@@ -7907,18 +7911,18 @@ class FightScene extends Phaser.Scene {
         }
 
         if (this.wasd.W.isDown && this.player1.body.touching.down) {
-            this.player1.setVelocityY(-330);
+            this.player1.setVelocityY(-360);  // Reduced from -400 for lower jump height
         }
 
         // Player 2 movement (Arrow keys)
         if (this.cursors.left.isDown) {
-            this.player2.setVelocityX(-160);
+            this.player2.setVelocityX(-200);  // Increased from -160 for faster movement
             this.player2.setFlipX(true);
             if (this.player2.body.touching.down && this.anims.exists('fight_player2_walk_anim')) {
                 this.player2.play('fight_player2_walk_anim', true);
             }
         } else if (this.cursors.right.isDown) {
-            this.player2.setVelocityX(160);
+            this.player2.setVelocityX(200);   // Increased from 160 for faster movement
             this.player2.setFlipX(false);
             if (this.player2.body.touching.down && this.anims.exists('fight_player2_walk_anim')) {
                 this.player2.play('fight_player2_walk_anim', true);
@@ -7931,7 +7935,7 @@ class FightScene extends Phaser.Scene {
         }
 
         if (this.cursors.up.isDown && this.player2.body.touching.down) {
-            this.player2.setVelocityY(-330);
+            this.player2.setVelocityY(-360);  // Reduced from -400 for lower jump height
         }
 
         // Blast attacks
@@ -8524,7 +8528,9 @@ class SoloCharacterSelectionScene extends Phaser.Scene {
     }
 
     create() {
+        // Initialize audio and start background music
         SoundManager.initializeAudio(this);
+        SoundManager.startBackgroundMusic(this);
         
         // Arcade-style gradient background (matching local multiplayer)
         this.add.rectangle(400, 300, 800, 600, 0x000000);
@@ -9311,6 +9317,8 @@ class HeroJumperScene extends Phaser.Scene {
         // Load monster sprites for Hero Jumper mode
         this.loadMonsterSprites();
         
+
+        
         // Load fight mode power sprites (same as fight scene)
         this.loadPowerSprites();
     }
@@ -9389,6 +9397,15 @@ class HeroJumperScene extends Phaser.Scene {
             { frameWidth: 150, frameHeight: 150 }
         );
         
+        // Load Golem boss sprites
+        console.log('📁 Loading Golem Boss sprites...');
+        this.load.spritesheet('golem_idle', 
+            'assets/Sprites/HeroJumper/Boss/Mecha-stone Golem 0.1/PNG sheet/Character_sheet.png',
+            { frameWidth: 125, frameHeight: 125 } // 8x8 grid on 1000x1000 sprite sheet
+        );
+        
+        // Golem projectile removed - golem no longer shoots
+        
         console.log('🐲 Hero Jumper monster sprites loading initiated');
         
         // Add load event listeners for debugging
@@ -9400,10 +9417,16 @@ class HeroJumperScene extends Phaser.Scene {
             console.log('✅ twilight_idle loaded successfully');
         });
         
+        this.load.on('filecomplete-spritesheet-golem_idle', () => {
+            console.log('✅ golem_idle loaded successfully');
+        });
+        
         this.load.on('loaderror', (file) => {
             console.error('❌ Failed to load file:', file);
         });
     }
+
+
 
     create() {
         // **CRITICAL FIX**: Reset physics world to prevent cross-mode contamination  
@@ -9485,6 +9508,9 @@ class HeroJumperScene extends Phaser.Scene {
         // Add debug key for testing monsters (M key)
         this.mKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
         
+        // Add debug key for testing boss arena (B key)
+        this.bKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+        
         // Initialize power system for Hero Jumper
         this.powerCooldown = 0; // No cooldown as requested
         // Note: projectiles group already created earlier
@@ -9492,37 +9518,39 @@ class HeroJumperScene extends Phaser.Scene {
         // Setup camera to follow player with better tracking
         this.cameras.main.startFollow(this.player, true, 0.05, 0.1);
         
-        // Create hazard spawning timer with progressive difficulty
-        this.hazardTimer = this.time.addEvent({
-            delay: 4000, // Start with 4 second delay
-            callback: this.spawnHazard,
-            callbackScope: this,
-            loop: true
-        });
+        // HAZARD SYSTEM DISABLED - No more annoying soccer balls falling from sky!
+        // this.hazardTimer = this.time.addEvent({
+        //     delay: 4000, // Start with 4 second delay
+        //     callback: this.spawnHazard,
+        //     callbackScope: this,
+        //     loop: true
+        // });
         
-        // Progressive difficulty - hazards spawn faster as you get higher
-        this.difficultyTimer = this.time.addEvent({
-            delay: 15000, // Every 15 seconds
-            callback: () => {
-                if (this.hazardTimer && !this.gameOver) {
-                    // Reduce delay by 200ms each time (minimum 1.5 seconds)
-                    const newDelay = Math.max(1500, this.hazardTimer.delay - 200);
-                    this.hazardTimer.delay = newDelay;
-                    
-                    // Update UI to show new difficulty
-                    const seconds = (newDelay / 1000).toFixed(1);
-                    this.difficultyText.setText(`HAZARD RATE: ${seconds}S`);
-                    
-                    console.log(`🎯 Difficulty increased! Hazard spawn rate: ${newDelay}ms`);
-                }
-            },
-            callbackScope: this,
-            loop: true
-        });
+        // DIFFICULTY TIMER DISABLED - No need since hazards are disabled
+        // this.difficultyTimer = this.time.addEvent({
+        //     delay: 15000, // Every 15 seconds
+        //     callback: () => {
+        //         if (this.hazardTimer && !this.gameOver) {
+        //             // Reduce delay by 200ms each time (minimum 1.5 seconds)
+        //             const newDelay = Math.max(1500, this.hazardTimer.delay - 200);
+        //             this.hazardTimer.delay = newDelay;
+        //             
+        //             // Update UI to show new difficulty
+        //             const seconds = (newDelay / 1000).toFixed(1);
+        //             this.difficultyText.setText(`HAZARD RATE: ${seconds}S`);
+        //             
+        //             console.log(`🎯 Difficulty increased! Hazard spawn rate: ${newDelay}ms`);
+        //         }
+        //     },
+        //     callbackScope: this,
+        //     loop: true
+        // });
         
         // Initialize monster management system
         this.monsterManager = new HeroMonsterManager(this);
         console.log('🐲 Monster system initialized');
+        
+
         
         console.log('🎮 Hero Jumper scene created successfully');
     }
@@ -10035,6 +10063,16 @@ class HeroJumperScene extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5).setScrollFactor(0);
         
+        // Kill count display with orange styling
+        this.killCountText = this.add.text(700, 20, 'KILLS: 0', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#ff8800', // Orange for kill count
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5).setScrollFactor(0);
+        
         // Controls hint with purple styling (matching app info buttons)
         this.controlsText = this.add.text(400, 75, 'A/D TO MOVE • AUTO-BOUNCE • SPACEBAR: POWER (shoots up!)', {
             fontSize: '14px',
@@ -10044,11 +10082,11 @@ class HeroJumperScene extends Phaser.Scene {
             strokeThickness: 1
         }).setOrigin(0.5).setScrollFactor(0);
         
-        // Difficulty indicator
-        this.difficultyText = this.add.text(400, 95, 'HAZARD RATE: 4.0S', {
+        // Gameplay info
+        this.difficultyText = this.add.text(400, 95, 'CLIMB AS HIGH AS YOU CAN!', {
             fontSize: '12px',
             fontStyle: 'bold',
-            fill: '#ffffff',
+            fill: '#00ff00', // Green for encouragement
             stroke: '#000000',
             strokeThickness: 1
         }).setOrigin(0.5).setScrollFactor(0);
@@ -10156,6 +10194,8 @@ class HeroJumperScene extends Phaser.Scene {
             this.monsterManager.destroy();
             this.monsterManager = null;
         }
+        
+
         
         // Stop player movement
         this.player.setVelocity(0, 0);
@@ -10295,6 +10335,8 @@ class HeroJumperScene extends Phaser.Scene {
             this.monsterManager.update();
         }
         
+
+        
         // Check if player is stunned - if so, disable controls
         if (this.player.isStunned) {
             // Player is stunned - no control input allowed
@@ -10302,6 +10344,8 @@ class HeroJumperScene extends Phaser.Scene {
             this.player.setVelocityX(this.player.body.velocity.x * 0.9);
             return; // Skip normal movement controls
         }
+        
+        // Normal HeroJumper physics - auto-jumping enabled
         
         // Player horizontal movement with air control (reduced speed for better control)
         if (this.cursors.left.isDown || this.wasdKeys.A.isDown) {
@@ -10316,8 +10360,8 @@ class HeroJumperScene extends Phaser.Scene {
             // Don't change sprite facing when not actively moving
         }
         
-        // NO MANUAL JUMPING - Trampoline bounce mechanics only
-        // W/Up keys are intentionally ignored for authentic trampoline gameplay
+        // JUMPING CONTROLS - Trampoline bounce mechanics only
+        // NO MANUAL JUMPING - W/Up keys are intentionally ignored for authentic trampoline gameplay
         // Player automatically bounces when landing on platforms with different velocities
         
         // 🔥 POWER ACTIVATION (Spacebar) - with comprehensive logging
@@ -10334,6 +10378,8 @@ class HeroJumperScene extends Phaser.Scene {
                 this.monsterManager.spawnMultipleMonsters();
             }
         }
+        
+
         
         // Wrap player around screen edges
         if (this.player.x < -25) {
@@ -11017,6 +11063,10 @@ class HeroMonsterManager {
         this.baseMonsterHealth = 1;
         this.currentMonsterHealth = 1;
         this.monstersSpawned = 0;
+        this.monstersKilled = 0; // Track kills for boss spawning
+        this.golemSpawned = false; // Track if golem boss has been spawned
+        this.golemActive = false; // Track if golem is currently active
+        this.golem = null; // Reference to the golem sprite
         
         console.log('🐲 HeroMonsterManager initialized');
         
@@ -11069,6 +11119,15 @@ class HeroMonsterManager {
             }
         });
         
+        // Create golem boss animations (separate from regular monsters)
+        console.log('🏗️ Creating Golem Boss animations...');
+        
+        // Golem idle - using ONLY FIRST FRAME (no animation)
+        // No idle animation needed - will use static frame 0
+        
+        // Golem death - using ONLY LAST FRAME (frame 63 - last image in last row)
+        // No death animation needed - will use static frame 63 when defeated
+        
         console.log('🎬 Monster animations created');
     }
 
@@ -11104,19 +11163,22 @@ class HeroMonsterManager {
                 monsterBounds.centerX, monsterBounds.centerY
             );
             
-            // Only trigger collision if actually close enough (more precise)
-            if (distance > 80) return; // Must be within 80 pixels of center-to-center
+            // Only trigger collision if actually close enough (adjusted for smaller hitboxes)
+            if (distance > 60) return; // Must be within 60 pixels of center-to-center (reduced for smaller hitboxes)
             
-            // STRICT jump-on-monster detection - must be clearly above and falling down
-            const isAboveMonster = playerBounds.bottom < monsterBounds.centerY;
-            const isFallingFast = player.body.velocity.y > 100; // Must be falling fast
-            const isLandingOnTop = playerBounds.bottom > monsterBounds.top && playerBounds.bottom < monsterBounds.top + 40; // Landing zone
+            // IMPROVED jump-on-monster detection - more forgiving for player
+            const isAboveMonster = playerBounds.bottom <= monsterBounds.centerY + 10; // Slightly more forgiving
+            const isFalling = player.body.velocity.y > 50; // Reduced falling speed requirement
+            const isLandingOnTop = playerBounds.bottom >= monsterBounds.top - 15 && playerBounds.bottom <= monsterBounds.top + 50; // Larger landing zone
+            const isComingFromAbove = playerBounds.centerY < monsterBounds.centerY; // Player center must be above monster center
             
-            if (isAboveMonster && isFallingFast && isLandingOnTop) {
+            if (isAboveMonster && isFalling && isLandingOnTop && isComingFromAbove) {
                 // Player successfully jumps on monster - kill monster, boost player
+                console.log(`✅ JUMP KILL: Player successfully jumps on monster!`);
                 this.playerJumpsOnMonster(player, monster);
             } else {
                 // Monster attacks player with DEVASTATING knockback
+                console.log(`💀 SIDE HIT: Monster hits player from side/below - taking damage!`);
                 this.monsterTouchesPlayer(player, monster);
             }
         }, null, scene);
@@ -11128,6 +11190,8 @@ class HeroMonsterManager {
             this.projectileHitsMonster(projectile, monster);
         }, null, scene);
         
+        // No golem projectile collisions - golem doesn't shoot
+        
         console.log('💥 Monster collision handlers setup');
     }
 
@@ -11136,24 +11200,23 @@ class HeroMonsterManager {
         
         // Debug score tracking every 50 points for better visibility
         if (scene.score > 0 && scene.score % 50 === 0 && scene.score !== this.lastDebugScore) {
-            console.log(`🎯 Score Update: ${scene.score} (Next strategic spawn at: ${this.lastSpawnScore + 500})`);
+            console.log(`🎯 Score Update: ${scene.score} (Next strategic spawn at: ${this.lastSpawnScore + 350})`);
             this.lastDebugScore = scene.score;
         }
         
-        // Check if we need to spawn monsters (every 500 points with progressive difficulty)
-        const shouldSpawn = scene.score >= this.lastSpawnScore + 500;
+        // Check if we need to spawn monsters (every 350 points with progressive difficulty)
+        const shouldSpawn = scene.score >= this.lastSpawnScore + 350;
         if (shouldSpawn) {
-            console.log(`🚨 STRATEGIC SPAWN TRIGGER: Score ${scene.score} >= ${this.lastSpawnScore + 500}`);
+            console.log(`🚨 STRATEGIC SPAWN TRIGGER: Score ${scene.score} >= ${this.lastSpawnScore + 350}`);
             this.spawnMultipleMonsters();
             this.lastSpawnScore = scene.score;
             
-            // Increase monster health every 500 points (max 5 shots)
-            this.currentMonsterHealth = Math.min(5, Math.floor(scene.score / 500) + 1);
-            console.log(`🎯 Monster health increased to: ${this.currentMonsterHealth} shots required`);
+            // Note: Monsters now die in 1 hit from projectiles (instant kill system)
+            console.log(`🎯 All monsters die instantly from projectiles - no health scaling needed`);
         }
         
-        // FIRST SPAWN: Always spawn if score >= 500 and no monsters active
-        if (scene.score >= 500 && this.activeMonsters.length === 0 && this.lastSpawnScore === 0) {
+        // FIRST SPAWN: Always spawn if score >= 350 and no monsters active
+        if (scene.score >= 350 && this.activeMonsters.length === 0 && this.lastSpawnScore === 0) {
             console.log(`🚨 FIRST STRATEGIC SPAWN: Score is ${scene.score}, spawning initial monsters!`);
             this.spawnMultipleMonsters();
             this.lastSpawnScore = scene.score;
@@ -11179,22 +11242,41 @@ class HeroMonsterManager {
         const scene = this.scene;
         
         // PROGRESSIVE DIFFICULTY: Calculate monsters to spawn based on score
-        const scoreThreshold = Math.floor(scene.score / 500); // Which 500-point milestone we're at
+        const scoreThreshold = Math.floor(scene.score / 350); // Which 350-point milestone we're at (was 500)
         
-        // Scaling monster count: 1-4 monsters max, but with randomization
+        // Scaling monster count: 1-4 monsters max, but with better randomization for more variety
         let maxMonsters;
         if (scoreThreshold <= 1) {
-            maxMonsters = 1; // Score 500-1000: Always 1 monster (learning phase)
+            maxMonsters = 1; // Score 350-700: Always 1 monster (learning phase)
         } else if (scoreThreshold <= 3) {
-            maxMonsters = 2; // Score 1500-2000: 1-2 monsters (getting harder)
+            maxMonsters = 2; // Score 1050-1400: 1-2 monsters (getting harder)
         } else if (scoreThreshold <= 6) {
-            maxMonsters = 3; // Score 2500-3500: 1-3 monsters (challenging)  
+            maxMonsters = 3; // Score 1750-2450: 1-3 monsters (challenging)  
         } else {
-            maxMonsters = 4; // Score 4000+: 1-4 monsters (brutal endgame)
+            maxMonsters = 4; // Score 2800+: 1-4 monsters (brutal endgame)
         }
         
-        // Random number of monsters within the scaling range
-        const monstersToSpawn = Phaser.Math.Between(1, maxMonsters);
+        // IMPROVED RANDOMIZATION: Weight distribution to favor higher counts more often
+        let monstersToSpawn;
+        if (maxMonsters === 1) {
+            monstersToSpawn = 1; // Always 1 in learning phase
+        } else if (maxMonsters === 2) {
+            // 40% chance 1 monster, 60% chance 2 monsters (more pairs!)
+            monstersToSpawn = Math.random() < 0.4 ? 1 : 2;
+        } else if (maxMonsters === 3) {
+            // 20% chance 1, 40% chance 2, 40% chance 3 monsters
+            const rand = Math.random();
+            if (rand < 0.2) monstersToSpawn = 1;
+            else if (rand < 0.6) monstersToSpawn = 2;
+            else monstersToSpawn = 3;
+        } else {
+            // 15% chance 1, 30% chance 2, 30% chance 3, 25% chance 4 monsters
+            const rand = Math.random();
+            if (rand < 0.15) monstersToSpawn = 1;
+            else if (rand < 0.45) monstersToSpawn = 2;
+            else if (rand < 0.75) monstersToSpawn = 3;
+            else monstersToSpawn = 4;
+        }
         
         console.log(`🎯 PROGRESSIVE SPAWNING:`);
         console.log(`   Score: ${scene.score} (Milestone: ${scoreThreshold})`);
@@ -11220,7 +11302,7 @@ class HeroMonsterManager {
         
         // STRATEGIC SPAWNING: Place monster ABOVE player's current position
         const playerCurrentY = scene.player.y;
-        const spawnOffsetAbove = Phaser.Math.Between(250, 400); // Spawn 250-400 pixels above player
+        const spawnOffsetAbove = Phaser.Math.Between(150, 250); // Spawn 150-250 pixels above player (closer encounters)
         const monsterY = playerCurrentY - spawnOffsetAbove; // Higher up in the level
         
         // Random starting side (left or right) - BUT KEEP VISIBLE
@@ -11257,19 +11339,17 @@ class HeroMonsterManager {
         console.log(`   Monster dimensions: ${monster.width} x ${monster.height}`);
         console.log(`   Monster scale: ${monster.scaleX}`);
         
-        // Monster properties
+        // Monster properties (health removed - instant kill system)
         monster.monsterType = monsterType;
-        monster.health = this.currentMonsterHealth;
-        monster.maxHealth = this.currentMonsterHealth;
         monster.movingRight = startFromLeft;
         monster.patrolStartX = startFromLeft ? 50 : 400;
         monster.patrolEndX = startFromLeft ? 400 : 750; // Full patrol between sides
         monster.isDying = false;
         monster.isAttacking = false;
         
-        // Physics setup with precise hitbox
-        monster.body.setSize(monster.width * 0.6, monster.height * 0.6); // Smaller, more accurate hitbox
-        monster.body.setOffset(monster.width * 0.2, monster.height * 0.2); // Center the hitbox
+        // Physics setup with precise hitbox - MUCH smaller for accuracy
+        monster.body.setSize(monster.width * 0.4, monster.height * 0.4); // Much smaller, more accurate hitbox
+        monster.body.setOffset(monster.width * 0.3, monster.height * 0.3); // Center the smaller hitbox
         monster.body.setCollideWorldBounds(false);
         
         // FLYING MONSTERS - Set zero gravity and manual velocity control
@@ -11306,12 +11386,12 @@ class HeroMonsterManager {
         this.activeMonsters.push(monster);
         
         this.monstersSpawned++;
-        console.log(`🐲 Monster spawned strategically: ${monsterType} at (${startX}, ${monsterY}) - Health: ${monster.health} - Total spawned: ${this.monstersSpawned}`);
+        console.log(`🐲 Monster spawned strategically: ${monsterType} at (${startX}, ${monsterY}) - Instant kill system - Total spawned: ${this.monstersSpawned}`);
         console.log(`   🎯 Player will encounter this monster when climbing ${spawnOffsetAbove} pixels higher!`);
     }
 
     updateMonsterMovement(monster) {
-        if (monster.isDying || monster.isAttacking) return;
+        if (monster.isDying || monster.isAttacking || monster.isStunned) return;
         
         const currentX = monster.x;
         
@@ -11319,6 +11399,13 @@ class HeroMonsterManager {
         monster.setVelocityY(0); // Force Y velocity to always be 0
         monster.y = monster.fixedY; // Lock Y position - never follow player down
         
+        // Golem-specific behavior
+        if (monster.monsterType === 'golem') {
+            this.updateGolemBehavior(monster);
+            return;
+        }
+        
+        // Regular monster movement logic
         // Check if monster needs to reverse direction (full-screen patrol)
         if (monster.movingRight && currentX >= monster.patrolEndX) {
             monster.movingRight = false;
@@ -11341,10 +11428,52 @@ class HeroMonsterManager {
             console.log(`🔒 Monster Y position corrected back to ${monster.fixedY}`);
         }
     }
+    
+    // Golem-specific movement behavior (no shooting)
+    updateGolemBehavior(golem) {
+        const currentX = golem.x;
+        
+        // Golem movement (same as regular monsters but slower)
+        if (golem.movingRight && currentX >= golem.patrolEndX) {
+            golem.movingRight = false;
+            golem.setVelocityX(-100); // Slower than regular monsters
+            golem.setFlipX(true);
+        } else if (!golem.movingRight && currentX <= golem.patrolStartX) {
+            golem.movingRight = true;
+            golem.setVelocityX(100); // Slower than regular monsters
+            golem.setFlipX(false);
+        }
+        
+        // Ensure horizontal velocity is maintained
+        if (Math.abs(golem.body.velocity.x) < 80) {
+            golem.setVelocityX(golem.movingRight ? 100 : -100);
+        }
+        
+        // Keep golem at fixed height
+        if (Math.abs(golem.y - golem.fixedY) > 5) {
+            golem.y = golem.fixedY;
+            console.log(`🔒 Golem Y position corrected back to ${golem.fixedY}`);
+        }
+    }
+    
+    // Golem no longer shoots - removed shooting functionality
 
     playerJumpsOnMonster(player, monster) {
         console.log(`🦘 Player jumps on ${monster.monsterType} monster!`);
         
+        // Always give player trampoline bounce first
+        player.setVelocityY(-700); // Higher than normal platform bounce
+        
+        // GOLEM SPECIAL HEALTH SYSTEM - Takes 2 hits even when jumped on
+        if (monster.monsterType === 'golem') {
+            console.log('🦘🏗️ Player jumps on GOLEM - using health system!');
+            
+            // Golem takes damage but doesn't die instantly
+            this.handleGolemHit(monster);
+            return; // Exit early - golem damage handled by health system
+        }
+        
+        // REGULAR MONSTERS: Instant death from jumping
         // Stop monster movement and lock position
         monster.setVelocity(0, 0);
         monster.y = monster.fixedY; // Keep at fixed height even while dying
@@ -11353,15 +11482,22 @@ class HeroMonsterManager {
         // Play death animation
         monster.play(`${monster.monsterType}_death_anim`);
         
-        // Give player high trampoline bounce (higher than normal platforms)
-        player.setVelocityY(-700); // Higher than normal platform bounce
-        
         // Play satisfying sound
         SoundManager.playForwardButton(this.scene);
         
         // Award bonus points
         this.scene.score += 50;
         this.scene.scoreText.setText(`SCORE: ${this.scene.score}`);
+        
+        // INCREMENT MONSTER KILL COUNT
+        this.monstersKilled++;
+        console.log(`📊 JUMP KILL: Monster destroyed! Total kills: ${this.monstersKilled}`);
+        
+        // Update kill count display
+        this.scene.killCountText.setText(`KILLS: ${this.monstersKilled}`);
+        
+        // Check if golem should spawn after 5 kills
+        this.checkGolemSpawn();
         
         // Destroy monster after death animation
         this.scene.time.delayedCall(500, () => {
@@ -11374,15 +11510,21 @@ class HeroMonsterManager {
     }
 
     monsterTouchesPlayer(player, monster) {
-        if (monster.isAttacking || player.isStunned || player.isInvincible) return; // Already attacking, player stunned, or invincible
+        if (monster.isAttacking || monster.isStunned || player.isStunned || player.isInvincible) return; // Monster attacking/stunned, player stunned, or invincible
         
         console.log(`💀 Monster ${monster.monsterType} DEVASTATES player!`);
         
-        // Stop monster and play attack animation
+        // Stop monster and play attack animation (except golem)
         monster.setVelocity(0, 0);
         monster.y = monster.fixedY; // Keep monster at fixed height
-        monster.isAttacking = true;
-        monster.play(`${monster.monsterType}_attack_anim`);
+        
+        if (monster.monsterType !== 'golem') {
+            monster.isAttacking = true;
+            monster.play(`${monster.monsterType}_attack_anim`);
+        } else {
+            // Golem doesn't have attack animation, just stays in static frame
+            monster.setFrame(0);
+        }
         
         // CALCULATE KNOCKBACK DIRECTION - Away from monster
         const playerCenter = player.x + player.width/2;
@@ -11463,15 +11605,23 @@ class HeroMonsterManager {
         // Monster resumes idle after devastating attack
         this.scene.time.delayedCall(1200, () => {
             if (monster.active && !monster.isDying) {
-                monster.isAttacking = false;
-                monster.play(`${monster.monsterType}_idle_anim`);
-                monster.setVelocityX(monster.movingRight ? 150 : -150);
+                if (monster.monsterType !== 'golem') {
+                    monster.isAttacking = false;
+                    monster.play(`${monster.monsterType}_idle_anim`);
+                    monster.setVelocityX(monster.movingRight ? 150 : -150);
+                } else {
+                    // Golem stays on static frame and resumes slower movement
+                    monster.setFrame(0);
+                    monster.setVelocityX(monster.movingRight ? 100 : -100);
+                }
                 monster.y = monster.fixedY; // Ensure monster stays at fixed height
             }
         });
         
         console.log(`💥💔 Player DEVASTATED and launched! Lives remaining: ${this.scene.lives}`);
     }
+    
+    // Golem projectile functionality removed - no longer shoots
 
     projectileHitsMonster(projectile, monster) {
         console.log(`🎯 Projectile hits ${monster.monsterType} monster!`);
@@ -11479,43 +11629,302 @@ class HeroMonsterManager {
         // Destroy projectile
         projectile.destroy();
         
-        // Damage monster
-        monster.health -= 1;
+        // GOLEM SPECIAL HEALTH SYSTEM - Takes 2 hits
+        if (monster.monsterType === 'golem') {
+            return this.handleGolemHit(monster);
+        }
         
-        // Visual feedback for hit
+        // REGULAR MONSTERS: INSTANT KILL
+        console.log(`💀 Monster ${monster.monsterType} destroyed by projectile (INSTANT KILL)!`);
+        
+        // Stop monster and play death animation
+        monster.setVelocity(0, 0);
+        monster.y = monster.fixedY; // Keep at fixed height when dying
+        monster.isDying = true;
+        monster.play(`${monster.monsterType}_death_anim`);
+        
+        // Visual feedback - bright flash for satisfying kill
         monster.setTint(0xffffff);
-        this.scene.time.delayedCall(100, () => {
+        this.scene.time.delayedCall(200, () => {
             if (monster.active) {
-                monster.clearTint();
+                monster.setTint(0xffaa00); // Brief golden tint before death
             }
         });
         
-        // Check if monster dies
-        if (monster.health <= 0) {
-            console.log(`💀 Monster ${monster.monsterType} destroyed by projectile!`);
+        // Award points
+        this.scene.score += 25;
+        this.scene.scoreText.setText(`SCORE: ${this.scene.score}`);
+        
+        // Play satisfying sound
+        SoundManager.playForwardButton(this.scene);
+        
+        // INCREMENT MONSTER KILL COUNT
+        this.monstersKilled++;
+        console.log(`📊 PROJECTILE KILL: Monster destroyed! Total kills: ${this.monstersKilled}`);
+        
+        // Update kill count display
+        this.scene.killCountText.setText(`KILLS: ${this.monstersKilled}`);
+        
+        // Check if golem should spawn after 5 kills
+        this.checkGolemSpawn();
+        
+        // Destroy monster after death animation
+        this.scene.time.delayedCall(500, () => {
+            if (monster.active) {
+                monster.destroy();
+            }
+        });
+        
+        console.log('💥 INSTANT KILL - Monster destroyed by power projectile!');
+    }
+    
+    // Handle golem taking damage (2-hit system)
+    handleGolemHit(golem) {
+        console.log(`🏗️ Golem hit! Health: ${golem.health}/${golem.maxHealth}`);
+        
+        // Reduce golem health
+        golem.health--;
+        
+        // Visual feedback for hit
+        golem.setTint(0xff4444); // Red flash
+        this.scene.time.delayedCall(300, () => {
+            if (golem.active && !golem.isDying) {
+                golem.setTint(0xffaaaa); // Return to normal red tint
+            }
+        });
+        
+        // Screen shake for impact
+        this.scene.cameras.main.shake(150, 0.015);
+        
+        // Play hit sound
+        SoundManager.playButtonClick(this.scene);
+        
+        // Show damage indicator
+        const damageText = this.scene.add.text(golem.x, golem.y - 50, `${golem.health > 0 ? 'HIT!' : 'DEFEATED!'}`, {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: golem.health > 0 ? '#ffaa00' : '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        
+        this.scene.tweens.add({
+            targets: damageText,
+            y: damageText.y - 60,
+            alpha: 0,
+            duration: 1000,
+            ease: 'Power2',
+            onComplete: () => damageText.destroy()
+        });
+        
+        if (golem.health <= 0) {
+            // GOLEM DEFEATED!
+            this.golemDefeated(golem);
+        } else {
+            // GOLEM STILL ALIVE - Show health
+            console.log(`🏗️ Golem survives with ${golem.health} HP remaining!`);
             
-            // Stop monster and play death animation
-            monster.setVelocity(0, 0);
-            monster.y = monster.fixedY; // Keep at fixed height when dying
-            monster.isDying = true;
-            monster.play(`${monster.monsterType}_death_anim`);
-            
-            // Award points
-            this.scene.score += 25;
-            this.scene.scoreText.setText(`SCORE: ${this.scene.score}`);
-            
-            // Play satisfying sound
-            SoundManager.playForwardButton(this.scene);
-            
-            // Destroy monster after death animation
-            this.scene.time.delayedCall(500, () => {
-                if (monster.active) {
-                    monster.destroy();
+            // Briefly stun golem
+            const originalVelX = golem.body.velocity.x;
+            golem.setVelocity(0, 0);
+            this.scene.time.delayedCall(800, () => {
+                if (golem.active && !golem.isDying) {
+                    golem.setVelocityX(golem.movingRight ? 100 : -100);
                 }
             });
-        } else {
-            console.log(`🩹 Monster ${monster.monsterType} health: ${monster.health}/${monster.maxHealth}`);
         }
+    }
+    
+    // Handle golem defeat
+    golemDefeated(golem) {
+        console.log('🏗️💀 GOLEM BOSS DEFEATED! Victory!');
+        
+        // Stop golem and show defeated frame
+        golem.setVelocity(0, 0);
+        golem.y = golem.fixedY;
+        golem.isDying = true;
+        golem.setFrame(63); // Last frame of last row - defeated golem
+        
+        // Epic victory effects
+        golem.setTint(0xffff00); // Golden tint for victory
+        this.scene.cameras.main.shake(300, 0.02); // Bigger screen shake
+        
+        // Award bonus points for boss kill
+        this.scene.score += 100;
+        this.scene.scoreText.setText(`SCORE: ${this.scene.score}`);
+        
+        // Play victory sound
+        SoundManager.playForwardButton(this.scene);
+        
+        // INCREMENT KILL COUNT (golem counts as kill)
+        this.monstersKilled++;
+        this.scene.killCountText.setText(`KILLS: ${this.monstersKilled}`);
+        
+        // **GOLEM VICTORY BOOST**: Give player +100 height boost
+        this.giveGolemVictoryBoost();
+        
+        // Mark golem as no longer active
+        this.golemActive = false;
+        this.golem = null; // Clear golem reference
+        
+        // Destroy golem after showing defeated frame
+        this.scene.time.delayedCall(1000, () => {
+            if (golem.active) {
+                golem.destroy();
+            }
+        });
+        
+        console.log('🏗️✨ Golem boss defeated - player awarded victory boost!');
+    }
+    
+    // Give player height boost for defeating golem
+    giveGolemVictoryBoost() {
+        const scene = this.scene;
+        const player = scene.player;
+        
+        console.log('✨ GOLEM VICTORY BOOST: Launching player +100 height!');
+        
+        // Massive upward boost
+        player.setVelocityY(-800); // Strong upward velocity
+        
+        // Visual effects
+        player.setTint(0xffdd00); // Golden victory tint
+        
+        // Victory notification
+        const victoryText = scene.add.text(player.x, player.y - 80, '⭐ GOLEM DEFEATED! +100 HEIGHT! ⭐', {
+            fontSize: '24px',
+            fontStyle: 'bold',
+            fill: '#ffdd00',
+            stroke: '#000000',
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+        
+        // Animate victory text
+        scene.tweens.add({
+            targets: victoryText,
+            y: victoryText.y - 100,
+            alpha: 0,
+            duration: 2000,
+            ease: 'Power2',
+            onComplete: () => victoryText.destroy()
+        });
+        
+        // Remove victory tint after boost
+        scene.time.delayedCall(1500, () => {
+            if (player.active) {
+                player.clearTint();
+            }
+        });
+        
+        // Update player's highest Y to reflect the boost
+        scene.highestY = player.y - 100; // Give them credit for the height boost
+        
+        console.log('✨ Victory boost applied - player launched skyward!');
+    }
+
+    // Check if golem should spawn after reaching kill threshold
+    checkGolemSpawn() {
+        // Spawn golem after 5 kills (only once and not if already active)
+        if (this.monstersKilled >= 5 && !this.golemSpawned && !this.golemActive) {
+            console.log('🏗️ GOLEM SPAWN TRIGGERED! 5 monsters killed - spawning boss golem!');
+            this.spawnGolem();
+            this.golemSpawned = true;
+        }
+    }
+    
+    // Spawn the golem boss
+    spawnGolem() {
+        const scene = this.scene;
+        
+        // Strategic spawning: Place golem ABOVE player's current position
+        const playerCurrentY = scene.player.y;
+        const spawnOffsetAbove = Phaser.Math.Between(200, 300); // Spawn higher up than regular monsters
+        const golemY = playerCurrentY - spawnOffsetAbove;
+        
+        // Start from left or right side
+        const startFromLeft = Math.random() < 0.5;
+        const startX = startFromLeft ? 100 : 700;
+        
+        console.log(`🏗️ SPAWNING GOLEM BOSS:`);
+        console.log(`   Position: (${startX}, ${golemY})`);
+        console.log(`   Player Y: ${playerCurrentY}`);
+        console.log(`   Spawn offset: ${spawnOffsetAbove}px above player`);
+        
+        // Create golem sprite
+        this.golem = scene.physics.add.sprite(startX, golemY, 'golem_idle');
+        this.golem.setScale(3.0); // Make golem bigger than regular monsters
+        this.golem.setDepth(1001); // Higher depth than regular monsters
+        this.golem.setTint(0xffaaaa); // Slight red tint to make it stand out
+        
+        // Golem properties
+        this.golem.monsterType = 'golem';
+        this.golem.movingRight = startFromLeft;
+        this.golem.patrolStartX = startFromLeft ? 100 : 350;
+        this.golem.patrolEndX = startFromLeft ? 450 : 700;
+        this.golem.isDying = false;
+        this.golem.health = 2; // Golem takes 2 hits to kill
+        this.golem.maxHealth = 2;
+        
+        // Physics setup - larger hitbox for boss
+        this.golem.body.setSize(this.golem.width * 0.6, this.golem.height * 0.6);
+        this.golem.body.setOffset(this.golem.width * 0.2, this.golem.height * 0.2);
+        this.golem.body.setCollideWorldBounds(false);
+        
+        // Flying golem - no gravity
+        this.golem.body.setGravityY(-scene.physics.world.gravity.y);
+        this.golem.setVelocityX(this.golem.movingRight ? 100 : -100); // Slower than regular monsters
+        this.golem.setVelocityY(0);
+        
+        // Lock Y position like other flying monsters
+        this.golem.fixedY = golemY;
+        this.golem.y = this.golem.fixedY;
+        
+        // Set to first frame only (no animation)
+        this.golem.setFrame(0);
+        
+        // Add to monsters group for collision detection
+        this.monsters.add(this.golem);
+        this.activeMonsters.push(this.golem);
+        
+        // Mark golem as active
+        this.golemActive = true;
+        
+        console.log('🏗️ GOLEM BOSS SPAWNED! Prepare for battle!');
+        
+        // Show golem spawn notification
+        this.showGolemSpawnNotification();
+    }
+    
+    // Show notification when golem spawns
+    showGolemSpawnNotification() {
+        const scene = this.scene;
+        const centerX = scene.cameras.main.centerX;
+        const centerY = scene.cameras.main.centerY;
+        
+        // Boss warning text
+        const bossWarning = scene.add.text(centerX, centerY, '⚠️ BOSS GOLEM SPAWNED! ⚠️', {
+            fontSize: '32px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#ffff00',
+            strokeThickness: 3,
+            shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5).setScrollFactor(0);
+        
+        // Flash effect
+        scene.tweens.add({
+            targets: bossWarning,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            alpha: 0.7,
+            duration: 500,
+            yoyo: true,
+            repeat: 2,
+            onComplete: () => {
+                bossWarning.destroy();
+            }
+        });
     }
 
     // Clean up when scene ends
@@ -11524,9 +11933,13 @@ class HeroMonsterManager {
             this.monsters.clear(true, true);
         }
         this.activeMonsters = [];
+        this.golem = null;
+        this.golemActive = false;
         console.log('🗑️ HeroMonsterManager destroyed');
     }
 }
+
+// Hero Boss Manager removed - focusing on pure climbing gameplay
 
 // Game configuration
 const config = {
@@ -11538,7 +11951,7 @@ const config = {
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 300 },
+            gravity: { y: 600 },  // Increased from 480 for much faster falling from jumps
             debug: false
         }
     },
@@ -11551,4 +11964,4 @@ const config = {
 };
 
 // Initialize the game
-const game = new Phaser.Game(config); 
+const game = new Phaser.Game(config);
