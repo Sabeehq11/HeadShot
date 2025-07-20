@@ -815,16 +815,30 @@ class HomeScene extends Phaser.Scene {
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Create buttons with proper spacing - matching START MATCH button styling but with purple borders
+        // Create buttons with proper spacing - Hero Jumper on top
         const buttonSpacing = 80;
         const startY = 250;
 
-        // Local Multiplayer Button
-        this.localMultiplayerBg = this.add.rectangle(400, startY, 320, 60, 0x000000, 0.9);
+        // Hero Jumper Button (moved to top)
+        this.heroJumperBg = this.add.rectangle(400, startY, 320, 60, 0x000000, 0.9);
+        this.heroJumperBg.setStrokeStyle(4, 0xff00ff); // Vibrant purple border
+        this.heroJumperBg.setInteractive();
+        
+        this.heroJumperBtn = this.add.text(400, startY, 'HERO JUMPER', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#ff00ff', // Purple text to match border
+            stroke: '#000000',
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5);
+
+        // Local Multiplayer Button (moved to second)
+        this.localMultiplayerBg = this.add.rectangle(400, startY + buttonSpacing, 320, 60, 0x000000, 0.9);
         this.localMultiplayerBg.setStrokeStyle(4, 0xff00ff); // Vibrant purple border
         this.localMultiplayerBg.setInteractive();
         
-        this.localMultiplayerBtn = this.add.text(400, startY, 'LOCAL MULTIPLAYER', {
+        this.localMultiplayerBtn = this.add.text(400, startY + buttonSpacing, 'LOCAL MULTIPLAYER', {
             fontSize: '20px',
             fontStyle: 'bold',
             fill: '#ff00ff', // Purple text to match border
@@ -834,11 +848,11 @@ class HomeScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // Tutorial Button
-        this.tutorialBg = this.add.rectangle(400, startY + buttonSpacing, 320, 60, 0x000000, 0.9);
+        this.tutorialBg = this.add.rectangle(400, startY + (buttonSpacing * 2), 320, 60, 0x000000, 0.9);
         this.tutorialBg.setStrokeStyle(4, 0xff00ff); // Vibrant purple border
         this.tutorialBg.setInteractive();
         
-        this.tutorialBtn = this.add.text(400, startY + buttonSpacing, 'TUTORIAL', {
+        this.tutorialBtn = this.add.text(400, startY + (buttonSpacing * 2), 'TUTORIAL', {
             fontSize: '20px',
             fontStyle: 'bold',
             fill: '#ff00ff', // Purple text to match border
@@ -848,11 +862,11 @@ class HomeScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // Character Info Button
-        this.characterInfoBg = this.add.rectangle(400, startY + (buttonSpacing * 2), 320, 60, 0x000000, 0.9);
+        this.characterInfoBg = this.add.rectangle(400, startY + (buttonSpacing * 3), 320, 60, 0x000000, 0.9);
         this.characterInfoBg.setStrokeStyle(4, 0xff00ff); // Vibrant purple border
         this.characterInfoBg.setInteractive();
         
-        this.characterInfoBtn = this.add.text(400, startY + (buttonSpacing * 2), 'CHARACTER INFO', {
+        this.characterInfoBtn = this.add.text(400, startY + (buttonSpacing * 3), 'CHARACTER INFO', {
             fontSize: '20px',
             fontStyle: 'bold',
             fill: '#ff00ff', // Purple text to match border
@@ -861,21 +875,12 @@ class HomeScene extends Phaser.Scene {
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5);
 
-        // Hero Jumper Button
-        this.heroJumperBg = this.add.rectangle(400, startY + (buttonSpacing * 3), 320, 60, 0x000000, 0.9);
-        this.heroJumperBg.setStrokeStyle(4, 0xff00ff); // Vibrant purple border
-        this.heroJumperBg.setInteractive();
-        
-        this.heroJumperBtn = this.add.text(400, startY + (buttonSpacing * 3), 'HERO JUMPER', {
-            fontSize: '20px',
-            fontStyle: 'bold',
-            fill: '#ff00ff', // Purple text to match border
-            stroke: '#000000',
-            strokeThickness: 2,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
-        }).setOrigin(0.5);
+        // Add click handlers (in new order)
+        this.heroJumperBg.on('pointerdown', () => {
+            SoundManager.playForwardButton(this);
+            this.scene.start('SoloCharacterSelectionScene');
+        });
 
-        // Add click handlers
         this.localMultiplayerBg.on('pointerdown', () => {
             SoundManager.playForwardButton(this);
             this.scene.start('CharacterSelectionScene');
@@ -891,9 +896,16 @@ class HomeScene extends Phaser.Scene {
             this.openCharacterInfoPanel();
         });
 
-        this.heroJumperBg.on('pointerdown', () => {
-            SoundManager.playForwardButton(this);
-            this.scene.start('SoloCharacterSelectionScene');
+        // Add hover effects for Hero Jumper button (moved to top)
+        this.heroJumperBg.on('pointerover', () => {
+            this.heroJumperBg.setFillStyle(0x330033, 0.9); // Purple tint
+            this.heroJumperBg.setStrokeStyle(4, 0xff00ff);
+            this.heroJumperBtn.setStyle({ fill: '#ffffff' });
+        });
+        this.heroJumperBg.on('pointerout', () => {
+            this.heroJumperBg.setFillStyle(0x000000, 0.9);
+            this.heroJumperBg.setStrokeStyle(4, 0xff00ff);
+            this.heroJumperBtn.setStyle({ fill: '#ff00ff' });
         });
 
         // Add hover effects for Local Multiplayer button
@@ -930,18 +942,6 @@ class HomeScene extends Phaser.Scene {
             this.characterInfoBg.setFillStyle(0x000000, 0.9);
             this.characterInfoBg.setStrokeStyle(4, 0xff00ff);
             this.characterInfoBtn.setStyle({ fill: '#ff00ff' });
-        });
-
-        // Add hover effects for Hero Jumper button
-        this.heroJumperBg.on('pointerover', () => {
-            this.heroJumperBg.setFillStyle(0x330033, 0.9); // Purple tint
-            this.heroJumperBg.setStrokeStyle(4, 0xff00ff);
-            this.heroJumperBtn.setStyle({ fill: '#ffffff' });
-        });
-        this.heroJumperBg.on('pointerout', () => {
-            this.heroJumperBg.setFillStyle(0x000000, 0.9);
-            this.heroJumperBg.setStrokeStyle(4, 0xff00ff);
-            this.heroJumperBtn.setStyle({ fill: '#ff00ff' });
         });
     }
 
@@ -9028,31 +9028,44 @@ class SoloCharacterSelectionScene extends Phaser.Scene {
 CONTROLS:
 • Left/Right Arrow Keys or A/D to move horizontally
 • NO MANUAL JUMPING - you bounce automatically when landing on platforms!
+        • SPACEBAR to use your character's unique power (shoots straight up, no cooldown!)
 • Screen wrapping - exit one side to appear on the other
 • Pass through platforms from below, land on them from above (Doodle Jump style)
 
 PLATFORM TYPES:
-• Brown Platforms: Normal bounce (standard height)
-• Blue Platforms: Booster bounce (extra high jump!)
-• Dark Platforms: Fall after you step on them (be quick!)
+• 💙 Blue Platforms: Normal bounce (standard height) - Most reliable
+• 🟢 Green Platforms: Super bounce (extra high jump!) - Look for arrows!
+• 🔴 Red Platforms: Lower bounce + BREAKS when stepped on! - Risky emergency platforms
 
 GAMEPLAY:
 • Automatic trampoline bouncing - no jump button needed!
-• Land on platforms to bounce up automatically
-• Avoid falling soccer balls from above (lose 1 life when hit)
-• Use blue booster platforms for extra height
-• Climb as high as possible to increase your score
+• Land on platforms to bounce up automatically  
+• Dodge dangerous red soccer balls from above (they hurt you!)
+• Use your character's power to DESTROY soccer balls for bonus points!
+• Use green booster platforms for extra height jumps
+• Climb infinitely high - there's NO height limit!
 • Score increases based on vertical height reached
+• Hazards spawn faster as you climb higher (progressive difficulty)
 
 OBJECTIVE:
-• Survive as long as possible
-• Achieve the highest score by climbing higher
+• Climb as high as possible - THE SKY IS THE LIMIT! 
+• Survive hazard impacts (you have 3 lives)
+• Don't fall too far below your highest point
 • Master the trampoline bounce mechanics
 
+CHARACTER POWERS:
+• 🔥 BLAZE: Fire Kick - Fast horizontal fire ball
+• ❄️ FROSTBITE: Ice Shard - Arcing ice projectile  
+• ⚡ VOLT: Lightning Bolt - Super fast electric blast
+• 🟣 JELLYHEAD: Jelly Blob - Slow bouncing purple projectile
+• 🟤 BRICK: Heavy Rock - Strong downward rock projectile
+• 💨 WHIRLWIND: Wind Blast - Spinning air projectile
+
 TIPS:
-• Aim for blue booster platforms for higher jumps
+• Aim for green booster platforms for higher jumps
+• Use powers to destroy soccer balls for +25 bonus points!
 • Keep moving to avoid hazards
-• Watch out for falling (dark) platforms
+• Watch out for falling red platforms
 • Use screen edges to escape tight situations`;
         
         this.infoContent = this.add.text(centerX, contentTop + contentHeight / 2, infoText, {
@@ -9255,46 +9268,146 @@ class HeroJumperScene extends Phaser.Scene {
     }
 
     preload() {
-        // Load selected character sprite
+        // **CRITICAL FIX**: Clear cached textures to prevent character conflicts
+        console.log('🦸 HeroJumperScene preload - ensuring clean character loading...');
+        
+        // Clear any conflicting textures from other modes
+        const conflictingTextures = [
+            'hero_idle', // Clear existing hero texture
+            'player1_idle', 'player1_walk', // Soccer mode textures
+            'player2_idle', 'player2_walk',
+            'fight_player1_idle', 'fight_player1_walk', // Fight mode textures  
+            'fight_player2_idle', 'fight_player2_walk'
+        ];
+        
+        conflictingTextures.forEach(key => {
+            if (this.textures.exists(key)) {
+                this.textures.remove(key);
+                console.log(`🗑️ Cleared conflicting texture: ${key}`);
+            }
+        });
+        
+        // Load selected character sprite with UNIQUE key for Hero Jumper
         const character = CHARACTERS[this.selectedCharacter];
         const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
         
         if (spriteConfig) {
+            const uniqueTextureKey = `hero_${this.selectedCharacter}_idle`; // UNIQUE key to prevent conflicts
             if (spriteConfig.type === 'sprite_sheet') {
-                this.load.spritesheet(`hero_idle`, 
+                this.load.spritesheet(uniqueTextureKey, 
                     spriteConfig.basePath + spriteConfig.animations.idle.file, 
                     { frameWidth: 32, frameHeight: 32 }
                 );
             } else {
-                this.load.image(`hero_idle`, spriteConfig.basePath + spriteConfig.animations.idle.file);
+                this.load.image(uniqueTextureKey, spriteConfig.basePath + spriteConfig.animations.idle.file);
             }
+            console.log(`✅ Loading Hero Jumper character with unique key: ${uniqueTextureKey}`);
         }
 
         // Load soccer ball for hazards (using football.png as soccer ball)
         this.load.image('soccer_ball', 'assets/Sprites/Ball/Sport-Balls-Asset-Pack-Pixel-Art/64x64/football.png');
+        
+        // Load fight mode power sprites (same as fight scene)
+        this.loadPowerSprites();
+    }
+
+    loadPowerSprites() {
+        // Load sprite sheets with proper frame data for animations (same as FightScene)
+        
+        // Blaze → Fire sprite sheet with 8 frames (128x128 each)
+        this.load.spritesheet('fire_blast', 
+            'assets/Sprites/Powers/Blaze/FireFreePack/No_compressed/128/Fire_1_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+        
+        // Volt → Lightning sprite sheet with 8 frames (128x128 each)
+        this.load.spritesheet('lightning_blast', 
+            'assets/Sprites/Powers/Volt/LightningFreePack/128/Lightning_1_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+        
+        // Whirlwind → Energy sprite sheet with 8 frames (128x128 each)
+        this.load.spritesheet('energy_blast', 
+            'assets/Sprites/Powers/WhirlWind/EnergyFreePack/No_compressed/128/Energy_1_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+        
+        // Frostbite → Ice shard image
+        this.load.image('ice_blast', 'assets/Sprites/Powers/Frostbite/ice_shard/I5050-1.png');
+        
+        // Brick → Smoke sprite sheet with 8 frames (128x128 each)
+        this.load.spritesheet('smoke_blast', 
+            'assets/Sprites/Powers/Brick/SmokeFreePack_v2/NoCompressed/128/Smoke_1_128-sheet.png',
+            { frameWidth: 128, frameHeight: 128 }
+        );
+        
+        // Jellyhead → Load slime sprite sheet
+        this.load.spritesheet('jellyhead_slime', 
+            'assets/Sprites/Powers/JellyHead/Slime-Sheet.png',
+            { frameWidth: 52, frameHeight: 55 }
+        );
     }
 
     create() {
+        // **CRITICAL FIX**: Reset physics world to prevent cross-mode contamination  
+        console.log('🦸 HeroJumperScene create() starting with COMPLETE reset...');
+        
+        // Store current gravity settings before reset
+        const targetGravity = { x: 0, y: 600 }; // Hero Jumper specific gravity
+        
+        // Clear all existing physics bodies and colliders from other modes
+        if (this.physics.world.colliders) {
+            this.physics.world.colliders.destroy();
+        }
+        
+        // Reset physics world completely to prevent contamination
+        this.physics.world.shutdown();
+        this.physics.world.step(0); // Force a step to clear everything
+        
+        // Reinitialize physics world with Hero Jumper settings
+        this.physics.world.gravity.set(targetGravity.x, targetGravity.y);
+        
+        console.log('✅ Hero Jumper physics world reset complete');
+        
         SoundManager.initializeAudio(this);
         
         // Set up physics world for trampoline mechanics (balanced gravity)
-        this.physics.world.gravity.y = 600; // Balanced gravity for trampoline feel (not too floaty, not too fast)
+        console.log('🌍 HERO JUMPER PHYSICS SETUP:');
+        console.log(`🌍 World gravity set to: ${this.physics.world.gravity.y}`);
+        console.log('🌍 This is the baseline gravity that projectiles must overcome');
         
-        // Sky gradient background
-        this.add.rectangle(400, 300, 800, 600, 0x87ceeb); // Sky blue
+        // 🎨 ARCADE-STYLE BACKGROUND (match app theme)
+        this.add.rectangle(400, 300, 800, 600, 0x000000); // Black base
+        this.add.rectangle(400, 300, 800, 600, 0x000033, 0.8); // Dark blue overlay
+        
+        // Add arcade border frame (match app styling)
+        this.add.rectangle(400, 300, 790, 590, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
+        this.add.rectangle(400, 300, 770, 570, 0x000000, 0).setStrokeStyle(2, 0xff00ff);
         
         // Create physics groups
         this.platforms = this.physics.add.staticGroup();
         this.hazards = this.physics.add.group();
+        this.projectiles = this.physics.add.group(); // Initialize projectiles group early
         
-        // Create starting platform (always normal type)
+        // Create starting platform (always normal type, never breaks)
         const startingPlatform = this.createPlatform(400, 550, true);
         startingPlatform.platformType = 'normal';
         startingPlatform.bounceVelocity = -500;
         startingPlatform.boost = false; // Starting platform is never a booster
+        startingPlatform.shouldFall = false; // Never breaks
         
         // Generate initial platforms
         this.generatePlatforms();
+        
+        // **VALIDATION**: Ensure character selection is valid
+        if (!this.selectedCharacter) {
+            console.error('🚨 Invalid character selection detected in Hero Jumper!', this.selectedCharacter);
+            // Fallback to default character
+            this.selectedCharacter = this.selectedCharacter || 'blaze';
+            console.log('🔧 Using fallback character for Hero Jumper:', this.selectedCharacter);
+        }
+        
+        console.log(`🦸 Hero Jumper starting with character: ${this.selectedCharacter}`);
         
         // Create player
         this.createPlayer();
@@ -9302,17 +9415,47 @@ class HeroJumperScene extends Phaser.Scene {
         // Create UI
         this.createUI();
         
+        // Create power animations (same as FightScene)
+        this.createPowerAnimations();
+        
         // Setup input
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasdKeys = this.input.keyboard.addKeys('W,S,A,D');
         
+        // Add power activation key (spacebar)
+        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        
+        // Initialize power system for Hero Jumper
+        this.powerCooldown = 0; // No cooldown as requested
+        // Note: projectiles group already created earlier
+        
         // Setup camera to follow player with better tracking
         this.cameras.main.startFollow(this.player, true, 0.05, 0.1);
         
-        // Create hazard spawning timer
-        this.time.addEvent({
-            delay: 3000, // Slightly longer delay
+        // Create hazard spawning timer with progressive difficulty
+        this.hazardTimer = this.time.addEvent({
+            delay: 4000, // Start with 4 second delay
             callback: this.spawnHazard,
+            callbackScope: this,
+            loop: true
+        });
+        
+        // Progressive difficulty - hazards spawn faster as you get higher
+        this.difficultyTimer = this.time.addEvent({
+            delay: 15000, // Every 15 seconds
+            callback: () => {
+                if (this.hazardTimer && !this.gameOver) {
+                    // Reduce delay by 200ms each time (minimum 1.5 seconds)
+                    const newDelay = Math.max(1500, this.hazardTimer.delay - 200);
+                    this.hazardTimer.delay = newDelay;
+                    
+                    // Update UI to show new difficulty
+                    const seconds = (newDelay / 1000).toFixed(1);
+                    this.difficultyText.setText(`HAZARD RATE: ${seconds}S`);
+                    
+                    console.log(`🎯 Difficulty increased! Hazard spawn rate: ${newDelay}ms`);
+                }
+            },
             callbackScope: this,
             loop: true
         });
@@ -9320,32 +9463,126 @@ class HeroJumperScene extends Phaser.Scene {
         console.log('🎮 Hero Jumper scene created successfully');
     }
 
+    createPowerAnimations() {
+        // Create animations for sprite sheet-based powers (same as FightScene)
+        
+        // Fire blast animation (8 frames) - key matches character name
+        if (!this.anims.exists('blaze_blast_anim')) {
+            this.anims.create({
+                key: 'blaze_blast_anim',
+                frames: this.anims.generateFrameNumbers('fire_blast', { start: 0, end: 7 }),
+                frameRate: 12,
+                repeat: -1
+            });
+        }
+
+        // Lightning blast animation (8 frames) - key matches character name
+        if (!this.anims.exists('volt_blast_anim')) {
+            this.anims.create({
+                key: 'volt_blast_anim',
+                frames: this.anims.generateFrameNumbers('lightning_blast', { start: 0, end: 7 }),
+                frameRate: 15,
+                repeat: -1
+            });
+        }
+
+        // Energy blast animation (8 frames) - key matches character name
+        if (!this.anims.exists('whirlwind_blast_anim')) {
+            this.anims.create({
+                key: 'whirlwind_blast_anim',
+                frames: this.anims.generateFrameNumbers('energy_blast', { start: 0, end: 7 }),
+                frameRate: 10,
+                repeat: -1
+            });
+        }
+
+        // Smoke blast animation (8 frames) - key matches character name
+        if (!this.anims.exists('brick_blast_anim')) {
+            this.anims.create({
+                key: 'brick_blast_anim',
+                frames: this.anims.generateFrameNumbers('smoke_blast', { start: 0, end: 7 }),
+                frameRate: 8,
+                repeat: -1
+            });
+        }
+
+        // Jellyhead slime animation (same as fight mode)
+        if (!this.anims.exists('jellyhead_slime_anim')) {
+            this.anims.create({
+                key: 'jellyhead_slime_anim',
+                frames: this.anims.generateFrameNumbers('jellyhead_slime', { start: 16, end: 23 }),
+                frameRate: 8,
+                repeat: -1
+            });
+        }
+    }
+
     createPlayer() {
-        this.player = this.physics.add.sprite(400, 500, 'hero_idle');
+        // **CRITICAL FIX**: Destroy any existing player before creating fresh one
+        console.log('🦸 Creating fresh Hero Jumper player...');
+        
+        if (this.player) {
+            console.log('🗑️ Destroying existing Hero Jumper player sprite');
+            this.player.destroy(true); // true = destroy texture cache
+            this.player = null;
+        }
+        
+        // Get character info and create unique texture key
+        const character = CHARACTERS[this.selectedCharacter];
+        const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
+        const uniqueTextureKey = `hero_${this.selectedCharacter}_idle`; // Match preload key
+        
+        console.log(`🦸 Creating player with character: ${this.selectedCharacter}, texture: ${uniqueTextureKey}`);
+        
+        // Create fresh player sprite with unique texture
+        this.player = this.physics.add.sprite(400, 500, uniqueTextureKey);
         this.player.setBounce(0); // Remove bounce to prevent interference with trampoline mechanics
         this.player.setCollideWorldBounds(false);
-        this.player.body.setGravityY(0); // Don't set extra gravity, use world gravity
-        this.player.setScale(2.2); // Balanced size - visible but not too big
+        // Player automatically uses world gravity (600), no need to set individual gravity
+        
+        // Set scale based on character sprite type for better visual balance
+        if (spriteConfig && spriteConfig.type === 'sprite_sheet') {
+            // Tiny Heroes sprites - make them smaller
+            this.player.setScale(1.8);
+        } else {
+            // Mini Pixel Pack sprites - make them bigger
+            this.player.setScale(2.8);
+        }
         
         // Set up player body for better collision detection
         this.player.body.setSize(this.player.width * 0.8, this.player.height * 0.9);
         this.player.body.setOffset(this.player.width * 0.1, this.player.height * 0.1);
         
-        // Create player animations if sprite sheet
-        const character = CHARACTERS[this.selectedCharacter];
-        const spriteConfig = CharacterSpriteHelper.getCharacterConfig(character.sprite.category, character.sprite.id);
-        
+        // **CRITICAL FIX**: Clear conflicting animations and create fresh ones
         if (spriteConfig && spriteConfig.type === 'sprite_sheet') {
-            if (!this.anims.exists('hero_idle_anim')) {
-                this.anims.create({
-                    key: 'hero_idle_anim',
-                    frames: this.anims.generateFrameNumbers('hero_idle', { start: 0, end: 3 }),
-                    frameRate: 8,
-                    repeat: -1
-                });
-            }
-            this.player.play('hero_idle_anim');
+            const uniqueAnimKey = `hero_${this.selectedCharacter}_idle_anim`; // UNIQUE animation key
+            
+            // Clear any existing hero animations to prevent conflicts
+            const animsToRemove = [
+                'hero_idle_anim', // Old generic key
+                uniqueAnimKey // Clear existing unique key if it exists
+            ];
+            
+            animsToRemove.forEach(key => {
+                if (this.anims.exists(key)) {
+                    this.anims.remove(key);
+                    console.log(`🗑️ Removed existing animation: ${key}`);
+                }
+            });
+            
+            // Create fresh animation with unique keys
+            this.anims.create({
+                key: uniqueAnimKey,
+                frames: this.anims.generateFrameNumbers(uniqueTextureKey, { start: 0, end: 3 }),
+                frameRate: 8,
+                repeat: -1
+            });
+            console.log(`✅ Created unique Hero Jumper animation: ${uniqueAnimKey}`);
+            
+            this.player.play(uniqueAnimKey);
         }
+        
+        console.log(`✅ Hero Jumper player created successfully - Character: ${this.selectedCharacter}, Scale: ${this.player.scaleX}`);
         
         // Player-platform overlap - ONE-WAY TRAMPOLINE MECHANICS (like Doodle Jump)
         this.physics.add.overlap(this.player, this.platforms, (player, platform) => {
@@ -9360,34 +9597,56 @@ class HeroJumperScene extends Phaser.Scene {
                 player.body.y = platformTop - player.body.height;
                 
                 // Apply platform-specific bounce velocity (trampoline effect)
-                const boost = platform.boost ? -750 : -500;
+                const boost = platform.bounceVelocity || -500; // Use platform's specific bounce velocity
                 player.setVelocityY(boost);
                 
                 // Different sounds for different platform types (trampoline effect)
                 if (platform.boost) {
                     SoundManager.playForwardButton(this); // Higher pitch sound for booster bounce
+                } else if (platform.shouldFall) {
+                    SoundManager.playButtonClick(this); // Breaking platform sound (same as damage)
                 } else {
                     SoundManager.playButtonClick(this); // Standard bounce sound
                 }
                 
-                // Check if platform should fall (falling platforms)
+                // Check if platform should fall (breaking platforms) - ENHANCED BREAKING
                 if (platform.shouldFall && !platform.falling) {
                     platform.falling = true;
                     
-                    // FIXED: Convert static body to dynamic body for falling
-                    this.platforms.remove(platform);
-                    platform.body.destroy();
-                    this.physics.add.existing(platform, false); // false = dynamic body
-                    platform.body.setGravityY(300); // Set gravity for falling
-                    platform.body.setVelocityY(100); // Initial downward velocity
+                    // Disable collision immediately so player doesn't get stuck
+                    platform.body.enable = false; 
                     
-                    // Make platform semi-transparent when falling
-                    platform.setAlpha(0.7);
+                    // Create breaking effect - both collision rectangle and visual graphics
+                    const targets = [platform];
+                    if (platform.visualGraphics) {
+                        targets.push(platform.visualGraphics);
+                    }
                     
-                    // Remove platform after falling for a while
-                    this.time.delayedCall(5000, () => {
-                        if (platform && platform.active) {
-                            platform.destroy();
+                    // Fast break and fall animation for dramatic effect
+                    this.tweens.add({
+                        targets: targets,
+                        y: platform.y + 600, // Fall further
+                        alpha: 0,
+                        scaleY: 0.1, // Squash effect as it falls
+                        duration: 1500, // Faster falling
+                        ease: 'Power2',
+                        onComplete: () => {
+                            if (platform && platform.active && platform.scene) {
+                                // Clean up any particles attached to the platform
+                                if (platform.particles) {
+                                    platform.particles.forEach(particle => {
+                                        if (particle && particle.active) {
+                                            particle.destroy();
+                                        }
+                                    });
+                                }
+                                // Clean up visual graphics
+                                if (platform.visualGraphics && platform.visualGraphics.active) {
+                                    platform.visualGraphics.destroy();
+                                }
+                                this.platforms.remove(platform);
+                                platform.destroy();
+                            }
                         }
                     });
                 }
@@ -9399,6 +9658,16 @@ class HeroJumperScene extends Phaser.Scene {
         this.physics.add.overlap(this.player, this.hazards, (player, hazard) => {
             this.handleHazardHit(hazard);
         });
+        
+        // Projectile-hazard collision - destroy soccer balls with powers!
+        // Add safety check to ensure both groups exist
+        if (this.projectiles && this.hazards) {
+            this.physics.add.overlap(this.projectiles, this.hazards, (projectile, hazard) => {
+                if (projectile && hazard && projectile.active && hazard.active) {
+                    this.handleProjectileHazardHit(projectile, hazard);
+                }
+            });
+        }
     }
 
     createPlatform(x, y, isStarting = false) {
@@ -9407,101 +9676,405 @@ class HeroJumperScene extends Phaser.Scene {
         const isFalling = !isStarting && !isBooster && Math.random() < 0.15; // 15% chance for falling platforms
         
         let platform;
-        let platformWidth = 100;
-        let platformHeight = 20;
+        let platformWidth = 80; // Smaller width
+        let platformHeight = 14; // Skinnier height
+        
+        // Create invisible collision rectangle for reliable physics
+        platform = this.add.rectangle(x, y, platformWidth, platformHeight, 0x000000, 0);
+        
+        // Create visual graphics overlay
+        let visualGraphics;
         
         if (isBooster) {
-            // Booster Platform: Smaller and blue
-            platformWidth = 80;
-            platformHeight = 16;
-            platform = this.add.rectangle(x, y, platformWidth, platformHeight, 0x0066ff);
-            platform.setStrokeStyle(2, 0x0044cc);
+            // 🟢 HIGH-BOUNCE BOOSTER PLATFORM - Green with arrows/particles
+            platformWidth = 75; // Smaller
+            platformHeight = 14; // Skinnier
+            
+            // Update collision rectangle size
+            platform.setSize(platformWidth, platformHeight);
+            
+            // Create visual graphics overlay
+            visualGraphics = this.add.graphics();
+            visualGraphics.fillStyle(0x00ff00, 0.9); // Bright neon green
+            visualGraphics.fillRoundedRect(-(platformWidth/2), -(platformHeight/2), platformWidth, platformHeight, 8);
+            
+            // Add double-border glow effect
+            visualGraphics.lineStyle(4, 0x00ffff, 0.8); // Outer cyan glow
+            visualGraphics.strokeRoundedRect(-(platformWidth/2), -(platformHeight/2), platformWidth, platformHeight, 8);
+            visualGraphics.lineStyle(2, 0xffffff, 1); // Inner white highlight
+            visualGraphics.strokeRoundedRect(-(platformWidth/2), -(platformHeight/2), platformWidth, platformHeight, 8);
+            
+            // Add upward arrow indicators
+            visualGraphics.fillStyle(0xffffff, 1); // White arrows
+            visualGraphics.fillTriangle(-15, -4, -10, -10, -5, -4); // Left arrow
+            visualGraphics.fillTriangle(5, -4, 10, -10, 15, -4); // Right arrow
+            
+            visualGraphics.x = x;
+            visualGraphics.y = y;
+            
             platform.platformType = 'booster';
-            platform.bounceVelocity = -750; // Stronger bounce
-            platform.boost = true; // Add boost property for easy detection
-        } else {
-            // Normal Platform: Brown
-            platform = this.add.rectangle(x, y, platformWidth, platformHeight, 0x8b4513);
-            platform.setStrokeStyle(2, 0x654321);
-            platform.platformType = 'normal';
-            platform.bounceVelocity = -500; // Standard bounce
-            platform.boost = false; // Normal platform
-        }
-        
-        this.physics.add.existing(platform, true); // static body
-        
-        // Ensure platform has proper physics body
-        platform.body.setSize(platformWidth, platformHeight);
-        platform.body.setOffset(0, 0);
-        
-        this.platforms.add(platform);
-        
-        // Some platforms fall when stepped on (except starting platform and boosters)
-        if (isFalling) {
+            platform.bounceVelocity = -750;
+            platform.boost = true;
+            platform.visualGraphics = visualGraphics; // Link graphics to platform
+            
+            // Add shimmer particle effect
+            this.createBoosterParticles(platform);
+            
+        } else if (isFalling) {
+            // 🔴 BREAKABLE PLATFORM - Red/orange with crack texture
+            platformWidth = 70; // Smallest platform
+            platformHeight = 12; // Skinniest
+            
+            // Update collision rectangle size
+            platform.setSize(platformWidth, platformHeight);
+            
+            // Create visual graphics overlay
+            visualGraphics = this.add.graphics();
+            visualGraphics.fillStyle(0xff4500, 0.8); // Orange-red
+            visualGraphics.fillRoundedRect(-(platformWidth/2), -(platformHeight/2), platformWidth, platformHeight, 6);
+            
+            // Add warning border
+            visualGraphics.lineStyle(3, 0xff0000, 0.9); // Red warning border
+            visualGraphics.strokeRoundedRect(-(platformWidth/2), -(platformHeight/2), platformWidth, platformHeight, 6);
+            
+            // Add crack pattern
+            visualGraphics.lineStyle(1, 0x000000, 0.6);
+            visualGraphics.lineBetween(-30, -3, -10, 3); // Crack 1
+            visualGraphics.lineBetween(5, -4, 25, 2);    // Crack 2
+            visualGraphics.lineBetween(-5, -8, 15, 8);   // Crack 3
+            
+            visualGraphics.x = x;
+            visualGraphics.y = y;
+            
+            platform.platformType = 'breakable';
+            platform.bounceVelocity = -400; // Lower bounce than others but not too weak
+            platform.boost = false;
             platform.shouldFall = true;
             platform.falling = false;
-            // Make falling platforms slightly darker
-            platform.setFillStyle(0x704214);
+            platform.visualGraphics = visualGraphics; // Link graphics to platform
+            
+            // Add subtle shake animation
+            this.tweens.add({
+                targets: [platform, visualGraphics], // Animate both collision and visual
+                x: x + Phaser.Math.Between(-1, 1),
+                duration: 200,
+                ease: 'Power1',
+                yoyo: true,
+                repeat: -1
+            });
+            
+        } else {
+            // 💙 STANDARD PLATFORM - Neon blue/purple with soft glow
+            platformWidth = 80; // Smaller
+            platformHeight = 14; // Skinnier
+            
+            // Update collision rectangle size
+            platform.setSize(platformWidth, platformHeight);
+            
+            // Create visual graphics overlay
+            visualGraphics = this.add.graphics();
+            visualGraphics.fillStyle(0x0080ff, 0.9); // Bright neon blue
+            visualGraphics.fillRoundedRect(-(platformWidth/2), -(platformHeight/2), platformWidth, platformHeight, 10);
+            
+            // Add double-border glow effect
+            visualGraphics.lineStyle(3, 0x00ffff, 0.7); // Outer cyan glow
+            visualGraphics.strokeRoundedRect(-(platformWidth/2), -(platformHeight/2), platformWidth, platformHeight, 10);
+            visualGraphics.lineStyle(1, 0xff00ff, 0.9); // Inner magenta highlight
+            visualGraphics.strokeRoundedRect(-(platformWidth/2), -(platformHeight/2), platformWidth, platformHeight, 10);
+            
+            visualGraphics.x = x;
+            visualGraphics.y = y;
+            
+            platform.platformType = 'normal';
+            platform.bounceVelocity = -500;
+            platform.boost = false;
+            platform.visualGraphics = visualGraphics; // Link graphics to platform
         }
+        
+        // Add physics to the invisible collision rectangle (much more reliable)
+        this.physics.add.existing(platform, true); // static body
+        
+        this.platforms.add(platform);
         
         return platform;
     }
 
+    createBoosterParticles(platform) {
+        // 🌟 CREATE SHIMMER PARTICLE EFFECT for booster platforms
+        const particleCount = 8;
+        
+        for (let i = 0; i < particleCount; i++) {
+            // Create small glowing particles around the platform
+            const particle = this.add.circle(
+                platform.x + Phaser.Math.Between(-40, 40),
+                platform.y + Phaser.Math.Between(-15, 15),
+                Phaser.Math.Between(1, 3),
+                0x00ffff,
+                0.7
+            );
+            
+            // Add twinkling animation
+            this.tweens.add({
+                targets: particle,
+                alpha: 0,
+                scale: 0,
+                duration: Phaser.Math.Between(800, 1500),
+                ease: 'Power2',
+                delay: Phaser.Math.Between(0, 1000),
+                repeat: -1,
+                yoyo: true
+            });
+            
+            // Float particles upward gently
+            this.tweens.add({
+                targets: particle,
+                y: particle.y - Phaser.Math.Between(5, 15),
+                duration: Phaser.Math.Between(2000, 3000),
+                ease: 'Sine.easeInOut',
+                repeat: -1,
+                yoyo: true
+            });
+            
+            // Store particles for cleanup when platform is destroyed
+            if (!platform.particles) platform.particles = [];
+            platform.particles.push(particle);
+        }
+    }
+
     generatePlatforms() {
-        // Generate platforms going upward with better spacing for Doodle Jump
-        for (let y = 400; y > -4000; y -= Phaser.Math.Between(120, 180)) {
-            const x = Phaser.Math.Between(80, 720); // Better screen bounds
+        // Generate platforms going upward with balanced spacing (challenging but reachable)
+        let lastX = 400; // Start from center
+        
+        for (let y = 400; y > -4000; y -= Phaser.Math.Between(80, 130)) { // Reduced vertical spacing
+            // Smart horizontal positioning - not too far from last platform
+            const maxDistance = 200; // Maximum horizontal distance from last platform
+            const minX = Math.max(80, lastX - maxDistance);
+            const maxX = Math.min(720, lastX + maxDistance);
+            
+            const x = Phaser.Math.Between(minX, maxX);
             this.createPlatform(x, y);
+            
+            lastX = x; // Update last position for next platform
         }
     }
 
     spawnHazard() {
         if (this.gameOver) return;
         
+        // ⚽ ENHANCED DANGEROUS SOCCER BALLS
+        
         const x = Phaser.Math.Between(50, 750);
         const y = this.player.y - 600; // Spawn above player
         
         const hazard = this.physics.add.sprite(x, y, 'soccer_ball');
-        hazard.setScale(0.5);
-        hazard.setBounce(0.8);
-        hazard.body.setGravityY(200);
+        hazard.setScale(0.6); // Slightly bigger to be more visible as a threat
+        hazard.setBounce(0.9); // More bouncy for unpredictable movement
+        
+        // Add red tint to make it obvious as a hazard
+        hazard.setTint(0xff4444); // Reddish tint for danger
+        
+        // Add glowing warning effect around the hazard
+        const warningGlow = this.add.circle(x, y, 25, 0xff0000, 0.2);
+        this.tweens.add({
+            targets: warningGlow,
+            scaleX: 1.5,
+            scaleY: 1.5,
+            alpha: 0,
+            duration: 800,
+            repeat: -1,
+            ease: 'Power2'
+        });
+        
+        // Link glow to hazard for synchronized movement
+        hazard.warningGlow = warningGlow;
+        
+        // Add spinning effect to make it more dynamic
+        this.tweens.add({
+            targets: hazard,
+            angle: 360,
+            duration: 1000,
+            repeat: -1,
+            ease: 'Linear'
+        });
+        
+        // Faster falling for more danger
+        hazard.setVelocityY(100); // Initial downward push
         
         this.hazards.add(hazard);
         
-        // Remove hazard when it goes too far below
-        this.time.delayedCall(10000, () => {
-            if (hazard && hazard.active) {
+        // Update glow position to follow hazard
+        const updateGlow = () => {
+            if (hazard.active && warningGlow.active) {
+                warningGlow.x = hazard.x;
+                warningGlow.y = hazard.y;
+            }
+        };
+        
+        // Create update timer for glow positioning
+        const glowTimer = this.time.addEvent({
+            delay: 16, // ~60fps
+            callback: updateGlow,
+            loop: true
+        });
+        
+        // Store timer reference for cleanup
+        hazard.glowTimer = glowTimer;
+        
+        // Remove hazard when it goes too far below (safer destruction)
+        this.time.delayedCall(12000, () => { // Slightly longer to account for bouncing
+            if (hazard && hazard.active && hazard.scene) {
+                // Clean up warning glow
+                if (hazard.warningGlow && hazard.warningGlow.active) {
+                    hazard.warningGlow.destroy();
+                }
+                // Clean up glow timer
+                if (hazard.glowTimer) {
+                    hazard.glowTimer.destroy();
+                }
+                this.hazards.remove(hazard);
                 hazard.destroy();
             }
         });
     }
 
     createUI() {
-        // Score display (fixed to camera)
-        this.scoreText = this.add.text(400, 50, 'SCORE: 0', {
-            fontSize: '24px',
+        // 🎮 ARCADE-STYLE UI (match app theme)
+        
+        // Score display with arcade styling
+        this.scoreText = this.add.text(400, 45, 'SCORE: 0', {
+            fontSize: '28px',
             fontStyle: 'bold',
-            fill: '#ffff00',
+            fill: '#ffff00', // Yellow like app titles
+            stroke: '#ff0000', // Red outline like app titles
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
+        }).setOrigin(0.5).setScrollFactor(0);
+
+        // Lives display with neon styling
+        this.livesText = this.add.text(100, 50, 'LIVES: 3', {
+            fontSize: '22px',
+            fontStyle: 'bold',
+            fill: '#00ff00', // Neon green for lives
             stroke: '#000000',
-            strokeThickness: 3
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5).setScrollFactor(0);
         
-        // Lives display
-        this.livesText = this.add.text(100, 50, 'LIVES: 3', {
-            fontSize: '20px',
+        // Height indicator with cyan styling
+        this.heightText = this.add.text(700, 50, 'HEIGHT: 0M', {
+            fontSize: '18px',
             fontStyle: 'bold',
-            fill: '#ff0000',
+            fill: '#00ffff', // Cyan like app borders
             stroke: '#000000',
             strokeThickness: 2
+        }).setOrigin(0.5).setScrollFactor(0);
+        
+        // Controls hint with purple styling (matching app info buttons)
+        this.controlsText = this.add.text(400, 75, 'A/D TO MOVE • AUTO-BOUNCE • SPACEBAR: POWER (shoots up!)', {
+            fontSize: '14px',
+            fontStyle: 'bold',
+            fill: '#ff00ff', // Purple like app info elements
+            stroke: '#000000',
+            strokeThickness: 1
+        }).setOrigin(0.5).setScrollFactor(0);
+        
+        // Difficulty indicator
+        this.difficultyText = this.add.text(400, 95, 'HAZARD RATE: 4.0S', {
+            fontSize: '12px',
+            fontStyle: 'bold',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 1
         }).setOrigin(0.5).setScrollFactor(0);
     }
 
     handleHazardHit(hazard) {
-        SoundManager.playButtonClick(this); // Using existing sound for now
-        hazard.destroy();
+        // 🔥 ENHANCED DAMAGE FEEDBACK - Make it super obvious!
         
+        // Screen flash effect for damage
+        const damageFlash = this.add.rectangle(400, 300, 800, 600, 0xff0000, 0.4);
+        damageFlash.setScrollFactor(0);
+        this.tweens.add({
+            targets: damageFlash,
+            alpha: 0,
+            duration: 200,
+            onComplete: () => damageFlash.destroy()
+        });
+        
+        // Damage sound effect (more impactful)
+        SoundManager.playButtonClick(this); // Use button click sound for damage
+        
+        // Screen shake effect
+        this.cameras.main.shake(300, 0.02);
+        
+        // ENHANCED Player knockback effect - knock them off platforms!
+        const knockbackForce = hazard.x < this.player.x ? 300 : -300; // Stronger push away from hazard
+        this.player.setVelocityX(knockbackForce);
+        this.player.setVelocityY(-200); // Knock them upward to get them off current platform
+        
+        // Face the direction of knockback for visual feedback
+        this.player.setFlipX(knockbackForce < 0); // Face left if knocked left, right if knocked right
+        
+        // Safer hazard destruction
+        if (hazard && hazard.active && hazard.scene) {
+            // Create explosion effect at hazard location
+            const explosion = this.add.circle(hazard.x, hazard.y, 20, 0xff4500, 0.8);
+            this.tweens.add({
+                targets: explosion,
+                scaleX: 2,
+                scaleY: 2,
+                alpha: 0,
+                duration: 300,
+                onComplete: () => explosion.destroy()
+            });
+            
+            this.hazards.remove(hazard);
+            hazard.setActive(false).setVisible(false);
+            this.time.delayedCall(10, () => {
+                if (hazard) {
+                    hazard.destroy();
+                }
+            });
+        }
+        
+        // Reduce lives with enhanced visual feedback
         this.lives--;
         this.livesText.setText(`LIVES: ${this.lives}`);
+        
+        // Lives text flash effect
+        this.tweens.add({
+            targets: this.livesText,
+            scaleX: 1.5,
+            scaleY: 1.5,
+            duration: 150,
+            yoyo: true,
+            ease: 'Power2'
+        });
+        
+        // Change lives text color based on remaining lives
+        if (this.lives <= 1) {
+            this.livesText.setStyle({ fill: '#ff0000' }); // Red for critical health
+        } else if (this.lives <= 2) {
+            this.livesText.setStyle({ fill: '#ff8800' }); // Orange for low health
+        }
+        
+        // Show damage text
+        const damageText = this.add.text(this.player.x, this.player.y - 50, '-1 LIFE!', {
+            fontSize: '24px',
+            fontStyle: 'bold',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
+        
+        this.tweens.add({
+            targets: damageText,
+            y: damageText.y - 80,
+            alpha: 0,
+            duration: 1000,
+            ease: 'Power2',
+            onComplete: () => damageText.destroy()
+        });
         
         if (this.lives <= 0) {
             this.triggerGameOver();
@@ -9514,7 +10087,7 @@ class HeroJumperScene extends Phaser.Scene {
         
         // Stop player movement
         this.player.setVelocity(0, 0);
-        this.player.body.setGravityY(0);
+        // Player will stop moving due to setVelocity(0, 0), no need to modify gravity
         
         // Create game over screen
         this.createGameOverScreen();
@@ -9524,44 +10097,69 @@ class HeroJumperScene extends Phaser.Scene {
         const centerX = this.cameras.main.centerX;
         const centerY = this.cameras.main.centerY;
         
-        // Backdrop
-        const backdrop = this.add.rectangle(centerX, centerY, 800, 600, 0x000000, 0.8);
+        // 🎮 ARCADE-STYLE GAME OVER SCREEN
+        
+        // Backdrop with arcade border
+        const backdrop = this.add.rectangle(centerX, centerY, 800, 600, 0x000000, 0.9);
         backdrop.setScrollFactor(0);
         this.gameOverElements.push(backdrop);
         
-        // Game Over title
-        const gameOverTitle = this.add.text(centerX, centerY - 100, 'GAME OVER', {
-            fontSize: '48px',
+        // Add arcade border frame
+        const outerBorder = this.add.rectangle(centerX, centerY, 600, 400, 0x000000, 0).setStrokeStyle(6, 0x00ffff);
+        outerBorder.setScrollFactor(0);
+        this.gameOverElements.push(outerBorder);
+        
+        const innerBorder = this.add.rectangle(centerX, centerY, 580, 380, 0x000000, 0).setStrokeStyle(2, 0xff00ff);
+        innerBorder.setScrollFactor(0);
+        this.gameOverElements.push(innerBorder);
+        
+        // Game Over title with arcade styling
+        const gameOverTitle = this.add.text(centerX, centerY - 120, 'GAME OVER', {
+            fontSize: '56px',
             fontStyle: 'bold',
-            fill: '#ff0000',
-            stroke: '#000000',
-            strokeThickness: 4
+            fill: '#ffff00', // Yellow like app titles
+            stroke: '#ff0000', // Red outline like app titles
+            strokeThickness: 4,
+            shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5).setScrollFactor(0);
         this.gameOverElements.push(gameOverTitle);
         
-        // Final score
-        const finalScoreText = this.add.text(centerX, centerY - 40, `FINAL SCORE: ${this.score}`, {
-            fontSize: '24px',
+        // Final score with neon styling
+        const heightMeters = Math.floor((600 - this.highestY) / 10);
+        const finalScoreText = this.add.text(centerX, centerY - 60, `FINAL SCORE: ${this.score}`, {
+            fontSize: '28px',
             fontStyle: 'bold',
-            fill: '#ffff00',
+            fill: '#00ff00', // Neon green
             stroke: '#000000',
-            strokeThickness: 3
+            strokeThickness: 3,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5).setScrollFactor(0);
         this.gameOverElements.push(finalScoreText);
         
-        // Retry button (green)
-        const retryButton = this.add.rectangle(centerX - 100, centerY + 50, 150, 50, 0x000000, 0.9);
-        retryButton.setStrokeStyle(4, 0x00ff00);
+        // Height achievement with cyan styling
+        const heightText = this.add.text(centerX, centerY - 20, `MAX HEIGHT: ${heightMeters}M`, {
+            fontSize: '22px',
+            fontStyle: 'bold',
+            fill: '#00ffff', // Cyan like app borders
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5).setScrollFactor(0);
+        this.gameOverElements.push(heightText);
+        
+        // Retry button with arcade styling (green)
+        const retryButton = this.add.rectangle(centerX - 100, centerY + 40, 160, 50, 0x000000, 0.9);
+        retryButton.setStrokeStyle(4, 0x00ff00); // Green border
         retryButton.setInteractive();
         retryButton.setScrollFactor(0);
         this.gameOverElements.push(retryButton);
         
-        const retryText = this.add.text(centerX - 100, centerY + 50, 'RETRY', {
-            fontSize: '20px',
+        const retryText = this.add.text(centerX - 100, centerY + 40, 'RETRY', {
+            fontSize: '22px',
             fontStyle: 'bold',
-            fill: '#00ff00',
+            fill: '#00ff00', // Green text to match border
             stroke: '#000000',
-            strokeThickness: 2
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5).setScrollFactor(0);
         this.gameOverElements.push(retryText);
         
@@ -9570,19 +10168,20 @@ class HeroJumperScene extends Phaser.Scene {
             this.scene.restart({ selectedCharacter: this.selectedCharacter });
         });
         
-        // Return to Home button (red)
-        const homeButton = this.add.rectangle(centerX + 100, centerY + 50, 180, 50, 0x000000, 0.9);
-        homeButton.setStrokeStyle(4, 0xff0000);
+        // Return to Home button with arcade styling (cyan)
+        const homeButton = this.add.rectangle(centerX + 100, centerY + 40, 180, 50, 0x000000, 0.9);
+        homeButton.setStrokeStyle(4, 0x00ffff); // Cyan border
         homeButton.setInteractive();
         homeButton.setScrollFactor(0);
         this.gameOverElements.push(homeButton);
         
-        const homeText = this.add.text(centerX + 100, centerY + 50, 'RETURN TO HOME', {
-            fontSize: '16px',
+        const homeText = this.add.text(centerX + 100, centerY + 40, 'MAIN MENU', {
+            fontSize: '20px',
             fontStyle: 'bold',
-            fill: '#ff0000',
+            fill: '#00ffff', // Cyan text to match border
             stroke: '#000000',
-            strokeThickness: 2
+            strokeThickness: 2,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, stroke: true, fill: true }
         }).setOrigin(0.5).setScrollFactor(0);
         this.gameOverElements.push(homeText);
         
@@ -9590,24 +10189,58 @@ class HeroJumperScene extends Phaser.Scene {
             SoundManager.playButtonClick(this);
             this.scene.start('HomeScene');
         });
+        
+        // Add hover effects for buttons
+        retryButton.on('pointerover', () => {
+            retryButton.setFillStyle(0x001100, 0.9);
+            retryText.setStyle({ fill: '#ffffff' });
+        });
+        retryButton.on('pointerout', () => {
+            retryButton.setFillStyle(0x000000, 0.9);
+            retryText.setStyle({ fill: '#00ff00' });
+        });
+        
+        homeButton.on('pointerover', () => {
+            homeButton.setFillStyle(0x003333, 0.9);
+            homeText.setStyle({ fill: '#ffffff' });
+        });
+        homeButton.on('pointerout', () => {
+            homeButton.setFillStyle(0x000000, 0.9);
+            homeText.setStyle({ fill: '#00ffff' });
+        });
     }
 
     update() {
         if (this.gameOver) return;
         
+        // Safety check - ensure player exists before accessing
+        if (!this.player || !this.player.active || !this.player.body) {
+            return;
+        }
+        
         // Player horizontal movement with air control (reduced speed for better control)
         if (this.cursors.left.isDown || this.wasdKeys.A.isDown) {
             this.player.setVelocityX(-200); // Reduced horizontal movement speed
+            this.player.setFlipX(true); // Face left when moving left
         } else if (this.cursors.right.isDown || this.wasdKeys.D.isDown) {
             this.player.setVelocityX(200);
+            this.player.setFlipX(false); // Face right when moving right
         } else {
             // Gradual deceleration instead of instant stop
             this.player.setVelocityX(this.player.body.velocity.x * 0.8);
+            // Don't change sprite facing when not actively moving
         }
         
         // NO MANUAL JUMPING - Trampoline bounce mechanics only
         // W/Up keys are intentionally ignored for authentic trampoline gameplay
         // Player automatically bounces when landing on platforms with different velocities
+        
+        // 🔥 POWER ACTIVATION (Spacebar) - with comprehensive logging
+        if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+            console.log('🎮 SPACEBAR PRESSED - Attempting to activate power!');
+            console.log(`🎮 Space key state - isDown: ${this.spaceKey.isDown}, isUp: ${this.spaceKey.isUp}`);
+            this.activatePower();
+        }
         
         // Wrap player around screen edges
         if (this.player.x < -25) {
@@ -9616,44 +10249,666 @@ class HeroJumperScene extends Phaser.Scene {
             this.player.x = -25;
         }
         
-        // Update score based on height
+        // Update score and height based on vertical progress
         if (this.player.y < this.highestY) {
             this.highestY = this.player.y;
             this.score = Math.floor((600 - this.highestY) / 5); // More points per height
+            const heightMeters = Math.floor((600 - this.highestY) / 10); // Convert to meters
+            
             this.scoreText.setText(`SCORE: ${this.score}`);
+            this.heightText.setText(`HEIGHT: ${heightMeters}M`);
         }
         
-        // Generate more platforms as player goes higher (improved system)
+        // Generate more platforms as player goes higher (improved system with safety checks)
         const currentHighest = this.player.y - 600; // Generate platforms above current position
         const existingPlatforms = this.platforms.children.entries;
+        
+        // Safety check for empty platforms array
+        if (existingPlatforms.length === 0) {
+            // If no platforms exist, create some emergency platforms with smart positioning
+            let lastX = this.player.x; // Start near player
+            
+            for (let y = this.player.y - 120; y > this.player.y - 600; y -= Phaser.Math.Between(80, 120)) { // Closer spacing for emergency
+                const maxDistance = 150; // Emergency platforms should be easier to reach
+                const minX = Math.max(80, lastX - maxDistance);
+                const maxX = Math.min(720, lastX + maxDistance);
+                
+                const x = Phaser.Math.Between(minX, maxX);
+                this.createPlatform(x, y);
+                
+                lastX = x;
+            }
+            return; // Exit early after creating emergency platforms
+        }
+        
         const highestPlatform = Math.min(...existingPlatforms.map(p => p.y));
         
         if (currentHighest < highestPlatform) {
-            // Generate new platforms above the highest existing platform
-            for (let y = highestPlatform - 150; y > currentHighest - 1000; y -= Phaser.Math.Between(120, 180)) {
-                const x = Phaser.Math.Between(80, 720);
+            // Generate new platforms above the highest existing platform with smart positioning
+            const nearestPlatforms = existingPlatforms.filter(p => p.y < highestPlatform + 200).sort((a, b) => a.y - b.y);
+            let lastX = nearestPlatforms.length > 0 ? nearestPlatforms[0].x : 400; // Use nearest platform position
+            
+            for (let y = highestPlatform - 100; y > currentHighest - 1000; y -= Phaser.Math.Between(80, 130)) { // Better spacing
+                // Smart horizontal positioning - reachable but challenging
+                const maxDistance = 180; // Slightly smaller for dynamic generation
+                const minX = Math.max(80, lastX - maxDistance);
+                const maxX = Math.min(720, lastX + maxDistance);
+                
+                const x = Phaser.Math.Between(minX, maxX);
                 this.createPlatform(x, y);
+                
+                lastX = x; // Update for next platform
             }
         }
         
-        // Remove platforms that are far below the player to save memory
-        this.platforms.children.entries.forEach(platform => {
-            if (platform.y > this.player.y + 1000) {
-                platform.destroy();
-            }
-        });
+        // Remove platforms that are far below the player to save memory (safer cleanup)
+        if (this.platforms && this.platforms.children && this.platforms.children.entries) {
+            const platformsToRemove = this.platforms.children.entries.filter(platform => 
+                platform && platform.active && platform.y > this.player.y + 1000
+            );
+            platformsToRemove.forEach(platform => {
+                if (platform.active && platform.scene) {
+                    // Clean up any particles attached to booster platforms
+                    if (platform.particles) {
+                        platform.particles.forEach(particle => {
+                            if (particle && particle.active) {
+                                particle.destroy();
+                            }
+                        });
+                    }
+                    // Clean up visual graphics
+                    if (platform.visualGraphics && platform.visualGraphics.active) {
+                        platform.visualGraphics.destroy();
+                    }
+                    this.platforms.remove(platform);
+                    platform.destroy();
+                }
+            });
+        }
         
-        // Remove hazards that are far from the player
-        this.hazards.children.entries.forEach(hazard => {
-            if (hazard.y > this.player.y + 800 || hazard.y < this.player.y - 800) {
-                hazard.destroy();
+        // Remove hazards that are far from the player (safer cleanup)
+        if (this.hazards && this.hazards.children && this.hazards.children.entries) {
+            const hazardsToRemove = this.hazards.children.entries.filter(hazard => 
+                hazard && hazard.active && (hazard.y > this.player.y + 800 || hazard.y < this.player.y - 800)
+            );
+            hazardsToRemove.forEach(hazard => {
+                if (hazard.active && hazard.scene) {
+                    // Clean up hazard warning effects
+                    if (hazard.warningGlow && hazard.warningGlow.active) {
+                        hazard.warningGlow.destroy();
+                    }
+                    if (hazard.glowTimer) {
+                        hazard.glowTimer.destroy();
+                    }
+                    this.hazards.remove(hazard);
+                    hazard.destroy();
+                }
+            });
+        }
+        
+        // Remove projectiles that are far from the player (cleanup) - ALLOW MUCH MORE UPWARD TRAVEL
+        if (this.projectiles && this.projectiles.children && this.projectiles.children.entries) {
+            const projectilesToRemove = this.projectiles.children.entries.filter(projectile => 
+                projectile && projectile.active && 
+                (projectile.y > this.player.y + 600 || projectile.y < this.player.y - 2000 ||  // Allow 2000px up instead of 600px
+                 projectile.x < -200 || projectile.x > 1000)  // Also expand horizontal bounds
+            );
+            if (projectilesToRemove.length > 0) {
+                console.log(`🧹 Cleanup removing ${projectilesToRemove.length} distant projectiles`);
             }
-        });
+            projectilesToRemove.forEach(projectile => {
+                if (projectile.active && projectile.scene) {
+                    console.log(`🗑️ Removing projectile at (${projectile.x.toFixed(1)}, ${projectile.y.toFixed(1)}) - Player at (${this.player.x.toFixed(1)}, ${this.player.y.toFixed(1)})`);
+                    // Clean up projectile effects
+                    if (projectile.fireGlow) projectile.fireGlow.destroy();
+                    if (projectile.iceGlow) projectile.iceGlow.destroy();
+                    if (projectile.lightningGlow) projectile.lightningGlow.destroy();
+                    if (projectile.jellyGlow) projectile.jellyGlow.destroy();
+                    if (projectile.dustCloud) projectile.dustCloud.destroy();
+                    if (projectile.windSwirl) projectile.windSwirl.destroy();
+                    
+                    this.projectiles.remove(projectile);
+                    projectile.destroy();
+                }
+            });
+        }
         
         // Check if player fell too far below their highest point
         if (this.player.y > this.highestY + 600) {
             this.triggerGameOver();
         }
+    }
+
+    activatePower() {
+        console.log('⚡ POWER ACTIVATION TRIGGERED!');
+        console.log(`⚡ Game over: ${this.gameOver}, Selected character: ${this.selectedCharacter}`);
+        
+        if (this.gameOver || !this.selectedCharacter) {
+            console.log('⚡ Power activation blocked - game over or no character selected');
+            return;
+        }
+        
+        // Safety check for projectiles group
+        if (!this.projectiles) {
+            console.error('⚡ ERROR: Projectiles group not initialized!');
+            return;
+        }
+        
+        console.log('⚡ Projectiles group exists, continuing...');
+        
+        // No cooldown - can spam powers as requested
+        const character = CHARACTERS[this.selectedCharacter];
+        if (!character) {
+            console.error('⚡ ERROR: Invalid character selected');
+            return;
+        }
+        
+        console.log(`🎮 ACTIVATING POWER: ${character.name} - ${character.power}!`);
+        console.log(`🎮 Player position: (${this.player.x}, ${this.player.y})`);
+        console.log(`🎮 Current physics world gravity: ${this.physics.world.gravity.y}`);
+        
+        // Play character-specific power sound
+        SoundManager.playCharacterPower(this, character.name);
+        
+        // Execute character-specific power
+        console.log(`🎮 Executing power for character: ${this.selectedCharacter}`);
+        switch (this.selectedCharacter) {
+            case 'blaze':
+                this.fireBlazePower();
+                break;
+            case 'frostbite':
+                this.fireFrostbitePower();
+                break;
+            case 'volt':
+                this.fireVoltPower();
+                break;
+            case 'jellyhead':
+                this.fireJellyheadPower();
+                break;
+            case 'brick':
+                this.fireBrickPower();
+                break;
+            case 'whirlwind':
+                this.fireWhirlwindPower();
+                break;
+            default:
+                console.error(`🎮 ERROR: Unknown character: ${this.selectedCharacter}`);
+        }
+        
+        console.log('⚡ Power activation completed!');
+    }
+
+    fireBlazePower() {
+        console.log('🔥 BLAZE POWER ACTIVATED - Creating fire projectile...');
+        
+        // DIAGNOSTIC: Test if basic sprite creation works
+        console.log(`🔥 Texture 'fire_blast' exists: ${this.textures.exists('fire_blast')}`);
+        console.log(`🔥 Physics world exists: ${!!this.physics.world}`);
+        console.log(`🔥 Player position: (${this.player.x}, ${this.player.y})`);
+        
+        // Create simple test projectile first - use soccer_ball if fire_blast fails
+        const textureKey = this.textures.exists('fire_blast') ? 'fire_blast' : 'soccer_ball';
+        console.log(`🔥 Using texture: ${textureKey}`);
+        
+        // 🔥 BLAZE: Fire Blast - Shoots straight up like an arrow from character's head
+        const projectile = this.physics.add.sprite(
+            this.player.x, 
+            this.player.y - 40, // Above character's head
+            textureKey
+        );
+        
+        console.log(`🔥 Projectile created at position: (${projectile.x}, ${projectile.y})`);
+        
+        projectile.setScale(0.5); // Same size as fight mode
+        projectile.powerType = 'fire'; // Set immediately for group management
+        
+        // 🔴 APPLYING EXACT RED BALL PHYSICS WITH TIMING FIX!
+        this.time.delayedCall(1, () => {
+            if (projectile && projectile.active && projectile.body) {
+                projectile.setVelocityY(-500); // RED BALL: Much faster upward velocity
+                projectile.setBounce(0); // RED BALL: No bounce behavior
+                projectile.body.setGravityY(-1000); // RED BALL: Much stronger upward gravity
+                projectile.body.setCollideWorldBounds(false); // RED BALL: No world bounds collision
+                
+                // 🔴 VERIFICATION: Confirm red ball physics were applied
+                console.log(`🔴 RED BALL PHYSICS APPLIED TO FIRE PROJECTILE (DELAYED):`);
+                console.log(`   Velocity Y: ${projectile.body.velocity.y} (should be -500)`);
+                console.log(`   Gravity Y: ${projectile.body.gravity.y} (should be -1000)`);
+                console.log(`   Body exists: ${!!projectile.body}, Physics enabled: ${projectile.body.enable}`);
+            }
+        });
+        
+        console.log(`🔥 Initial velocity set: (${projectile.body.velocity.x}, ${projectile.body.velocity.y})`);
+        console.log(`🔥 Projectile gravity set: ${projectile.body.gravity.y}`);
+        console.log(`🔥 World gravity: ${this.physics.world.gravity.y}`);
+        console.log(`🔥 Net gravity effect: ${this.physics.world.gravity.y + projectile.body.gravity.y}`);
+        
+        // IMMEDIATE VERIFICATION - Check if physics properties stick
+        this.time.delayedCall(10, () => {
+            if (projectile && projectile.active && projectile.body) {
+                console.log(`🔥 VERIFICATION (10ms later):`);
+                console.log(`   Velocity: (${projectile.body.velocity.x.toFixed(1)}, ${projectile.body.velocity.y.toFixed(1)})`);
+                console.log(`   Gravity: World=${this.physics.world.gravity.y}, Body=${projectile.body.gravity.y}, Net=${this.physics.world.gravity.y + projectile.body.gravity.y}`);
+                console.log(`   Position: (${projectile.x.toFixed(1)}, ${projectile.y.toFixed(1)})`);
+            }
+        });
+        
+        // Play fire animation (only if using fire_blast texture and animation exists)
+        if (textureKey === 'fire_blast' && this.anims.exists('blaze_blast_anim')) {
+            console.log('🔥 Playing fire animation');
+            projectile.play('blaze_blast_anim');
+        } else {
+            console.log('🔥 Skipping animation - using fallback or animation missing');
+            if (textureKey === 'soccer_ball') {
+                projectile.setTint(0xff4444); // Red tint for visibility
+            }
+        }
+        
+        // Safety check before adding to group
+        if (this.projectiles && projectile) {
+            this.projectiles.add(projectile);
+            console.log('🔥 Projectile added to projectiles group successfully');
+            
+            console.log('🔥 Main fire projectile created with RED CIRCLE PHYSICS - should shoot straight up!');
+            
+        } else {
+            console.error('🔥 ERROR: Failed to add projectile to group!');
+            console.error(`🔥 Projectiles group exists: ${!!this.projectiles}`);
+            console.error(`🔥 Projectile exists: ${!!projectile}`);
+        }
+        
+        // ENHANCED PHYSICS DEBUGGING - Track every 50ms for detailed analysis
+        let trackingCounter = 0;
+        const trackingTimer = this.time.addEvent({
+            delay: 50, // Every 50ms for detailed tracking
+            callback: () => {
+                if (projectile && projectile.active && projectile.body) {
+                    trackingCounter++;
+                    const worldGravity = this.physics.world.gravity.y;
+                    const bodyGravity = projectile.body.gravity.y;
+                    const netGravity = worldGravity + bodyGravity;
+                    const bodyEnabled = projectile.body.enable;
+                    const bodyMass = projectile.body.mass;
+                    
+                    console.log(`🔥 Frame ${trackingCounter} (${(trackingCounter * 50)}ms):`);
+                    console.log(`   Position: (${projectile.x.toFixed(1)}, ${projectile.y.toFixed(1)})`);
+                    console.log(`   Velocity: (${projectile.body.velocity.x.toFixed(1)}, ${projectile.body.velocity.y.toFixed(1)})`);
+                    console.log(`   World Gravity: ${worldGravity}, Body Gravity: ${bodyGravity}, Net: ${netGravity}`);
+                    console.log(`   Body Enabled: ${bodyEnabled}, Mass: ${bodyMass}`);
+                    console.log(`   Body Bounds: (${projectile.body.x}, ${projectile.body.y}) ${projectile.body.width}x${projectile.body.height}`);
+                } else {
+                    console.log('🔥 Projectile no longer active - stopping detailed tracking');
+                    if (trackingTimer && trackingTimer.active) trackingTimer.destroy();
+                }
+            },
+            repeat: 79 // Track for 4 seconds (80 * 50ms = 4000ms)
+        });
+        
+        // Auto-destroy after 3 seconds
+        this.time.delayedCall(3000, () => {
+            if (projectile && projectile.active) {
+                console.log('🔥 Auto-destroying projectile after 3 seconds');
+                projectile.destroy();
+            }
+            if (trackingTimer.active) {
+                trackingTimer.destroy();
+            }
+        });
+    }
+
+    fireFrostbitePower() {
+        console.log('❄️ FROSTBITE POWER ACTIVATED - Creating ice projectile...');
+        
+        // ❄️ FROSTBITE: Ice Shard - Shoots straight up like an arrow from character's head
+        const projectile = this.physics.add.sprite(
+            this.player.x, 
+            this.player.y - 40, // Above character's head
+            'ice_blast'
+        );
+        
+        console.log(`❄️ Ice projectile created at position: (${projectile.x}, ${projectile.y})`);
+        
+        projectile.setScale(0.25); // EVEN SMALLER - User requested even smaller frostbite sprite
+        
+        projectile.powerType = 'ice'; // Set immediately for group management
+        
+        // 🔴 APPLYING EXACT RED BALL PHYSICS WITH TIMING FIX!
+        this.time.delayedCall(1, () => {
+            if (projectile && projectile.active && projectile.body) {
+                projectile.setVelocityY(-500); // RED BALL: Much faster upward velocity
+                projectile.setBounce(0); // RED BALL: No bounce behavior
+                projectile.body.setGravityY(-1000); // RED BALL: Much stronger upward gravity
+                projectile.body.setCollideWorldBounds(false); // RED BALL: No world bounds collision
+                
+                // ACCURATE HITBOX - Match the smaller sprite size (0.25 scale)
+                const hitboxSize = Math.max(8, projectile.width * 0.25 * 0.8); // Minimum 8px hitbox
+                projectile.body.setSize(hitboxSize, hitboxSize, true);
+                console.log(`❄️ Frostbite hitbox adjusted to: ${hitboxSize}x${hitboxSize} pixels`);
+                
+                // 🔴 VERIFICATION: Confirm red ball physics were applied
+                console.log(`🔴 RED BALL PHYSICS APPLIED TO ICE PROJECTILE (DELAYED):`);
+                console.log(`   Velocity Y: ${projectile.body.velocity.y} (should be -500)`);
+                console.log(`   Gravity Y: ${projectile.body.gravity.y} (should be -1000)`);
+                console.log(`   Body exists: ${!!projectile.body}, Physics enabled: ${projectile.body.enable}`);
+            }
+        });
+        
+        console.log(`❄️ Initial velocity set: (${projectile.body.velocity.x}, ${projectile.body.velocity.y})`);
+        console.log(`❄️ Projectile gravity set: ${projectile.body.gravity.y}`);
+        console.log(`❄️ World gravity: ${this.physics.world.gravity.y}`);
+        console.log(`❄️ Net gravity effect: ${this.physics.world.gravity.y + projectile.body.gravity.y}`);
+        console.log(`❄️ Body exists: ${!!projectile.body}, Physics enabled: ${projectile.body ? projectile.body.enable : 'N/A'}`);
+        console.log(`❄️ Texture exists: ${this.textures.exists('ice_blast')}`);
+        
+        // Safety check before adding to group  
+        if (this.projectiles && projectile) {
+            this.projectiles.add(projectile);
+            console.log('❄️ Ice projectile added to projectiles group successfully');
+        } else {
+            console.error('❄️ ERROR: Failed to add ice projectile to group!');
+            console.error(`❄️ Projectiles group exists: ${!!this.projectiles}`);
+            console.error(`❄️ Projectile exists: ${!!projectile}`);
+        }
+        
+        // Add position tracking for debugging
+        let trackingCounter = 0;
+        const trackingTimer = this.time.addEvent({
+            delay: 150, // Every 150ms
+            callback: () => {
+                if (projectile && projectile.active) {
+                    trackingCounter++;
+                    console.log(`❄️ Frame ${trackingCounter}: Position (${projectile.x.toFixed(1)}, ${projectile.y.toFixed(1)}), Velocity (${projectile.body.velocity.x.toFixed(1)}, ${projectile.body.velocity.y.toFixed(1)})`);
+                } else {
+                    console.log('❄️ Ice projectile no longer active - stopping tracking');
+                    trackingTimer.destroy();
+                }
+            },
+            repeat: 26 // Track for ~4 seconds (27 * 150ms = 4050ms)
+        });
+        
+        // Auto-destroy after 4 seconds
+        this.time.delayedCall(4000, () => {
+            if (projectile && projectile.active) {
+                console.log('❄️ Auto-destroying ice projectile after 4 seconds');
+                projectile.destroy();
+            }
+            if (trackingTimer.active) {
+                trackingTimer.destroy();
+            }
+        });
+    }
+
+    fireVoltPower() {
+        console.log('⚡ VOLT POWER ACTIVATED - Creating lightning projectile...');
+        
+        // ⚡ VOLT: Lightning Blast - Shoots straight up like an arrow from character's head
+        const projectile = this.physics.add.sprite(
+            this.player.x, 
+            this.player.y - 40, // Above character's head
+            'lightning_blast'
+        );
+        
+        console.log(`⚡ Lightning projectile created at position: (${projectile.x}, ${projectile.y})`);
+        
+        projectile.setScale(0.6); // BIGGER - User requested bigger volt sprite
+        projectile.powerType = 'lightning'; // Set immediately for group management
+        
+        // 🔴 APPLYING EXACT RED BALL PHYSICS WITH TIMING FIX!
+        this.time.delayedCall(1, () => {
+            if (projectile && projectile.active && projectile.body) {
+                projectile.setVelocityY(-500); // RED BALL: Much faster upward velocity
+                projectile.setBounce(0); // RED BALL: No bounce behavior
+                projectile.body.setGravityY(-1000); // RED BALL: Much stronger upward gravity
+                projectile.body.setCollideWorldBounds(false); // RED BALL: No world bounds collision
+                
+                // 🔴 VERIFICATION: Confirm red ball physics were applied
+                console.log(`🔴 RED BALL PHYSICS APPLIED TO LIGHTNING PROJECTILE (DELAYED):`);
+                console.log(`   Velocity Y: ${projectile.body.velocity.y} (should be -500)`);
+                console.log(`   Gravity Y: ${projectile.body.gravity.y} (should be -1000)`);
+            }
+        });
+        
+        console.log(`⚡ Initial velocity set: (${projectile.body.velocity.x}, ${projectile.body.velocity.y})`);
+        console.log(`⚡ Projectile gravity set: ${projectile.body.gravity.y}`);
+        console.log(`⚡ World gravity: ${this.physics.world.gravity.y}`);
+        console.log(`⚡ Net gravity effect: ${this.physics.world.gravity.y + projectile.body.gravity.y}`);
+        console.log(`⚡ Body exists: ${!!projectile.body}, Physics enabled: ${projectile.body ? projectile.body.enable : 'N/A'}`);
+        
+        // Play lightning animation
+        projectile.play('volt_blast_anim');
+        
+        // Safety check before adding to group
+        if (this.projectiles && projectile) {
+            this.projectiles.add(projectile);
+            console.log('⚡ Lightning projectile added to projectiles group successfully');
+        } else {
+            console.error('⚡ ERROR: Failed to add lightning projectile to group!');
+        }
+        
+        // Add position tracking for debugging
+        let trackingCounter = 0;
+        const trackingTimer = this.time.addEvent({
+            delay: 100, // Every 100ms (faster tracking for lightning)
+            callback: () => {
+                if (projectile && projectile.active) {
+                    trackingCounter++;
+                    console.log(`⚡ Frame ${trackingCounter}: Position (${projectile.x.toFixed(1)}, ${projectile.y.toFixed(1)}), Velocity (${projectile.body.velocity.x.toFixed(1)}, ${projectile.body.velocity.y.toFixed(1)})`);
+                } else {
+                    console.log('⚡ Lightning projectile no longer active - stopping tracking');
+                    trackingTimer.destroy();
+                }
+            },
+            repeat: 19 // Track for ~2 seconds (20 * 100ms = 2000ms)
+        });
+        
+        // Auto-destroy after 2 seconds (fast projectile)
+        this.time.delayedCall(2000, () => {
+            if (projectile && projectile.active) {
+                console.log('⚡ Auto-destroying lightning projectile after 2 seconds');
+                projectile.destroy();
+            }
+            if (trackingTimer.active) {
+                trackingTimer.destroy();
+            }
+        });
+    }
+
+    fireJellyheadPower() {
+        // 🟣 JELLYHEAD: Slime Blob - Shoots straight up like an arrow from character's head
+        const projectile = this.physics.add.sprite(
+            this.player.x, 
+            this.player.y - 40, // Above character's head
+            'jellyhead_slime'
+        );
+        
+        projectile.setScale(0.5); // A LITTLE SMALLER - User requested smaller jellyhead sprite
+        projectile.powerType = 'jelly'; // Set immediately for group management
+        
+        // 🔴 APPLYING EXACT RED BALL PHYSICS WITH TIMING FIX!
+        this.time.delayedCall(1, () => {
+            if (projectile && projectile.active && projectile.body) {
+                projectile.setVelocityY(-500); // RED BALL: Much faster upward velocity
+                projectile.setBounce(0); // RED BALL: No bounce behavior
+                projectile.body.setGravityY(-1000); // RED BALL: Much stronger upward gravity
+                projectile.body.setCollideWorldBounds(false); // RED BALL: No world bounds collision
+                
+                // 🔴 VERIFICATION: Confirm red ball physics were applied
+                console.log(`🔴 RED BALL PHYSICS APPLIED TO JELLY PROJECTILE (DELAYED):`);
+                console.log(`   Velocity Y: ${projectile.body.velocity.y} (should be -500)`);
+                console.log(`   Gravity Y: ${projectile.body.gravity.y} (should be -1000)`);
+            }
+        });
+        
+        // Play slime animation
+        projectile.play('jellyhead_slime_anim');
+        
+        // Safety check before adding to group
+        if (this.projectiles && projectile) {
+            this.projectiles.add(projectile);
+        }
+        
+        // Auto-destroy after 5 seconds
+        this.time.delayedCall(5000, () => {
+            if (projectile && projectile.active) {
+                projectile.destroy();
+            }
+        });
+    }
+
+    fireBrickPower() {
+        // 🟤 BRICK: White Circle Outline - Clean and visible projectile
+        const projectile = this.add.graphics();
+        projectile.lineStyle(2, 0xffffff, 1); // 2px white outline
+        projectile.strokeCircle(0, 0, 12); // Smaller radius of 12px, not filled
+        projectile.x = this.player.x;
+        projectile.y = this.player.y - 40; // Above character's head
+        
+        // Add physics to the circle outline
+        this.physics.add.existing(projectile);
+        
+        // Set collision body size to match the visual circle
+        projectile.body.setCircle(12); // 12px radius collision circle
+        
+        projectile.powerType = 'smoke'; // Set immediately for group management
+        
+        console.log('🟤 Created white circle outline projectile for Brick');
+        
+        // 🔴 APPLYING EXACT RED BALL PHYSICS WITH TIMING FIX!
+        this.time.delayedCall(1, () => {
+            if (projectile && projectile.active && projectile.body) {
+                // For circle objects, use body methods directly
+                projectile.body.setVelocityY(-500); // RED BALL: Much faster upward velocity
+                projectile.body.setBounce(0); // RED BALL: No bounce behavior
+                projectile.body.setGravityY(-1000); // RED BALL: Much stronger upward gravity
+                projectile.body.setCollideWorldBounds(false); // RED BALL: No world bounds collision
+                
+                // 🔴 VERIFICATION: Confirm red ball physics were applied
+                console.log(`🔴 RED BALL PHYSICS APPLIED TO WHITE CIRCLE PROJECTILE (DELAYED):`);
+                console.log(`   Velocity Y: ${projectile.body.velocity.y} (should be -500)`);
+                console.log(`   Gravity Y: ${projectile.body.gravity.y} (should be -1000)`);
+            }
+        });
+        
+        // Safety check before adding to group
+        if (this.projectiles && projectile) {
+            this.projectiles.add(projectile);
+        }
+        
+        // Auto-destroy after 6 seconds
+        this.time.delayedCall(6000, () => {
+            if (projectile && projectile.active) {
+                projectile.destroy();
+            }
+        });
+    }
+
+    fireWhirlwindPower() {
+        // 💨 WHIRLWIND: Energy Blast - Shoots straight up like an arrow from character's head
+        const projectile = this.physics.add.sprite(
+            this.player.x, 
+            this.player.y - 40, // Above character's head
+            'energy_blast'
+        );
+        
+        projectile.setScale(0.6); // BIGGER - User requested bigger whirlwind sprite
+        projectile.powerType = 'energy'; // Set immediately for group management
+        
+        // 🔴 APPLYING EXACT RED BALL PHYSICS WITH TIMING FIX!
+        this.time.delayedCall(1, () => {
+            if (projectile && projectile.active && projectile.body) {
+                projectile.setVelocityY(-500); // RED BALL: Much faster upward velocity
+                projectile.setBounce(0); // RED BALL: No bounce behavior
+                projectile.setAngularVelocity(300); // Spinning effect (keep this for visual flair)
+                projectile.body.setGravityY(-1000); // RED BALL: Much stronger upward gravity
+                projectile.body.setCollideWorldBounds(false); // RED BALL: No world bounds collision
+                
+                // 🔴 VERIFICATION: Confirm red ball physics were applied
+                console.log(`🔴 RED BALL PHYSICS APPLIED TO ENERGY PROJECTILE (DELAYED):`);
+                console.log(`   Velocity Y: ${projectile.body.velocity.y} (should be -500)`);
+                console.log(`   Gravity Y: ${projectile.body.gravity.y} (should be -1000)`);
+            }
+        });
+        
+        // Play energy animation
+        projectile.play('whirlwind_blast_anim');
+        
+        // Safety check before adding to group
+        if (this.projectiles && projectile) {
+            this.projectiles.add(projectile);
+        }
+        
+        // Auto-destroy after 4 seconds
+        this.time.delayedCall(4000, () => {
+            if (projectile && projectile.active) {
+                projectile.destroy();
+            }
+        });
+    }
+
+    handleProjectileHazardHit(projectile, hazard) {
+        // Safety check to prevent errors
+        if (!projectile || !hazard || !projectile.active || !hazard.active) {
+            return;
+        }
+        
+        // 💥 PROJECTILE DESTROYS SOCCER BALL - Create spectacular explosion!
+        
+        // Create explosion effect at impact point
+        const explosion = this.add.circle(hazard.x, hazard.y, 30, 0xff4500, 0.9);
+        this.tweens.add({
+            targets: explosion,
+            scaleX: 3,
+            scaleY: 3,
+            alpha: 0,
+            duration: 500,
+            ease: 'Power2',
+            onComplete: () => explosion.destroy()
+        });
+        
+        // Screen shake for impact
+        this.cameras.main.shake(200, 0.015);
+        
+        // Play destruction sound
+        SoundManager.playForwardButton(this); // Victory sound for destroying hazard
+        
+        // Clean up hazard (soccer ball)
+        if (hazard.warningGlow && hazard.warningGlow.active) {
+            hazard.warningGlow.destroy();
+        }
+        if (hazard.glowTimer) {
+            hazard.glowTimer.destroy();
+        }
+        this.hazards.remove(hazard);
+        hazard.destroy();
+        
+        // Clean up projectile
+        // Safety check before removing from group
+        if (this.projectiles && projectile) {
+            this.projectiles.remove(projectile);
+            projectile.destroy();
+        }
+        
+        // Bonus points for destroying hazards with powers!
+        this.score += 25;
+        this.scoreText.setText(`SCORE: ${this.score}`);
+        
+        // Show bonus text
+        const bonusText = this.add.text(hazard.x, hazard.y - 50, '+25 BONUS!', {
+            fontSize: '20px',
+            fontStyle: 'bold',
+            fill: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        
+        this.tweens.add({
+            targets: bonusText,
+            y: bonusText.y - 80,
+            alpha: 0,
+            duration: 1200,
+            ease: 'Power2',
+            onComplete: () => bonusText.destroy()
+        });
     }
 }
 
