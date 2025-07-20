@@ -947,7 +947,7 @@ class HomeScene extends Phaser.Scene {
 
     // Info Panel Methods
     openTutorialPanel() {
-        this.openInfoPanel('tutorial', true);
+        this.openInfoPanel('soccer', false); // Start with Soccer tab, not single tab mode
     }
 
     openCharacterInfoPanel() {
@@ -989,7 +989,7 @@ class HomeScene extends Phaser.Scene {
         // Title - responsive positioning (change based on single tab mode)
         const titleText = singleTabMode ? 
             (startTab === 'tutorial' ? 'TUTORIAL' : 'CHARACTER INFO') : 
-            'GAME INFO';
+            'TUTORIAL';
         this.infoPanelTitle = this.add.text(centerX, modalTop + 40, titleText, {
             fontSize: Math.min(36, modalWidth / 20) + 'px',
             fontStyle: 'bold',
@@ -1001,34 +1001,49 @@ class HomeScene extends Phaser.Scene {
         
         // Only create tab buttons if not in single tab mode
         if (!singleTabMode) {
-            // Tab buttons - responsive positioning and sizing
-            const tabWidth = Math.min(140, modalWidth / 5);
+            // Tab buttons for three game modes - responsive positioning and sizing
+            const tabWidth = Math.min(120, modalWidth / 6);
             const tabY = modalTop + 80;
             const tabSpacing = modalWidth / 4;
             
-            this.tutorialTab = this.add.rectangle(centerX - tabSpacing / 2, tabY, tabWidth, 40, 0x000000, 0.9);
-            this.tutorialTab.setStrokeStyle(3, startTab === 'tutorial' ? 0xff00ff : 0x666666);
-            this.tutorialTabText = this.add.text(centerX - tabSpacing / 2, tabY, 'TUTORIAL', {
-                fontSize: Math.min(18, modalWidth / 40) + 'px',
+            // Soccer Mode Tab (Left)
+            this.soccerTab = this.add.rectangle(centerX - tabSpacing, tabY, tabWidth, 40, 0x000000, 0.9);
+            this.soccerTab.setStrokeStyle(3, startTab === 'soccer' ? 0xff00ff : 0x666666);
+            this.soccerTabText = this.add.text(centerX - tabSpacing, tabY, 'SOCCER', {
+                fontSize: Math.min(16, modalWidth / 45) + 'px',
                 fontStyle: 'bold',
-                fill: startTab === 'tutorial' ? '#ff00ff' : '#aaaaaa',
+                fill: startTab === 'soccer' ? '#ff00ff' : '#aaaaaa',
                 stroke: '#000000',
                 strokeThickness: 2
             }).setOrigin(0.5);
-            this.tutorialTab.setInteractive();
-            this.tutorialTab.on('pointerdown', () => this.switchInfoTab('tutorial'));
+            this.soccerTab.setInteractive();
+            this.soccerTab.on('pointerdown', () => this.switchInfoTab('soccer'));
             
-            this.charactersTab = this.add.rectangle(centerX + tabSpacing / 2, tabY, tabWidth, 40, 0x000000, 0.9);
-            this.charactersTab.setStrokeStyle(3, startTab === 'characters' ? 0xff00ff : 0x666666);
-            this.charactersTabText = this.add.text(centerX + tabSpacing / 2, tabY, 'CHARACTERS', {
-                fontSize: Math.min(18, modalWidth / 40) + 'px',
+            // Fight Mode Tab (Center)
+            this.fightTab = this.add.rectangle(centerX, tabY, tabWidth, 40, 0x000000, 0.9);
+            this.fightTab.setStrokeStyle(3, startTab === 'fight' ? 0xff00ff : 0x666666);
+            this.fightTabText = this.add.text(centerX, tabY, 'FIGHT', {
+                fontSize: Math.min(16, modalWidth / 45) + 'px',
                 fontStyle: 'bold',
-                fill: startTab === 'characters' ? '#ff00ff' : '#aaaaaa',
+                fill: startTab === 'fight' ? '#ff00ff' : '#aaaaaa',
                 stroke: '#000000',
                 strokeThickness: 2
             }).setOrigin(0.5);
-            this.charactersTab.setInteractive();
-            this.charactersTab.on('pointerdown', () => this.switchInfoTab('characters'));
+            this.fightTab.setInteractive();
+            this.fightTab.on('pointerdown', () => this.switchInfoTab('fight'));
+            
+            // Hero Jumper Tab (Right)
+            this.heroJumperTab = this.add.rectangle(centerX + tabSpacing, tabY, tabWidth, 40, 0x000000, 0.9);
+            this.heroJumperTab.setStrokeStyle(3, startTab === 'heroJumper' ? 0xff00ff : 0x666666);
+            this.heroJumperTabText = this.add.text(centerX + tabSpacing, tabY, 'HERO JUMPER', {
+                fontSize: Math.min(14, modalWidth / 50) + 'px',
+                fontStyle: 'bold',
+                fill: startTab === 'heroJumper' ? '#ff00ff' : '#aaaaaa',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5);
+            this.heroJumperTab.setInteractive();
+            this.heroJumperTab.on('pointerdown', () => this.switchInfoTab('heroJumper'));
         }
         
         // Close button - responsive positioning
@@ -1081,10 +1096,12 @@ class HomeScene extends Phaser.Scene {
         // Add tab elements only if not in single tab mode
         if (!singleTabMode) {
             this.infoPanelElements.push(
-                this.tutorialTab,
-                this.tutorialTabText,
-                this.charactersTab,
-                this.charactersTabText
+                this.soccerTab,
+                this.soccerTabText,
+                this.fightTab,
+                this.fightTabText,
+                this.heroJumperTab,
+                this.heroJumperTabText
             );
         }
         
@@ -1120,22 +1137,26 @@ class HomeScene extends Phaser.Scene {
         
         this.infoCurrentTab = tab;
         
-        // Update tab appearance - responsive arcade style
-        if (tab === 'tutorial') {
-            this.tutorialTab.setFillStyle(0x000000, 0.9);
-            this.tutorialTab.setStrokeStyle(3, 0xff00ff);
-            this.tutorialTabText.setStyle({ fill: '#ff00ff' });
-            this.charactersTab.setFillStyle(0x000000, 0.9);
-            this.charactersTab.setStrokeStyle(3, 0x666666);
-            this.charactersTabText.setStyle({ fill: '#aaaaaa' });
-        } else {
-            this.tutorialTab.setFillStyle(0x000000, 0.9);
-            this.tutorialTab.setStrokeStyle(3, 0x666666);
-            this.tutorialTabText.setStyle({ fill: '#aaaaaa' });
-            this.charactersTab.setFillStyle(0x000000, 0.9);
-            this.charactersTab.setStrokeStyle(3, 0xff00ff);
-            this.charactersTabText.setStyle({ fill: '#ff00ff' });
-        }
+        // Update tab appearance for all three tabs
+        const tabs = [
+            { tab: this.soccerTab, text: this.soccerTabText, key: 'soccer' },
+            { tab: this.fightTab, text: this.fightTabText, key: 'fight' },
+            { tab: this.heroJumperTab, text: this.heroJumperTabText, key: 'heroJumper' }
+        ];
+        
+        tabs.forEach(tabObj => {
+            if (tabObj.key === tab) {
+                // Active tab styling
+                tabObj.tab.setFillStyle(0x000000, 0.9);
+                tabObj.tab.setStrokeStyle(3, 0xff00ff);
+                tabObj.text.setStyle({ fill: '#ff00ff' });
+            } else {
+                // Inactive tab styling
+                tabObj.tab.setFillStyle(0x000000, 0.9);
+                tabObj.tab.setStrokeStyle(3, 0x666666);
+                tabObj.text.setStyle({ fill: '#aaaaaa' });
+            }
+        });
         
         // Update content
         this.updateInfoContent();
@@ -1150,14 +1171,19 @@ class HomeScene extends Phaser.Scene {
         }
         this.infoContentElements = [];
         
-        if (this.infoCurrentTab === 'tutorial') {
-            this.createTutorialContent();
+        // Create content based on selected game mode
+        if (this.infoCurrentTab === 'soccer') {
+            this.createTutorialContent('soccer');
+        } else if (this.infoCurrentTab === 'fight') {
+            this.createTutorialContent('fight');
+        } else if (this.infoCurrentTab === 'heroJumper') {
+            this.createTutorialContent('heroJumper');
         } else {
             this.createCharactersContent();
         }
     }
     
-    createTutorialContent() {
+    createTutorialContent(gameMode = 'soccer') {
         const modal = this.modalDimensions;
         
         // Calculate content area with generous padding
@@ -1188,33 +1214,91 @@ class HomeScene extends Phaser.Scene {
         const topY = contentTop + gridPadding + (boxHeight / 2);
         const bottomY = contentTop + gridPadding + boxHeight + gridGap + (boxHeight / 2);
         
-        // Define tutorial sections
-        const sections = [
-            {
-                title: 'BASIC CONTROLS',
-                x: leftX,
-                y: topY,
-                text: '• Player 1: A/D to move, W to jump/confirm\n• Player 2: ← → to move, ↑ to jump/confirm\n• ESC to pause during matches\n• Both players can use SPACE to pause'
-            },
-            {
-                title: 'GAME MODES',
-                x: rightX,
-                y: topY,
-                text: '• SOCCER: Score goals to win\n• FIGHT: Reduce opponent\'s hearts to 0\n• Choose time limit and win condition\n• Best of series format available'
-            },
-            {
-                title: 'SPECIAL POWERS',
-                x: leftX,
-                y: bottomY,
-                text: '• Each character has unique abilities\n• Powers recharge over time\n• Use them strategically to gain advantage\n• Shadow skins get 2 power charges!'
-            },
-            {
-                title: 'PROGRESSION',
-                x: rightX,
-                y: bottomY,
-                text: '• Earn XP by playing matches\n• Level up to unlock new character skins\n• Equip skins in the LOCKER\n• Bronze, Silver, Gold, Shadow rarities'
-            }
-        ];
+        // Define tutorial content for each game mode
+        let sections = [];
+        
+        if (gameMode === 'soccer') {
+            sections = [
+                {
+                    title: 'CONTROLS',
+                    x: leftX,
+                    y: topY,
+                    text: '• Player 1: A/D to move, W to jump\n• Player 2: ← → to move, ↑ to jump\n• ESC or SPACE to pause during matches\n• E (P1) / K (P2) to use special powers'
+                },
+                {
+                    title: 'OBJECTIVE',
+                    x: rightX,
+                    y: topY,
+                    text: '• Score goals by kicking the ball into opponent\'s goal\n• First to reach goal limit wins\n• Match ends when time limit is reached\n• Higher score wins in overtime'
+                },
+                {
+                    title: 'SPECIAL POWERS',
+                    x: leftX,
+                    y: bottomY,
+                    text: '• Each character has unique soccer abilities\n• Powers recharge every 15 seconds or after 2 goals\n• Use powers to gain ball control advantage\n• Shadow skins get 2 power charges!'
+                },
+                {
+                    title: 'CHAOS EVENTS',
+                    x: rightX,
+                    y: bottomY,
+                    text: '• Random events occur during matches\n• Zero Gravity, Speed Boost, Ball Clone\n• Meteor Drop, Big Head Mode, Flip Screen\n• Adapt your strategy to survive chaos!'
+                }
+            ];
+        } else if (gameMode === 'fight') {
+            sections = [
+                {
+                    title: 'CONTROLS',
+                    x: leftX,
+                    y: topY,
+                    text: '• Player 1: A/D to move, W to jump\n• Player 2: ← → to move, ↑ to jump\n• E (P1) / K (P2) to attack with powers\n• ESC or SPACE to pause'
+                },
+                {
+                    title: 'HEALTH SYSTEM',
+                    x: rightX,
+                    y: topY,
+                    text: '• Each player starts with 3 hearts ♥♥♥\n• Power attacks reduce opponent\'s health\n• First player to lose all hearts loses\n• Health shown at top of screen'
+                },
+                {
+                    title: 'POWER ATTACKS',
+                    x: leftX,
+                    y: bottomY,
+                    text: '• Powers deal damage and knock back enemies\n• Each character has unique attack abilities\n• Powers have shorter cooldown in Fight Mode\n• Use movement to dodge attacks'
+                },
+                {
+                    title: 'WIN CONDITION',
+                    x: rightX,
+                    y: bottomY,
+                    text: '• Reduce opponent\'s hearts to 0 to win\n• Fight continues until someone is defeated\n• Winner gets bonus XP for victory\n• Optional bonus round after Soccer matches'
+                }
+            ];
+        } else if (gameMode === 'heroJumper') {
+            sections = [
+                {
+                    title: 'CONTROLS',
+                    x: leftX,
+                    y: topY,
+                    text: '• A/D or ← → to move horizontally\n• NO jump button - auto-bounce on platforms!\n• SPACEBAR to use power (shoots straight up)\n• Screen wrapping - exit sides to appear opposite'
+                },
+                {
+                    title: 'PLATFORM TYPES',
+                    x: rightX,
+                    y: topY,
+                    text: '• 💙 Blue: Normal bounce height\n• 🟢 Green: Super high bounce (look for arrows!)\n• 🔴 Red: Lower bounce + BREAKS after use\n• Land on top, pass through from below'
+                },
+                {
+                    title: 'GAMEPLAY',
+                    x: leftX,
+                    y: bottomY,
+                    text: '• Climb infinitely high!\n• Dodge falling red soccer balls\n• Use powers to destroy hazards (+25 pts)\n• Don\'t fall too far below highest point'
+                },
+                {
+                    title: 'SCORING & SURVIVAL',
+                    x: rightX,
+                    y: bottomY,
+                    text: '• Score = height reached\n• 3 lives vs hazard impacts\n• Difficulty increases with height\n• Green platforms = extra boost!'
+                }
+            ];
+        }
         
         // Create each section in the 2x2 grid
         sections.forEach(section => {
@@ -9028,51 +9112,24 @@ class SoloCharacterSelectionScene extends Phaser.Scene {
         contentBg.setStrokeStyle(2, 0x444444);
         this.infoContentElements.push(contentBg);
         
-                 // Hero Jumper instructions
-         const infoText = `HERO JUMPER - TRAMPOLINE BOUNCE GAME
+                 // Hero Jumper instructions - SIMPLIFIED
+         const infoText = `HERO JUMPER
 
-CONTROLS:
-• Left/Right Arrow Keys or A/D to move horizontally
-• NO MANUAL JUMPING - you bounce automatically when landing on platforms!
-        • SPACEBAR to use your character's unique power (shoots straight up, no cooldown!)
-• Screen wrapping - exit one side to appear on the other
-• Pass through platforms from below, land on them from above (Doodle Jump style)
+🎯 GOAL: Climb as high as possible!
 
-PLATFORM TYPES:
-• 💙 Blue Platforms: Normal bounce (standard height) - Most reliable
-• 🟢 Green Platforms: Super bounce (extra high jump!) - Look for arrows!
-• 🔴 Red Platforms: Lower bounce + BREAKS when stepped on! - Risky emergency platforms
+🎮 CONTROLS:
+• A/D or Arrow Keys to move
+• Auto-bounce on platforms (no jump button!)
+• SPACEBAR to use character power
 
-GAMEPLAY:
-• Automatic trampoline bouncing - no jump button needed!
-• Land on platforms to bounce up automatically  
-• Dodge dangerous red soccer balls from above (they hurt you!)
-• Use your character's power to DESTROY soccer balls for bonus points!
-• Use green booster platforms for extra height jumps
-• Climb infinitely high - there's NO height limit!
-• Score increases based on vertical height reached
-• Hazards spawn faster as you climb higher (progressive difficulty)
+🏗️ PLATFORMS:
+• 💙 Blue: Normal bounce
+• 🟢 Green: Super high bounce!
+• 🔴 Red: Breaks after use
 
-OBJECTIVE:
-• Climb as high as possible - THE SKY IS THE LIMIT! 
-• Survive hazard impacts (you have 3 lives)
-• Don't fall too far below your highest point
-• Master the trampoline bounce mechanics
-
-CHARACTER POWERS:
-• 🔥 BLAZE: Fire Kick - Fast horizontal fire ball
-• ❄️ FROSTBITE: Ice Shard - Arcing ice projectile  
-• ⚡ VOLT: Lightning Bolt - Super fast electric blast
-• 🟣 JELLYHEAD: Jelly Blob - Slow bouncing purple projectile
-• 🟤 BRICK: Heavy Rock - Strong downward rock projectile
-• 💨 WHIRLWIND: Wind Blast - Spinning air projectile
-
-TIPS:
-• Aim for green booster platforms for higher jumps
-• Use powers to destroy soccer balls for +25 bonus points!
-• Keep moving to avoid hazards
-• Watch out for falling red platforms
-• Use screen edges to escape tight situations`;
+• Score = height reached
+• You have 3 lives
+• Select your character and start climbing!`;
         
         this.infoContent = this.add.text(centerX, contentTop + contentHeight / 2, infoText, {
             fontSize: '14px',
